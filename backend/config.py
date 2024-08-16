@@ -1359,3 +1359,53 @@ DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR}/webui.db")
 # Replace the postgres:// with postgresql://
 if "postgres://" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
+
+
+MONGODB_URI = os.environ.get("MONGODB_URI", f"mongodb://localhost:27017/webui")
+MONGODB_USER = os.environ.get("MONGODB_APP_USER", "")
+MONGODB_PASS = os.environ.get("MONGODB_APP_PASS", "")
+
+
+####################################
+# COLLECTION NAMES
+
+####################################
+
+# @Corey : This is where collection names are defined for the different product families
+# TODO: Add separate entries for WAP150/WAP361, WAP131/WAP351, WAP125, WAP121/WAP321, and others
+# NOTE: Some product families do not have CLI guides, so only admin guides are defined for them
+# NOTE: ALL SWITCHES are loaded into DB @backend/data/vector_db
+# It's paramount we remember to mount this dir to a volume in the docker/docker-compose file
+
+CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME = "catalyst_1300_admin_guide"
+CATALYST_1300_CLI_GUIDE_COLLECTION_NAME = "catalyst_1300_cli_guide"
+CATALYST_1200_ADMIN_GUIDE_COLLECTION_NAME = "catalyst_1200_admin_guide"
+CATALYST_1200_CLI_GUIDE_COLLECTION_NAME = "catalyst_1200_cli_guide"
+CBS_220_ADMIN_GUIDE_COLLECTION_NAME = "cbs_220_admin_guide"
+CBS_220_CLI_GUIDE_COLLECTION_NAME = "cbs_220_cli_guide"
+CBS_250_ADMIN_GUIDE_COLLECTION_NAME = "cbs_250_admin_guide"
+CBS_250_CLI_GUIDE_COLLECTION_NAME = "cbs_250_cli_guide"
+CBS_350_ADMIN_GUIDE_COLLECTION_NAME = "cbs_350_admin_guide"
+CBS_350_CLI_GUIDE_COLLECTION_NAME = "cbs_350_cli_guide"
+CISCO_350_ADMIN_GUIDE_COLLECTION_NAME = "cisco_350_admin_guide"
+CISCO_350_CLI_GUIDE_COLLECTION_NAME = "cisco_350_cli_guide"
+CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_350x_admin_guide"
+CISCO_350X_CLI_GUIDE_COLLECTION_NAME = "cisco_350x_cli_guide"
+CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_550x_admin_guide"
+CISCO_550X_CLI_GUIDE_COLLECTION_NAME = "cisco_550x_cli_guide"
+PRODUCT_FAMILY_RV100_ADMIN_GUIDE_COLLECTION_NAME = "rv100_admin_guide"
+PRODUCT_FAMILY_RV100_CLI_GUIDE_COLLECTION_NAME = "rv100_cli_guide"
+CISCO_RV160_VPN_ADMIN_GUIDE_COLLECTION_NAME = "cisco_rv160_vpn_admin_guide"
+CISCO_RV260_VPN_ADMIN_GUIDE_COLLECTION_NAME = "cisco_rv260_vpn_admin_guide"
+PRODUCT_FAMILY_RV320_ADMIN_GUIDE_COLLECTION_NAME = "rv340_admin_guide"
+PRODUCT_FAMILY_RV320_CLI_GUIDE_COLLECTION_NAME = "rv340_cli_guide"
+PRODUCT_FAMILY_RV340_ADMIN_GUIDE_COLLECTION_NAME = "rv340_admin_guide"
+CISCO_BUSINESS_WIRELESS_AC_ADMIN_GUIDE_COLLECTION_NAME = (
+    "cisco_business_wireless_ac_admin_guide"
+)
+CISCO_BUSINESS_WIRELESS_AX_ADMIN_GUIDE_COLLECTION_NAME = (
+    "cisco_business_wireless_ax_admin_guide"
+)
+CISCO_WAP100_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap100_admin_guide"
+CISCO_WAP300_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap300_admin_guide"
+CISCO_WAP500_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap500_admin_guide"

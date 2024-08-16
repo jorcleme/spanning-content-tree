@@ -134,12 +134,17 @@ type Document = {
 	title: string;
 };
 
+type Audio = {
+	tts?: Record<string, string>;
+};
+
 type Config = {
 	status: boolean;
 	name: string;
 	version: string;
 	default_locale: string;
 	default_models: string;
+	audio?: Audio;
 	default_prompt_suggestions: PromptSuggestion[];
 	features: {
 		auth: boolean;

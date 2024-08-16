@@ -72,7 +72,7 @@ def handle_peewee_migration(DATABASE_URL):
 
     finally:
         # Properly closing the database connection
-        if db and not db.is_closed():
+        if db is not None and not db.is_closed():
             db.close()
 
         # Assert if db connection has been closed
