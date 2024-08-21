@@ -1133,9 +1133,7 @@ workflow.add_edge("build_html_for_cli_guide_sources", END)
 
 ARTICLE_GRAPH = workflow.compile()
 
-question = (
-    "Configure Advanced Voice Quality of Service (QoS) on a Cisco Catalyst 1200 Switch"
-)
+question = "Configure Bluetooth Settings in Catalyst 1200 and 1300 Switches"
 
 inputs: dict[str, GraphState] = {"keys": {"question": question}}
 
