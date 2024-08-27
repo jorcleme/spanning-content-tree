@@ -57,12 +57,17 @@ def handle_peewee_migration(DATABASE_URL):
     try:
         # Replace the postgresql:// with postgres:// and %40 with @ in the DATABASE_URL
         db = register_connection(
-            DATABASE_URL.replace("postgresql://", "postgres://").replace("%40", "@")
+            DATABASE_URL.replace(
+                "postgresql://", "postgres://").replace("%40", "@")
         )
         migrate_dir = BACKEND_DIR / "apps" / "webui" / "internal" / "migrations"
         router = Router(db, logger=log, migrate_dir=migrate_dir)
-        router.run()
-        db.close()
+        if os.path.exists(DATA_DIR / "webui.db"):
+            log.info("Database has already been migrated. Skipping the migration.")
+            db.close()
+        else:
+            router.run()
+            db.close()
 
         # check if db connection has been closed
 

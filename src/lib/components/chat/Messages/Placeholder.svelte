@@ -26,7 +26,7 @@
 	}
 
 	$: models = modelIds.map((id) => $_models.find((m) => m.id === id));
-
+	import AssistantAnimationHero from '$lib/components/Cisco/components/layout/AssistantAnimationHero.svelte';
 	onMount(() => {
 		mounted = true;
 	});
@@ -34,6 +34,7 @@
 
 {#key mounted}
 	<div class="m-auto w-full max-w-6xl px-8 lg:px-20 pb-10">
+		<AssistantAnimationHero />
 		<div class="flex justify-start">
 			<div class="flex -space-x-4 mb-1" in:fade={{ duration: 200 }}>
 				{#each models as model, modelIdx}
@@ -47,18 +48,7 @@
 								sanitizeResponseContent(models[selectedModelIdx]?.info?.meta?.description ?? '')
 							)}
 							placement="right"
-						>
-							<img
-								crossorigin="anonymous"
-								src={model?.info?.meta?.profile_image_url ??
-									($i18n.language === 'dg-DG'
-										? `/doge.png`
-										: `${WEBUI_BASE_URL}/static/favicon.png`)}
-								class=" size-[2.7rem] rounded-full border-[1px] border-gray-200 dark:border-none"
-								alt="logo"
-								draggable="false"
-							/>
-						</Tooltip>
+						/>
 					</button>
 				{/each}
 			</div>

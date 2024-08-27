@@ -249,6 +249,307 @@
 	});
 
 	//////////////////////////
+	// Cisco functions
+	//////////////////////////
+	import { slide, fade } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+
+	import { promptStore, variablesStore, explanationStore } from '$lib/stores';
+	import GeneratePromptComponent from '$lib/components/Cisco/components/PromptTemplateGenerator.svelte';
+	export let isTextareaTruthy = false;
+	export let showPromptTemplateGenerator = false;
+
+	let originalUserPrompt = '';
+	export let showPromptTemplate: boolean = false;
+	export let isGeneratingPrompt: boolean = false;
+	export let variables: Record<string, string> = {};
+	export let showPromptIntro = false;
+	export let generatedPrompt = '';
+	export let promptNotIncluded = [];
+	let messageInputComponent;
+
+	let explanationText = '';
+	export let _user;
+	let clarifiedPrompt;
+	let template;
+
+	//dispatch
+	import { createEventDispatcher } from 'svelte';
+	const dispatch = createEventDispatcher();
+
+	async function generatePrompt(existingText: string = '') {
+		console.log('Generating prompt with existing text:', existingText);
+
+		showPromptTemplateGenerator = true;
+
+		if (existingText.trim()) {
+			showPromptTemplate = true;
+			isTextareaTruthy = true;
+			isGeneratingPrompt = true;
+
+			try {
+				const result = await fetchAndProcessData(existingText);
+				console.log('Raw result:', result);
+
+				// Check if result exists and contains necessary data
+				if (result) {
+					// Safely retrieve variables and explanation
+					const {
+						prompt = 'No prompt generated.',
+						explanation = 'No explanation provided.',
+						variables = []
+					} = result;
+
+					// Create an object from the variables array
+					const variablesObject = variables.reduce((acc, varName) => {
+						acc[varName] = ''; // Initialize with empty string
+						return acc;
+					}, {});
+
+					// Update stores with validated data
+					promptStore.set(prompt);
+					explanationStore.set(explanation);
+					variablesStore.set(variablesObject);
+
+					// Console log them to ensure visibility
+					console.log('Generated prompt:', $promptStore);
+					console.log('Explanation:', $explanationStore);
+					console.log('Variables:', $variablesStore);
+
+					// Force update of the GeneratePromptComponent
+					showPromptTemplate = false;
+					await tick();
+					showPromptTemplate = true;
+				} else {
+					console.error('Error: No valid result returned from fetchAndProcessData');
+				}
+			} catch (error) {
+				console.error('Error generating prompt:', error);
+				promptStore.set(existingText);
+				explanationStore.set('');
+				variablesStore.set({});
+			} finally {
+				isGeneratingPrompt = false;
+			}
+		} else {
+			console.log('No text found in text area from generatePrompt');
+			showPromptIntro = true;
+			showPromptTemplateGenerator = true;
+		}
+	}
+
+	async function fetchAndProcessData(template) {
+		if (!template || typeof template !== 'string') {
+			console.error('Invalid or empty prompt text', template);
+			console.error('typeof template is', typeof template);
+			return;
+		}
+
+		const promptTemplate = `
+			You are an AI assistant specialized in creating prompts based on user descriptions. Your task is to generate a prompt that aligns with the user's specified requirements while keeping it grounded and practical.
+
+			First, carefully read and analyze the user's description of the prompt they want to create:
+
+			<prompt_type_description>
+			${template}
+			</prompt_type_description>
+
+			Now, follow these steps to generate an appropriate prompt:
+
+			1. Analyze the user's description, focusing on:
+			- The main purpose or goal of the prompt
+			- Specific requirements or constraints
+			- Style, tone, or format preferences
+
+			2. Based on your analysis, identify common-sense variables that could make the prompt more flexible and reusable. These should be elements that might need customization or could vary in different use cases.
+
+			3. Craft a prompt that:
+			- Clearly communicates the main goal or task
+			- Incorporates all relevant requirements and constraints
+			- Effectively utilizes the identified variables
+			- Ensures variables are properly isolated in the text with spaces before and after
+			- Remains grounded and practical
+			- Is appropriate for the intended audience or context
+
+			4. Ensure the prompt is:
+			- Concise and clear
+			- Specific enough to guide responses effectively
+			- Open-ended enough to allow for creativity (unless otherwise specified)
+			- Free from ambiguity or potential misinterpretation
+
+			5. If the user's description lacks crucial details, make minimal, common-sense assumptions to fill gaps.
+
+			6. Avoid including any harmful, unethical, or illegal content in the prompt.
+
+			7. Include your identified variables in the prompt, encasing them in [[double square brackets]] .
+
+			Before presenting your generated prompt, list only the variable names as comma-separated strings within <variables> tags. Do not include any explanations, examples, or parenthetical information.
+
+			Mind the XML structure and formatting to ensure proper parsing and display of the generated content.
+
+			EXAMPLE OUTPUT:
+			<variables>
+			variable1, variable2, variable3
+			</variables>
+
+			<prompt>
+			This is a [[variable1]] prompt designed to [[variable2]] while considering [[variable3]]. [Rest of the prompt text with variables incorporated]
+			</prompt>
+
+			<explanation>
+			This prompt is designed to [explain purpose]. It addresses the user's requirements by [explanation]. The variables [[variable1]], [[variable2]], and [[variable3]] allow for customization of [explain what each variable customizes], enhancing the prompt's flexibility and reusability.
+			</explanation>
+			`;
+
+		const stringWithoutOllama = 'phi3';
+		console.log(
+			'hey corey the template is right before generateTextCompletion',
+			promptTemplate,
+			stringWithoutOllama
+		);
+		const res = await generateTextCompletion(
+			localStorage.token,
+			stringWithoutOllama,
+			promptTemplate
+		);
+		console.log('hey corey the res', res);
+
+		if (res && res.ok) {
+			const reader = res.body
+				.pipeThrough(new TextDecoderStream())
+				.pipeThrough(splitStream('\n'))
+				.getReader();
+
+			let data = '';
+
+			while (true) {
+				const { value, done } = await reader.read();
+				if (done) {
+					break;
+				}
+
+				const lines = value.split('\n');
+				for (const line of lines) {
+					if (line !== '') {
+						try {
+							const parsedLine = JSON.parse(line);
+							if (parsedLine.response) {
+								data += parsedLine.response;
+							}
+						} catch (error) {
+							console.error('Error parsing JSON:', error);
+						}
+					}
+				}
+			}
+			console.log(data);
+
+			// Use the extractPromptAndVariables function to process the response
+			const { prompt, explanation, variables } = extractPromptAndVariables(data);
+
+			// Return both the prompt and variables
+			return { prompt, explanation, variables };
+		} else {
+			const error = await res.text();
+			console.log('hey corey the error', error);
+			throw new Error(`HTTP error! status: ${res.status}`);
+		}
+	}
+
+	function handleVariableUpdate(event) {
+		const { name, value } = event.detail;
+		variablesStore.update((vars) => ({ ...vars, [name]: value }));
+	}
+	function handleGeneratePromptClick(event) {
+		const { existingText } = event.detail;
+		generatePrompt(existingText);
+	}
+	function handleGeneratePromptFromChild(event) {
+		const { existingText } = event.detail;
+		showPromptTemplate = true;
+		showPromptTemplateGenerator = true;
+		// Any other necessary logic
+	}
+	function setVariables(variables) {
+		const variablesObject = variables.reduce((acc, varName) => {
+			acc[varName] = ''; // Initialize with empty string
+			return acc;
+		}, {});
+
+		variablesStore.set(variablesObject);
+	}
+	// Helper function to extract prompt and variables
+	function extractPromptAndVariables(response) {
+		const promptRegex = /<prompt>([\s\S]*?)<\/prompt>/;
+		const explanationRegex = /<explanation>([\s\S]*?)(?:<\/explanation>|$)/;
+		const variablesRegex = /<variables>([\s\S]*?)<\/variables>/;
+
+		const promptMatch = response.match(promptRegex);
+		const explanationMatch = response.match(explanationRegex);
+		const variablesMatch = response.match(variablesRegex);
+
+		const prompt = promptMatch ? promptMatch[1].trim() : null;
+		const explanation = explanationMatch ? explanationMatch[1].trim() : null;
+		const variables = variablesMatch ? variablesMatch[1].split(',').map((v) => v.trim()) : [];
+
+		return { prompt, explanation, variables };
+	}
+
+	function parseReceivedPrompt(rawPrompt) {
+		if (
+			typeof rawPrompt === 'object' &&
+			rawPrompt.prompt &&
+			rawPrompt.explanation &&
+			rawPrompt.variables
+		) {
+			// If rawPrompt is already in the expected format, return it directly
+			return rawPrompt;
+		}
+
+		let promptText = typeof rawPrompt === 'string' ? rawPrompt : JSON.stringify(rawPrompt);
+
+		const variablesRegex = new RegExp('<variables>(.*?)</variables>', 's');
+		const promptRegex = new RegExp('<prompt>([\\\\s\\\\S]*?)</prompt>');
+		const explanationRegex = new RegExp('<explanation>([\\\\s\\\\S]*?)</explanation>');
+
+		const variablesMatch = promptText.match(variablesRegex);
+		const promptMatch = promptText.match(promptRegex);
+		const explanationMatch = promptText.match(explanationRegex);
+
+		const variables = variablesMatch ? variablesMatch[1].split(',').map((v) => v.trim()) : [];
+		const prompt = promptMatch ? promptMatch[1].trim() : '';
+		const explanation = explanationMatch ? explanationMatch[1].trim() : '';
+
+		return { prompt, explanation, variables };
+	}
+
+	function extractVariablesFromPrompt(prompt: string) {
+		const regex = /\[\[(.*?)\]\]/g;
+		const matches = [...prompt.matchAll(regex)];
+		return matches.reduce((acc, match) => {
+			if (match[1]) {
+				acc[match[1]] = '';
+			}
+			return acc;
+		}, {} as Record<string, string>);
+	}
+	function updateTemplate(newTemplate) {
+		template = newTemplate;
+		// If you need to inform the parent component about the template change:
+		dispatch('templateUpdate', { template: newTemplate });
+	}
+	function handleClosePromptTemplate() {
+		showPromptTemplate = false;
+		showPromptIntro = true;
+	}
+
+	function handleSubmit(event) {
+		const { customizedPrompt, promptTemplate, explanation } = event.detail;
+		// Handle the submission of the customized prompt
+		submitPrompt(customizedPrompt);
+		showPromptTemplate = false;
+	}
+	//////////////////////////
 	// Web functions
 	//////////////////////////
 

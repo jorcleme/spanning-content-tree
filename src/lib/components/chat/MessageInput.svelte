@@ -408,7 +408,7 @@
 		</div>
 	</div>
 
-	<div class="{transparentBackground ? 'bg-transparent' : 'bg-white dark:bg-gray-900'} ">
+	<div class="bg-transparent">
 		<div class="max-w-6xl px-2.5 md:px-6 mx-auto inset-x-0">
 			<div class=" pb-2">
 				<input
@@ -597,6 +597,83 @@
 										</button>
 									</InputMenu>
 								</div>
+
+								<button class="generate-btn" on:click|preventDefault={handleGeneratePromptClick}>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="24"
+										height="24"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="lucide lucide-brain-circuit inline-block m-auto"
+										><path
+											d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"
+										/><path d="M9 13a4.5 4.5 0 0 0 3-4" /><path
+											d="M6.003 5.125A3 3 0 0 0 6.401 6.5"
+										/><path d="M3.477 10.896a4 4 0 0 1 .585-.396" /><path
+											d="M6 18a4 4 0 0 1-1.967-.516"
+										/><path d="M12 13h4" /><path d="M12 18h6a2 2 0 0 1 2 2v1" /><path
+											d="M12 8h8"
+										/><path d="M16 8V5a2 2 0 0 1 2-2" /><circle cx="16" cy="13" r=".5" /><circle
+											cx="18"
+											cy="3"
+											r=".5"
+										/><circle cx="20" cy="21" r=".5" /><circle cx="20" cy="8" r=".5" />
+										<defs>
+											<linearGradient
+												id="paint0_linear_143_1711"
+												x1="101.864"
+												y1="18.75"
+												x2="178.624"
+												y2="95.5095"
+												gradientUnits="userSpaceOnUse"
+											>
+												<stop stop-color="#0087EA" />
+												<stop offset="1" stop-color="#63FFF7" />
+											</linearGradient>
+											<linearGradient
+												id="paint1_linear_143_1711"
+												x1="181.255"
+												y1="18.7973"
+												x2="18.8017"
+												y2="181.297"
+												gradientUnits="userSpaceOnUse"
+											>
+												<stop stop-color="#0051AF" />
+												<stop offset="0.666238" stop-color="#0087EA" />
+												<stop offset="1" stop-color="#00BCEB" />
+											</linearGradient>
+											<linearGradient
+												id="paint2_linear_143_1711"
+												x1="130.914"
+												y1="49.9375"
+												x2="174.369"
+												y2="100.198"
+												gradientUnits="userSpaceOnUse"
+											>
+												<stop stop-color="#74BF4B" stop-opacity="0" />
+												<stop offset="1" stop-color="#74BF4B" />
+											</linearGradient>
+											<radialGradient
+												id="paint3_radial_143_1711"
+												cx="0"
+												cy="0"
+												r="1"
+												gradientUnits="userSpaceOnUse"
+												gradientTransform="translate(193.731 112.5) rotate(-135) scale(132.583 132.527)"
+											>
+												<stop stop-color="#00BCEB" stop-opacity="0" />
+												<stop offset="0.666962" stop-color="#00BCEB" stop-opacity="0" />
+												<stop offset="1" stop-color="#00BCEB" />
+											</radialGradient>
+										</defs>
+									</svg>
+									<span style="width: max-content; padding-left:1rem;"> Guide me </span>
+								</button>
 
 								<textarea
 									id="chat-textarea"
@@ -916,6 +993,19 @@
 </div>
 
 <style>
+	.generate-btn {
+		background-color: #efefef;
+		margin: 0.5rem 0.75rem;
+		color: #fff;
+		border-radius: 0.5rem;
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		font-weight: 500;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
 	.scrollbar-hidden:active::-webkit-scrollbar-thumb,
 	.scrollbar-hidden:focus::-webkit-scrollbar-thumb,
 	.scrollbar-hidden:hover::-webkit-scrollbar-thumb {

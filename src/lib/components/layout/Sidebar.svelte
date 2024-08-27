@@ -228,6 +228,12 @@
 		? 'md:relative w-[260px]'
 		: '-translate-x-[260px] w-[0px]'} bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-200 text-sm transition fixed z-50 top-0 left-0 rounded-r-2xl
         "
+	style="	background-color: linear-gradient(
+		to bottom,
+		transparent 0px,
+		transparent 10px,
+		#f4f5f6 30px
+	) !important;"
 	data-state={$showSidebar}
 >
 	<div
@@ -253,13 +259,92 @@
 					}, 0);
 				}}
 			>
-				<div class="self-center mx-1.5">
-					<img
-						crossorigin="anonymous"
-						src="{WEBUI_BASE_URL}/static/favicon.png"
-						class=" size-6 -translate-x-1.5 rounded-full"
-						alt="logo"
-					/>
+				<div class="self-center mr-2">
+					<svg
+						width="20"
+						height="20"
+						viewBox="0 0 200 200"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+						style="overflow: visible;margin: right 0.1rem;rem"
+					>
+						<path
+							d="M146.88 112.5C172.768 112.5 193.755 91.5134 193.755 65.625C193.755 39.7366 172.768 18.75 146.88 18.75C120.992 18.75 100.005 39.7367 100.005 65.625C100.005 91.5133 120.992 112.5 146.88 112.5Z"
+							fill="url(#paint0_linear_143_1711)"
+							id="greenHighlight"
+							class="lens"
+						/>
+						<path
+							fill-rule="evenodd"
+							clip-rule="evenodd"
+							d="M100.005 52.6417C73.829 52.6417 52.6092 73.8555 52.6092 100.024C52.6092 126.192 73.829 147.406 100.005 147.406C126.181 147.406 147.401 126.192 147.401 100.024C147.401 73.8555 126.181 52.6417 100.005 52.6417ZM18.755 100.024C18.755 55.1637 55.1319 18.7973 100.005 18.7973C144.878 18.7973 181.255 55.1637 181.255 100.024C181.255 144.884 144.878 181.251 100.005 181.251C55.1319 181.251 18.755 144.884 18.755 100.024Z"
+							fill="url(#paint1_linear_143_1711)"
+							id="bigCircle"
+						/>
+						<path
+							fill-rule="evenodd"
+							clip-rule="evenodd"
+							d="M181.212 97.532C172.656 106.711 160.457 112.451 146.918 112.451C146.527 112.451 146.137 112.446 145.748 112.437C146.827 108.466 147.404 104.288 147.404 99.975C147.404 74.4205 127.173 53.591 101.854 52.6277C105.577 39.6475 114.757 28.9742 126.751 23.2491C157.75 34.0471 180.195 63.1 181.212 97.532Z"
+							fill="url(#paint2_linear_143_1711)"
+							id="lensTrack"
+							class="lens"
+						/>
+						<path
+							d="M146.856 112.5C172.744 112.5 193.731 91.5134 193.731 65.625C193.731 39.7366 172.744 18.75 146.856 18.75C120.967 18.75 99.9806 39.7367 99.9806 65.625C99.9806 91.5133 120.967 112.5 146.856 112.5Z"
+							fill="url(#paint3_radial_143_1711)"
+							id="lens"
+							class="lens"
+						/>
+
+						<defs>
+							<linearGradient
+								id="paint0_linear_143_1711"
+								x1="101.864"
+								y1="18.75"
+								x2="178.624"
+								y2="95.5095"
+								gradientUnits="userSpaceOnUse"
+							>
+								<stop stop-color="#0087EA" />
+								<stop offset="1" stop-color="#63FFF7" />
+							</linearGradient>
+							<linearGradient
+								id="paint1_linear_143_1711"
+								x1="181.255"
+								y1="18.7973"
+								x2="18.8017"
+								y2="181.297"
+								gradientUnits="userSpaceOnUse"
+							>
+								<stop stop-color="#0051AF" />
+								<stop offset="0.666238" stop-color="#0087EA" />
+								<stop offset="1" stop-color="#00BCEB" />
+							</linearGradient>
+							<linearGradient
+								id="paint2_linear_143_1711"
+								x1="130.914"
+								y1="49.9375"
+								x2="174.369"
+								y2="100.198"
+								gradientUnits="userSpaceOnUse"
+							>
+								<stop stop-color="#74BF4B" stop-opacity="0" />
+								<stop offset="1" stop-color="#74BF4B" />
+							</linearGradient>
+							<radialGradient
+								id="paint3_radial_143_1711"
+								cx="0"
+								cy="0"
+								r="1"
+								gradientUnits="userSpaceOnUse"
+								gradientTransform="translate(193.731 112.5) rotate(-135) scale(132.583 132.527)"
+							>
+								<stop stop-color="#00BCEB" stop-opacity="0" />
+								<stop offset="0.666962" stop-color="#00BCEB" stop-opacity="0" />
+								<stop offset="1" stop-color="#00BCEB" />
+							</radialGradient>
+						</defs>
+					</svg>
 				</div>
 				<div class=" self-center font-medium text-sm text-gray-850 dark:text-white font-primary">
 					{$i18n.t('New Chat')}
@@ -268,8 +353,8 @@
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="size-5"
+						fill="url(#paint0_linear_30_740)"
+						class="w-4 h-4"
 					>
 						<path
 							d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z"
@@ -277,6 +362,21 @@
 						<path
 							d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z"
 						/>
+
+						<defs>
+							<linearGradient
+								id="paint0_linear_30_740"
+								x1="19.2803"
+								y1="24.0741"
+								x2="31.301"
+								y2="0.278008"
+								gradientUnits="userSpaceOnUse"
+							>
+								<stop stop-color="#3B76EA" />
+								<stop offset="0.515625" stop-color="#00BCEB" />
+								<stop offset="1" stop-color="#63FFF7" />
+							</linearGradient>
+						</defs>
 					</svg>
 				</div>
 			</a>

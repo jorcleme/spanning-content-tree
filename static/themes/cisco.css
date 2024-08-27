@@ -1,0 +1,345 @@
+:root {
+	/* Font Settings */
+	--font-letter-spacing-heading-6: 0;
+	--font-letter-spacing-heading-5: 0;
+	--font-letter-spacing-heading-4: 0;
+	--font-letter-spacing-heading-3: 0;
+	--font-letter-spacing-button-large: 0;
+	--font-letter-spacing-button-medium: 0;
+	--font-letter-spacing-button-small: calc(0.2 / var(--font-size-root, 16) * 1rem);
+	--font-letter-spacing-body-large: 0;
+	--font-letter-spacing-body-medium: 0;
+	--font-letter-spacing-body-small: calc(0.2 / var(--font-size-root, 16) * 1rem);
+	--font-size-root: 16px;
+	--font-weight-700: 700;
+	--font-weight-500: 500;
+	--font-weight-400: 400;
+	--font-weight-350: 350;
+	--font-family-cisco-sans: CiscoSans;
+
+	/* Grid Settings */
+	--grid-columns-max: 12;
+	--grid-columns-x-large: 12;
+	--grid-columns-large: 12;
+	--grid-columns-medium: 6;
+	--grid-columns-small: 6;
+	--shell-max-width-max: 1520px;
+
+	/* Screen Sizes */
+	--screens-max: 1600px;
+	--screens-x-large: 1200px;
+	--screens-large: 992px;
+	--screens-medium: 768px;
+	--screens-small: 240px;
+
+	/* Motion Settings */
+	--motion-easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
+	--motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+	--motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+	--motion-easing-linear: linear(0, 0, 1, 1);
+	--motion-duration-xslow: 0.7s;
+	--motion-duration-slow: 0.4s;
+	--motion-duration-moderate: 0.25s;
+	--motion-duration-fast: 0.15s;
+	--motion-duration-xfast: 75ms;
+
+	/* Spacing */
+	--spacing-sizing-factor: 4px;
+
+	/* Colors */
+	--color-transparent: rgba(0, 0, 0, 0);
+	--color-bluegray-100: #0d274d;
+	--color-bluegray-80: #4c5d79;
+	--color-bluegray-60: #939dac;
+	--color-bluegray-40: #abb3c0;
+	--color-red-100: #330f0d;
+	--color-red-90: #4d120f;
+	--color-red-80: #731713;
+	--color-red-70: #991f19;
+	--color-red-60: #b8211a;
+	--color-red-50: #e3241b;
+	--color-red-40: #f4473e;
+	--color-red-30: #ff716b;
+	--color-red-20: #ffa29d;
+	--color-red-10: #ffdad8;
+	--color-red-5: #fff2f1;
+	--color-orange-100: #291d0a;
+	--color-orange-90: #493618;
+	--color-orange-80: #6a4c1a;
+	--color-orange-70: #9a6a1d;
+	--color-orange-60: #c6800f;
+	--color-orange-50: #e89613;
+	--color-orange-40: #fbab2c;
+	--color-orange-30: #ffc365;
+	--color-orange-20: #ffd798;
+	--color-orange-10: #ffe6bd;
+	--color-orange-5: #fef7ec;
+	--color-green-100: #0d260f;
+	--color-green-90: #0c330e;
+	--color-green-80: #114714;
+	--color-green-70: #066605;
+	--color-green-60: #058103;
+	--color-green-50: #399e20;
+	--color-green-40: #74bf4b;
+	--color-green-30: #a9da8e;
+	--color-green-20: #caeab8;
+	--color-green-10: #ddf2d8;
+	--color-green-5: #f0f8ed;
+	--color-grayscale-100: #000000;
+	--color-grayscale-90: #1b1c1d;
+	--color-grayscale-80: #242526;
+	--color-grayscale-70: #313233;
+	--color-grayscale-60: #4a4b4d;
+	--color-grayscale-50: #606162;
+	--color-grayscale-40: #8e8e8e;
+	--color-grayscale-30: #b3b3b3;
+	--color-grayscale-20: #d6d6d6;
+	--color-grayscale-10: #ebebeb;
+	--color-grayscale-5: #f4f5f6;
+	--color-grayscale-0: #ffffff;
+	--color-blue-100: #122740;
+	--color-blue-90: #132d4e;
+	--color-blue-80: #133967;
+	--color-blue-70: #00549e;
+	--color-blue-60: #0070d2;
+	--color-blue-50: #1990fa;
+	--color-blue-40: #57aefa;
+	--color-blue-30: #79befb;
+	--color-blue-20: #b0d8fb;
+	--color-blue-10: #d7eafc;
+	--color-blue-5: #f0f7fc;
+	--color-brand-midnightblue: #0d274d;
+	--color-brand-skyblue: #00bceb;
+
+	/* Font Sizes */
+	--font-letter-spacing-heading-2: calc(-0.16 / var(--font-size-root, 16) * 1rem);
+	--font-letter-spacing-heading-1: calc(-0.16 / var(--font-size-root, 16) * 1rem);
+	--font-letter-spacing-display: calc(-0.16 / var(--font-size-root, 16) * 1rem);
+	--font-size-500: calc(80 / var(--font-size-root, 16) * 1rem);
+	--font-size-400: calc(64 / var(--font-size-root, 16) * 1rem);
+	--font-size-350: calc(56 / var(--font-size-root, 16) * 1rem);
+	--font-size-300: calc(48 / var(--font-size-root, 16) * 1rem);
+	--font-size-250: calc(40 / var(--font-size-root, 16) * 1rem);
+	--font-size-200: calc(32 / var(--font-size-root, 16) * 1rem);
+	--font-size-175: calc(28 / var(--font-size-root, 16) * 1rem);
+	--font-size-150: calc(24 / var(--font-size-root, 16) * 1rem);
+	--font-size-125: calc(20 / var(--font-size-root, 16) * 1rem);
+	--font-size-100: calc(16 / var(--font-size-root, 16) * 1rem);
+	--font-size-85: calc(14 / var(--font-size-root, 16) * 1rem);
+	--font-size-75: calc(12 / var(--font-size-root, 16) * 1rem);
+
+	/* Line Heights */
+	--font-line-height-600: calc(96 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-450: calc(72 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-400: calc(64 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-350: calc(56 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-300: calc(48 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-250: calc(40 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-200: calc(32 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-175: calc(28 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-150: calc(24 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-125: calc(20 / var(--font-size-root, 16) * 1rem);
+	--font-line-height-100: calc(16 / var(--font-size-root, 16) * 1rem);
+
+	/* Font Weights */
+	--font-weight-heading: var(--font-weight-700);
+	--font-weight-display: var(--font-weight-700);
+	--font-weight-button: var(--font-weight-500);
+	--font-weight-body-bold: var(--font-weight-700);
+	--font-weight-body-normal: var(--font-weight-400);
+	--font-weight-body-small-normal: var(--font-weight-400);
+
+	/* Spacing */
+	--spacing-40: calc(160 / var(--font-size-root, 16) * 1rem);
+	--spacing-32: calc(128 / var(--font-size-root, 16) * 1rem);
+	--spacing-24: calc(96 / var(--font-size-root, 16) * 1rem);
+	--spacing-20: calc(80 / var(--font-size-root, 16) * 1rem);
+	--spacing-16: calc(64 / var(--font-size-root, 16) * 1rem);
+	--spacing-12: calc(48 / var(--font-size-root, 16) * 1rem);
+	--spacing-10: calc(40 / var(--font-size-root, 16) * 1rem);
+	--spacing-8: calc(32 / var(--font-size-root, 16) * 1rem);
+	--spacing-6: calc(24 / var(--font-size-root, 16) * 1rem);
+	--spacing-4: calc(16 / var(--font-size-root, 16) * 1rem);
+	--spacing-3: calc(12 / var(--font-size-root, 16) * 1rem);
+	--spacing-2: calc(8 / var(--font-size-root, 16) * 1rem);
+	--spacing-1: calc(4 / var(--font-size-root, 16) * 1rem);
+
+	/* Brand Colors */
+	--color-brand-black: var(--color-grayscale-90);
+	--color-brand-white: var(--color-grayscale-0);
+
+	/* Heading Sizes */
+	--font-size-heading-6: var(--font-size-100);
+	--font-size-heading-5: var(--font-size-125);
+	--font-size-heading-4: var(--font-size-150);
+	--font-size-heading-3: var(--font-size-175);
+	--font-size-heading-2: var(--font-size-200);
+	--font-size-heading-1: var(--font-size-250);
+
+	/* Display Sizes */
+	--font-size-display-4: var(--font-size-300);
+	--font-size-display-3: var(--font-size-350);
+	--font-size-display-2: var(--font-size-400);
+	--font-size-display-1: var(--font-size-500);
+
+	/* Button Sizes */
+	--font-size-button-small: var(--font-size-75);
+	--font-size-button-medium: var(--font-size-85);
+	--font-size-button-large: var(--font-size-100);
+
+	/* Body Sizes */
+	--font-size-body-small: var(--font-size-75);
+	--font-size-body-medium: var(--font-size-85);
+	--font-size-body-large: var(--font-size-100);
+
+	/* Line Heights for Headings */
+	--font-line-height-heading-6: var(--font-line-height-125);
+	--font-line-height-heading-5: var(--font-line-height-150);
+	--font-line-height-heading-4: var(--font-line-height-175);
+	--font-line-height-heading-3: var(--font-line-height-200);
+	--font-line-height-heading-2: var(--font-line-height-250);
+	--font-line-height-heading-1: var(--font-line-height-300);
+
+	/* Line Heights for Displays */
+	--font-line-height-display-4: var(--font-line-height-350);
+	--font-line-height-display-3: var(--font-line-height-400);
+	--font-line-height-display-2: var(--font-line-height-450);
+	--font-line-height-display-1: var(--font-line-height-600);
+
+	/* Line Heights for Buttons */
+	--font-line-height-button-small: var(--font-line-height-100);
+	--font-line-height-button-medium: var(--font-line-height-125);
+	--font-line-height-button-large: var(--font-line-height-150);
+
+	/* Line Heights for Body */
+	--font-line-height-body-small: var(--font-line-height-100);
+	--font-line-height-body-medium: var(--font-line-height-125);
+	--font-line-height-body-large: var(--font-line-height-150);
+
+	/* Grid Gutters */
+	--grid-gutter-max: var(--spacing-10);
+	--shell-gutter-x-large: var(--spacing-10);
+	--shell-gutter-large: var(--spacing-8);
+	--shell-gutter-medium: var(--spacing-4);
+	--shell-gutter-small: var(--spacing-4);
+	--grid-gutter-x-large: var(--shell-gutter-x-large);
+	--grid-gutter-large: var(--shell-gutter-large);
+	--grid-gutter-medium: var(--shell-gutter-medium);
+	--grid-gutter-small: var(--shell-gutter-small);
+}
+
+/* Cisco Specific Styles */
+.cisco * {
+	color: var(--color-blue-90);
+	/* fill: white; */
+	/* stroke: var(--color-blue-80); */
+}
+
+.cisco .app > * {
+	background-color: linear-gradient(
+		to bottom,
+		transparent 0px,
+		transparent 10px,
+		#f4f5f6 30px
+	) !important;
+}
+
+.cisco #nav {
+	/* background-color: #fffaf3; */
+}
+
+.cisco .py-2\.5.my-auto.flex.flex-col.justify-between.h-screen,
+.cisco .bg-white.dark\:bg-gray-800,
+.cisco .bg-gradient-to-t.from-white.dark\:from-gray-800.from-40\%.pb-2,
+.cisco .m-auto.rounded-xl.max-w-full.w-\[40rem\].mx-2.bg-gray-50.dark\:bg-gray-900.shadow-3xl {
+	background-color: linear-gradient(
+		to bottom,
+		transparent 0px,
+		transparent 10px,
+		#f4f5f6 30px
+	) !important;
+}
+
+.cisco .w-4.h-4 {
+	fill: #3e84e5;
+}
+
+.cisco #chat-textarea,
+.cisco .flex.py-2\.5.px-3\.5.w-full.hover\:bg-gray-800.transition:hover,
+.cisco .w-full.rounded.p-4.text-sm.dark\:text-gray-300.dark\:bg-gray-800.outline-none.resize-none,
+.cisco
+	.w-full.rounded.py-2.px-4.text-sm.dark\:text-gray-300.dark\:bg-gray-800.outline-none.svelte-1vx7r9s,
+.cisco
+	.px-2\.5.py-2\.5.min-w-fit.rounded-lg.flex-1.md\:flex-none.flex.text-right.transition.hover\:bg-gray-300.dark\:hover\:bg-gray-800:hover {
+	background: #f7f7f7;
+	margin: 0.3rem;
+	padding: 0.5rem;
+}
+
+.cisco
+	.text-white.bg-gray-100.dark\:text-gray-800.dark\:bg-gray-600.disabled.transition.rounded-lg.p-1.mr-0\.5.w-7.h-7.self-center {
+	background-color: #f7f7f7;
+	transition: background-color 0.2s ease-out linear;
+}
+
+.cisco
+	.bg-black.text-white.hover\:bg-gray-900.dark\:bg-white.dark\:text-black.dark\:hover\:bg-gray-100.transition.rounded-lg.p-1.mr-0\.5.w-7.h-7.self-center {
+	background-color: #286983;
+	transition: background-color 0.2s ease-out linear;
+}
+
+.cisco
+	.bg-black.text-white.hover\:bg-gray-900.dark\:bg-white.dark\:text-black.dark\:hover\:bg-gray-100.transition.rounded-lg.p-1.mr-0\.5.w-7.h-7.self-center
+	> * {
+	fill: #56949f !important;
+	transition: fill 0.2s ease-out linear;
+}
+
+.cisco
+	.w-full.flex.justify-between.rounded-md.px-3.py-2.hover\:bg-gray-900.bg-gray-900.transition.whitespace-nowrap.text-ellipsis {
+	background-color: #56526e;
+	font-weight: bold;
+}
+
+.cisco .hover\:bg-gray-900:hover {
+	--tw-bg-opacity: 1;
+	background-color: rgb(152 147 165 / var(--tw-bg-opacity));
+}
+
+.cisco .text-xs.text-gray-700.uppercase.bg-gray-50.dark\:bg-gray-700.dark\:text-gray-400 {
+	background-color: #403d52;
+}
+
+.cisco .scrollbar-hidden.relative.overflow-x-auto.whitespace-nowrap.svelte-3g4avz {
+	border-radius: 16px 16px 0 0;
+}
+
+.cisco .base.enter.svelte-ug60r4 {
+	background-color: #286983;
+}
+
+.cisco .message.svelte-1nauejd {
+	color: #e0def4 !important;
+}
+
+.cisco #dropdownDots {
+	background-color: #dfdad9;
+}
+
+.cisco .px-4.py-2.bg-emerald-600.hover\:bg-emerald-700.text-gray-100.transition.rounded {
+	background-color: #56949f;
+}
+
+.cisco #chat-search > * {
+	background-color: #dfdad9 !important;
+}
+
+.cisco .svelte-1ee93ns {
+	--primary: #b4637a !important;
+	/* --secondary: #fffaf3 !important; */
+}
+
+.cisco .svelte-11kvm4p {
+	--primary: #56949f !important;
+	/* --secondary: #fffaf3 !important; */
+}
