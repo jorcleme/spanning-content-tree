@@ -918,6 +918,12 @@ async def update_embedding_function(request: Request, call_next):
     return response
 
 
+##################################
+#
+# App Mounts
+#
+##################################
+
 app.mount("/ws", socket_app)
 
 app.mount("/ollama", ollama_app)
