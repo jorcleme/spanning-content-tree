@@ -1240,10 +1240,10 @@ graph.add_edge("build_html_for_admin_guide_sources", END)
 graph.add_edge("build_html_for_cli_guide_sources", END)
 
 ARTICLE_BUILDER = graph.compile()
-question = "Configuration of GVRP on CBS 220 Series Switches"
+question = "Configure VLAN on Cisco Business 220 Series Switches"
 
 
-# This function will be used as the export function for the agent. Import to FastAPI and use it as a route.
+# This function will be used as the export function for the agent. Import to FastAPI and use it in a route.
 def build_article(question: str):
     inputs: dict[str, GraphState] = {"keys": {"question": question}}
     article = None

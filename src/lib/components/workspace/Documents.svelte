@@ -27,7 +27,7 @@
 	let query = '';
 	let documentsImportInputElement: HTMLInputElement;
 	let tags = [];
-
+	let files = [];
 	let showSettingsModal = false;
 	let showAddDocModal = false;
 	let showEditDocModal = false;
@@ -51,7 +51,7 @@
 		await documents.set(await getDocs(localStorage.token));
 	};
 
-	const uploadDoc = async (file) => {
+	const uploadDoc = async (file: File) => {
 		console.log(file);
 		// Check if the file is an audio file and transcribe/convert it to text file
 		if (['audio/mpeg', 'audio/wav'].includes(file['type'])) {
@@ -110,7 +110,7 @@
 			dragged = false;
 		};
 
-		const onDrop = async (e) => {
+		const onDrop = async (e: DragEvent) => {
 			e.preventDefault();
 
 			if (e.dataTransfer?.files) {
@@ -121,7 +121,7 @@
 						...files,
 						{
 							type: 'image',
-							url: `${event.target.result}`
+							url: `${event.target?.result}`
 						}
 					];
 				};

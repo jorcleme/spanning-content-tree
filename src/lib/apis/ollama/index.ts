@@ -316,7 +316,6 @@ export const generateEmbeddings = async (token: string = '', model: string, text
 
 	return res;
 };
-
 export const generateTextCompletion = async (token: string = '', model: string, text: string) => {
 	let error = null;
 

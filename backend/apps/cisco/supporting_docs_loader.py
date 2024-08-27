@@ -12,7 +12,7 @@ from langchain_core.documents import Document
 from langchain_core.document_loaders import BaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from transformers import GPT2Tokenizer
-from config import (
+from backend.config import (
     CHROMA_CLIENT,
     CATALYST_1200_ADMIN_GUIDE_COLLECTION_NAME,
     CATALYST_1200_CLI_GUIDE_COLLECTION_NAME,
@@ -603,7 +603,7 @@ def process_and_insert_documents(url: str, collection_name: str, doc_type: str):
 def load_docs_chroma(documents, collection_name):
     docs = documents
     print(f"Loaded {len(docs)} documents from {collection_name}.json")
-    content = [doc.page_content for doc in docs]
+    content: list[str] = [doc.page_content for doc in docs]  # Langchain Document Schema
     ids: list[str] = [doc.metadata["doc_id"] for doc in docs]
     metadatas = [doc.metadata for doc in docs]
 
@@ -680,9 +680,9 @@ def query_collection(query: str):
 
 
 if __name__ == "__main__":
-    # run()
-    query = "RADIUS and Duo Authentication"
-    results = query_collection(query)
-    if results:
-        for result in results["documents"]:
-            print(result)
+    run()
+    # query = "RADIUS and Duo Authentication"
+    # results = query_collection(query)
+    # if results:
+    #     for result in results["documents"]:
+    #         print(result)

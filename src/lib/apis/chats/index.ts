@@ -305,6 +305,7 @@ export const getChatById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
+			console.log(`Get Chat By Id: ${res.json()}`);
 			return res.json();
 		})
 		.then((json) => {

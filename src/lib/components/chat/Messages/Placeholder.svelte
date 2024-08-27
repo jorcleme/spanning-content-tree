@@ -10,6 +10,7 @@
 	import Suggestions from '../MessageInput/Suggestions.svelte';
 	import { sanitizeResponseContent } from '$lib/utils';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import AssistantAnimationHero from '../AssistantAnimationHero.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -48,7 +49,8 @@
 							)}
 							placement="right"
 						>
-							<img
+							<AssistantAnimationHero />
+							<!-- <img
 								crossorigin="anonymous"
 								src={model?.info?.meta?.profile_image_url ??
 									($i18n.language === 'dg-DG'
@@ -57,7 +59,7 @@
 								class=" size-[2.7rem] rounded-full border-[1px] border-gray-200 dark:border-none"
 								alt="logo"
 								draggable="false"
-							/>
+							/> -->
 						</Tooltip>
 					</button>
 				{/each}

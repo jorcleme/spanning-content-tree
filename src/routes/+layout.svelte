@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { io } from 'socket.io-client';
 	import { spring } from 'svelte/motion';
 
@@ -38,7 +38,7 @@
 	let loaded = false;
 	const BREAKPOINT = 768;
 
-	let wakeLock = null;
+	let wakeLock: WakeLockSentinel | null = null;
 
 	onMount(async () => {
 		theme.set(localStorage.theme);

@@ -349,13 +349,30 @@ async def get_models(url_idx: Optional[int] = None, user=Depends(get_verified_us
             )
 
 
+from langsmith import traceable
+from langsmith import trace
+
+
+async def concatenate_streaming_response(outputs):
+    r = ""
+    async for chunk in outputs.body_iterator:
+        r += await chunk.decode("utf-8")
+    return r
+
+
 @app.post("/chat/completions")
 @app.post("/chat/completions/{url_idx}")
+@traceable(
+    run_type="llm",
+    name="backend/apps/openai/main.py:generate_chat_completion",
+    project_name="content-spanning-tree",
+)
 async def generate_chat_completion(
     form_data: dict,
     url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
 ):
+
     idx = 0
     payload = {**form_data}
     if "metadata" in payload:
@@ -480,6 +497,7 @@ async def generate_chat_completion(
         # Check if response is SSE
         if "text/event-stream" in r.headers.get("Content-Type", ""):
             streaming = True
+
             return StreamingResponse(
                 r.content,
                 status_code=r.status,

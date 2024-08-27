@@ -35,6 +35,8 @@ def upgrade() -> None:
         )
 
     if "chat" not in existing_tables:
+        inspector = sa.inspect(op.get_bind())
+        columns = [column["name"] for column in inspector.get_columns("chat")]
         op.create_table(
             "chat",
             sa.Column("id", sa.String(), nullable=False),
@@ -43,11 +45,13 @@ def upgrade() -> None:
             sa.Column("chat", sa.Text(), nullable=True),
             sa.Column("created_at", sa.BigInteger(), nullable=True),
             sa.Column("updated_at", sa.BigInteger(), nullable=True),
-            sa.Column("share_id", sa.Text(), nullable=True),
             sa.Column("archived", sa.Boolean(), nullable=True),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint("share_id"),
         )
+
+        if "share_id" not in columns:
+            op.add_column("chat", sa.Column("share_id", sa.Text(), nullable=True))
+            sa.UniqueConstraint("share_id")
 
     if "chatidtag" not in existing_tables:
         op.create_table(

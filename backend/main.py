@@ -1109,6 +1109,7 @@ async def generate_chat_completions(form_data: dict, user=Depends(get_verified_u
         print("generate_ollama_chat_completion")
         return await generate_ollama_chat_completion(form_data, user=user)
     else:
+        print("generate_openai_chat_completion")
         return await generate_openai_chat_completion(form_data, user=user)
 
 

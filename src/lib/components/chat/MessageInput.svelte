@@ -87,7 +87,7 @@
 	$: if (prompt) {
 		if (chatTextAreaElement) {
 			chatTextAreaElement.style.height = '';
-			chatTextAreaElement.style.height = Math.min(chatTextAreaElement.scrollHeight, 200) + 'px';
+			chatTextAreaElement.style.height = `${Math.min(chatTextAreaElement.scrollHeight, 200)}px`;
 		}
 	}
 

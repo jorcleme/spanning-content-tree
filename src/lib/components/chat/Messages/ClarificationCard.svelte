@@ -7,12 +7,7 @@
 	export let question = '';
 	export let options = [];
 	export let onSelect = (options: any) => {};
-	export let onSubmit = async (
-		selectedOptions: string = '[]',
-		notOptionsStr: string = '[]',
-		inputValue: string = '',
-		ogUserPrompt: string = ''
-	) => {};
+	export let onSubmit: Function;
 	export let visible = false;
 	export let selectedOption = '';
 	export let notOptions: string[] = [];
@@ -28,56 +23,35 @@
 
 	// let notOptions; // Initialize notOptions as an empty array
 
+	function convertOptionsToString(options: string[]): string {
+		return options.length > 0
+			? JSON.stringify(options.filter((option) => typeof option === 'string'))
+			: '[]';
+	}
+
 	async function handleSubmit() {
-		if (onSubmit) {
-			console.log(
-				'corey notOptions is selectedOptions, notOptions, inputValue',
-				selectedOptions,
-				notOptions,
-				inputValue
-			);
+		if (!onSubmit) return;
+		const selectedOptionsString = convertOptionsToString(selectedOptions);
+		const notOptionsString = convertOptionsToString(notOptions);
 
-			const selectedOptionsString =
-				selectedOptions.length > 0
-					? JSON.stringify(selectedOptions.filter((option) => typeof option === 'string'))
-					: '[]';
+		console.log(`Selected options: ${selectedOptionsString}`);
+		console.log(`Not options: ${notOptionsString}`);
+		console.log(`Input value: ${inputValue}`);
 
-			const notOptionsString =
-				notOptions.length > 0
-					? JSON.stringify(notOptions.filter((option) => typeof option === 'string'))
-					: '[]';
-
-			console.log(
-				'corey notOptions is selectedOptions, notOptions, inputValue',
-				selectedOptionsString,
-				notOptionsString,
-				inputValue
-			);
-
-			// check if no options are selected
-			if (selectedOptionsString === '[]' && notOptionsString === '[]' && !inputValue) {
-				console.log('corey no options selected, submitPrompt incoming', originalUserPrompt);
-				console.log(
-					'corey notOptions is selectedOptions, notOptions, inputValue',
-					selectedOptionsString,
-					notOptionsString,
-					inputValue
-				);
-				if (originalUserPrompt !== '') {
-					await onSubmit([], [], '', originalUserPrompt);
-				} else {
-					console.log('OriginalUserPrompt is empty', originalUserPrompt);
-					await onSubmit([], [], '', originalUserPrompt);
-				}
-			} else {
-				await onSubmit(selectedOptionsString, notOptionsString, inputValue, originalUserPrompt);
-			}
+		if (selectedOptionsString === '[]' && notOptionsString === '[]' && !inputValue) {
+			console.log('No options selected, submitting original user prompt: ', originalUserPrompt);
+			await onSubmit([], [], '', originalUserPrompt || '');
+		} else {
+			await onSubmit(selectedOptionsString, notOptionsString, inputValue, originalUserPrompt || '');
 		}
+		resetForm();
+	}
 
+	function resetForm() {
 		visible = false;
-		selectedOptions = []; // Clear selected options
-		notOptions = []; // Reset notOptions to an empty array
-		inputValue = ''; // Clear input value
+		selectedOptions = [];
+		notOptions = [];
+		inputValue = '';
 	}
 
 	function sanitizeContent(content) {

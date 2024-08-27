@@ -12,6 +12,7 @@ vite.config.ts.timestamp-*
 __pycache__/
 *.py[cod]
 *$py.class
+/backend/data/config.json
 
 # C extensions
 *.so

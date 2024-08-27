@@ -61,8 +61,14 @@ def handle_peewee_migration(DATABASE_URL):
         )
         migrate_dir = BACKEND_DIR / "apps" / "webui" / "internal" / "migrations"
         router = Router(db, logger=log, migrate_dir=migrate_dir)
-        router.run()
-        db.close()
+        # @Corey, Team: I added this line to handle secondary runs of backend/start.sh script.
+        # Shutting down the app and running again throws migration errors because the migrations have alread been applied.
+        if os.path.exists(DATA_DIR / "webui.db"):
+            log.info("Database has already been migrated. Skipping the migration.")
+            db.close()
+        else:
+            router.run()
+            db.close()
 
         # check if db connection has been closed
 
