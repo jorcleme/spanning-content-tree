@@ -5,8 +5,9 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { sanitizeResponseContent } from '$lib/utils';
 	import { debounce } from 'lodash';
-	export let submitPrompt: (prompt: string) => void;
 
+	export let submitPrompt: (prompt: string) => void;
+	export let showPromptTemplateGenerator: boolean;
 	import { explanationStore, promptStore, variablesStore } from '$lib/stores';
 	export let onSubmit: (data: {
 		customizedPrompt: string;
@@ -224,6 +225,7 @@
 
 	function handleGeneratePromptClick() {
 		isGeneratingPrompt = true;
+		showPromptIntro = false;
 		generatePrompt(editablePrompt).then(() => {
 			isGeneratingPrompt = false;
 			showPromptIntro = false;
@@ -258,19 +260,14 @@
 	function handleCreateCustomizedPrompt() {
 		const customizedPrompt = renderTemplate($promptStore, $variablesStore);
 		const promptTemplate = $promptStore;
-
-		if (typeof submitPrompt === 'function') {
-			submitPrompt(customizedPrompt);
-		} else {
-			console.error('submitPrompt is not a function', submitPrompt);
-		}
+		showPromptTemplate = false;
+		showPromptTemplateGenerator = false;
 
 		dispatch('submit', {
 			customizedPrompt,
 			promptTemplate,
 			explanation: $explanationStore
 		});
-		showPromptTemplate = false;
 	}
 
 	function handleTemplateClick(event) {
@@ -384,7 +381,7 @@
 							<div class="space-y-2 my-16 flex flex-row flex-wrap">
 								{#each ciscoSmbThemes as theme}
 									<button
-										class="flex items-center justify-between w-full bg-gray-200 hover:bg-gray-700 text-white py-2 px-3 rounded text-left transition-colors duration-200 text-sm mx-4"
+										class="flex items-center justify-between w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-3 rounded text-left transition-colors duration-200 text-sm mx-4"
 										on:click={() => handleThemeSelect(theme.text)}
 									>
 										<div class="flex items-center space-x-2">
@@ -478,7 +475,7 @@
 				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
 				on:click={handleCreateCustomizedPrompt}
 			>
-				Create Customized Prompt
+				Send
 			</button>
 		</div>
 	</div>

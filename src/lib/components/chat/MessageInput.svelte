@@ -297,6 +297,31 @@
 			dropZone?.removeEventListener('dragleave', onDragLeave);
 		};
 	});
+	export let generatePrompt: (existingText: string) => void;
+	export let isTextareaEmpty: boolean;
+	let textareaValue = '';
+
+	$: if (prompt) {
+		if (chatTextAreaElement) {
+			chatTextAreaElement.style.height = '';
+			chatTextAreaElement.style.height = Math.min(chatTextAreaElement.scrollHeight, 200) + 'px';
+		}
+	}
+
+	export function handleTextareaInput() {
+		isTextareaEmpty = textareaValue.trim() === '';
+	}
+
+	function handleGeneratePromptClick() {
+		if (chatTextAreaElement) {
+			chatTextAreaElement.disabled = true;
+			chatTextAreaElement.style.opacity = '0.5';
+			chatTextAreaElement.style.backgroundColor = '#f0f0f0';
+		}
+
+		const existingText = chatTextAreaElement ? chatTextAreaElement.value : '';
+		generatePrompt(existingText);
+	}
 </script>
 
 <FilesOverlay show={dragged} />
@@ -676,6 +701,7 @@
 								</button>
 
 								<textarea
+									on:input={handleTextareaInput}
 									id="chat-textarea"
 									bind:this={chatTextAreaElement}
 									class="scrollbar-hidden bg-gray-50 dark:bg-gray-850 dark:text-gray-100 outline-none w-full py-3 px-1 rounded-xl resize-none h-[48px]"
@@ -996,7 +1022,7 @@
 	.generate-btn {
 		background-color: #efefef;
 		margin: 0.5rem 0.75rem;
-		color: #fff;
+		color: #565656;
 		border-radius: 0.5rem;
 		padding: 0.5rem 1rem;
 		font-size: 1rem;

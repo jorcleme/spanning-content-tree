@@ -36,7 +36,7 @@
 		splitStream
 	} from '$lib/utils';
 
-	import { generateChatCompletion } from '$lib/apis/ollama';
+	import { generateChatCompletion, generateTextCompletion } from '$lib/apis/ollama';
 	import {
 		addTagById,
 		createNewChat,
@@ -255,7 +255,7 @@
 	import { cubicOut } from 'svelte/easing';
 
 	import { promptStore, variablesStore, explanationStore } from '$lib/stores';
-	import GeneratePromptComponent from '$lib/components/Cisco/components/PromptTemplateGenerator.svelte';
+	import PromptTemplateGenerator from '$lib/components/Cisco/components/PromptTemplateGenerator.svelte';
 	export let isTextareaTruthy = false;
 	export let showPromptTemplateGenerator = false;
 
@@ -546,9 +546,14 @@
 	function handleSubmit(event) {
 		const { customizedPrompt, promptTemplate, explanation } = event.detail;
 		// Handle the submission of the customized prompt
-		submitPrompt(customizedPrompt);
+		if (typeof submitPrompt === 'function') {
+			submitPrompt(customizedPrompt);
+		} else {
+			console.error('submitPrompt is not a function', submitPrompt);
+		}
 		showPromptTemplate = false;
 	}
+
 	//////////////////////////
 	// Web functions
 	//////////////////////////
@@ -1915,11 +1920,32 @@
 					transparentBackground={$settings?.backgroundImageUrl ?? false}
 					{selectedModels}
 					{messages}
+					bind:this={messageInputComponent}
+					{generatePrompt}
 					{submitPrompt}
 					{stopResponse}
 				/>
 			</div>
 		</div>
+		{#if showPromptTemplateGenerator}<PromptTemplateGenerator
+				bind:showPromptTemplate
+				bind:showPromptIntro
+				bind:isGeneratingPrompt
+				bind:variables={$variablesStore}
+				bind:generatedPrompt={$promptStore}
+				explanation={$explanationStore}
+				{isTextareaTruthy}
+				bind:showPromptTemplateGenerator
+				{fetchAndProcessData}
+				{generatePrompt}
+				{parseReceivedPrompt}
+				{extractVariablesFromPrompt}
+				{originalUserPrompt}
+				{updateTemplate}
+				on:close={handleClosePromptTemplate}
+				on:submit={handleSubmit}
+				on:variableUpdate={handleVariableUpdate}
+			/>{/if}
 
 		<ChatControls
 			models={selectedModelIds.reduce((a, e, i, arr) => {

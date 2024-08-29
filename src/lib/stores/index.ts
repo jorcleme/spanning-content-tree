@@ -9,6 +9,11 @@ export const WEBUI_NAME = writable(APP_NAME);
 export const config: Writable<Config | undefined> = writable(undefined);
 export const user: Writable<SessionUser | undefined> = writable(undefined);
 
+
+export const promptStore = writable('');
+export const variablesStore = writable('');
+export const explanationStore = writable('');
+
 // Frontend
 export const MODEL_DOWNLOAD_POOL = writable({});
 
