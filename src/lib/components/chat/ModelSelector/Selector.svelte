@@ -11,9 +11,14 @@
 
 	import { deleteModel, getOllamaVersion, pullModel } from '$lib/apis/ollama';
 
-	import { user, MODEL_DOWNLOAD_POOL, models, mobile } from '$lib/stores';
+	import { user, MODEL_DOWNLOAD_POOL, models, mobile, Model } from '$lib/stores';
 	import { toast } from 'svelte-sonner';
-	import { capitalizeFirstLetter, sanitizeResponseContent, splitStream } from '$lib/utils';
+	import {
+		capitalizeFirstLetter,
+		sanitizeResponseContent,
+		splitStream,
+		isErrorWithMessage
+	} from '$lib/utils';
 	import { getModels } from '$lib/apis';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -21,27 +26,29 @@
 	const i18n = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
+	type SelectedItems = {
+		label: string;
+		value: string;
+		model: Model;
+		[key: string]: any;
+	};
+
 	export let value = '';
 	export let placeholder = 'Select a model';
 	export let searchEnabled = true;
 	export let searchPlaceholder = $i18n.t('Search a model');
-
-	export let items: {
-		label: string;
-		value: string;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		[key: string]: any;
-	} = [];
+	export let items: SelectedItems[] = [];
 
 	export let className = 'w-[30rem]';
 
 	let show = false;
 
-	let selectedModel = '';
-	$: selectedModel = items.find((item) => item.value === value) ?? '';
+	// let selectedModel = '';
+	// $: selectedModel = items.find((item) => item.value === value) ?? '';
+	$: selectedModel = items.find((item) => item.value === value) ?? null;
 
 	let searchValue = '';
-	let ollamaVersion = null;
+	let ollamaVersion: string | null = null;
 
 	$: filteredItems = items.filter(
 		(item) =>
@@ -53,6 +60,12 @@
 				  )
 				: true) && !(item.model?.info?.meta?.hidden ?? false)
 	);
+
+	$: {
+		console.log('[Selector.svelte] $MODEL_DOWNLOAD_POOL: ', $MODEL_DOWNLOAD_POOL);
+		console.log('[Selector.svelte] selectedModel: ', selectedModel);
+		console.log('[Selector.svelte] items: ', items);
+	}
 
 	const pullModelHandler = async () => {
 		const sanitizedModelTag = searchValue.trim().replace(/^ollama\s+(run|pull)\s+/, '');
@@ -73,16 +86,15 @@
 			return;
 		}
 
-		const [res, controller] = await pullModel(localStorage.token, sanitizedModelTag, '0').catch(
-			(error) => {
-				toast.error(error);
-				return null;
-			}
+		const [res, controller]: [Response | null, AbortController] = await pullModel(
+			localStorage.token,
+			sanitizedModelTag,
+			'0'
 		);
 
-		if (res) {
-			const reader = res.body
-				.pipeThrough(new TextDecoderStream())
+		if (res && res.ok) {
+			const reader = res
+				.body!.pipeThrough(new TextDecoderStream())
 				.pipeThrough(splitStream('\n'))
 				.getReader();
 
@@ -147,11 +159,14 @@
 					}
 				} catch (error) {
 					console.log(error);
-					if (typeof error !== 'string') {
+					if (isErrorWithMessage(error)) {
 						error = error.message;
 					}
+					// if (typeof error !== 'string') {
+					// 	error = error.message;
+					// }
 
-					toast.error(error);
+					toast.error(error as string);
 					// opts.callback({ success: false, error, modelName: opts.modelName });
 					break;
 				}
@@ -174,6 +189,8 @@
 			MODEL_DOWNLOAD_POOL.set({
 				...$MODEL_DOWNLOAD_POOL
 			});
+		} else {
+			toast.error($i18n.t('Failed to pull model'));
 		}
 	};
 
@@ -258,7 +275,7 @@
 						<div class="flex flex-col">
 							{#if $mobile && (item?.model?.info?.meta?.tags ?? []).length > 0}
 								<div class="flex gap-0.5 self-start h-full mb-0.5 -translate-x-1">
-									{#each item.model?.info?.meta.tags as tag}
+									{#each item.model?.info?.meta?.tags ?? [] as tag}
 										<div
 											class=" text-xs font-bold px-1 rounded uppercase line-clamp-1 bg-gray-500/20 text-gray-700 dark:text-gray-200"
 										>
@@ -297,7 +314,7 @@
 
 								{#if !$mobile && (item?.model?.info?.meta?.tags ?? []).length > 0}
 									<div class="flex gap-0.5 self-center items-center h-full translate-y-[0.5px]">
-										{#each item.model?.info?.meta.tags as tag}
+										{#each item.model?.info?.meta.tags ?? [] as tag}
 											<div
 												class=" text-xs font-bold px-1 rounded uppercase line-clamp-1 bg-gray-500/20 text-gray-700 dark:text-gray-200"
 											>
@@ -377,7 +394,7 @@
 					</div>
 				{/each}
 
-				{#if !(searchValue.trim() in $MODEL_DOWNLOAD_POOL) && searchValue && ollamaVersion && $user.role === 'admin'}
+				{#if !(searchValue.trim() in $MODEL_DOWNLOAD_POOL) && searchValue && ollamaVersion && $user?.role === 'admin'}
 					<button
 						class="flex w-full font-medium line-clamp-1 select-none items-center rounded-button py-2 pl-3 pr-1.5 text-sm text-gray-700 dark:text-gray-100 outline-none transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer data-[highlighted]:bg-muted"
 						on:click={() => {

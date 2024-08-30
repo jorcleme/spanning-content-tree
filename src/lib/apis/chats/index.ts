@@ -1,7 +1,15 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 import { getTimeRange } from '$lib/utils';
+import {
+	type Nullable,
+	type ChatResponse,
+	type ChatListResponse,
+	type ChatTagListResponse,
+	type FilteredChatList,
+	type TagsByUserResponse
+} from '$lib/types';
 
-export const createNewChat = async (token: string, chat: object) => {
+export const createNewChat = async (token: string, chat: object): Promise<ChatResponse | null> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/new`, {
@@ -17,7 +25,7 @@ export const createNewChat = async (token: string, chat: object) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err;
@@ -32,7 +40,7 @@ export const createNewChat = async (token: string, chat: object) => {
 	return res;
 };
 
-export const getChatList = async (token: string = '') => {
+export const getChatList = async (token: string = ''): Promise<Nullable<FilteredChatList>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/`, {
@@ -45,10 +53,8 @@ export const getChatList = async (token: string = '') => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			const data: FilteredChatList = await res.json();
+			return data;
 		})
 		.catch((err) => {
 			error = err;
@@ -60,13 +66,18 @@ export const getChatList = async (token: string = '') => {
 		throw error;
 	}
 
-	return res.map((chat) => ({
-		...chat,
-		time_range: getTimeRange(chat.updated_at)
-	}));
+	return res
+		? res.map((chat) => ({
+				...chat,
+				time_range: getTimeRange(chat.updated_at)
+		  }))
+		: null;
 };
 
-export const getChatListByUserId = async (token: string = '', userId: string) => {
+export const getChatListByUserId = async (
+	token: string = '',
+	userId: string
+): Promise<Nullable<FilteredChatList>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/list/user/${userId}`, {
@@ -79,10 +90,8 @@ export const getChatListByUserId = async (token: string = '', userId: string) =>
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			const data: FilteredChatList = await res.json();
+			return data;
 		})
 		.catch((err) => {
 			error = err;
@@ -94,13 +103,22 @@ export const getChatListByUserId = async (token: string = '', userId: string) =>
 		throw error;
 	}
 
-	return res.map((chat) => ({
-		...chat,
-		time_range: getTimeRange(chat.updated_at)
-	}));
+	return res
+		? res.map((chat) => ({
+				...chat,
+				time_range: getTimeRange(chat.updated_at)
+		  }))
+		: null;
+
+	// return res.map((chat) => ({
+	// 	...chat,
+	// 	time_range: getTimeRange(chat.updated_at)
+	// }));
 };
 
-export const getArchivedChatList = async (token: string = '') => {
+export const getArchivedChatList = async (
+	token: string = ''
+): Promise<Nullable<FilteredChatList>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/archived`, {
@@ -113,10 +131,7 @@ export const getArchivedChatList = async (token: string = '') => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err;
@@ -131,7 +146,7 @@ export const getArchivedChatList = async (token: string = '') => {
 	return res;
 };
 
-export const getAllChats = async (token: string) => {
+export const getAllChats = async (token: string): Promise<Nullable<ChatListResponse>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/all`, {
@@ -144,10 +159,7 @@ export const getAllChats = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err;
@@ -162,7 +174,7 @@ export const getAllChats = async (token: string) => {
 	return res;
 };
 
-export const getAllArchivedChats = async (token: string) => {
+export const getAllArchivedChats = async (token: string): Promise<Nullable<ChatListResponse>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/all/archived`, {
@@ -175,10 +187,7 @@ export const getAllArchivedChats = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err;
@@ -193,7 +202,7 @@ export const getAllArchivedChats = async (token: string) => {
 	return res;
 };
 
-export const getAllUserChats = async (token: string) => {
+export const getAllUserChats = async (token: string): Promise<Nullable<ChatListResponse>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/all/db`, {
@@ -206,10 +215,8 @@ export const getAllUserChats = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			const data: ChatListResponse = await res.json();
+			return data;
 		})
 		.catch((err) => {
 			error = err;
@@ -224,7 +231,7 @@ export const getAllUserChats = async (token: string) => {
 	return res;
 };
 
-export const getAllChatTags = async (token: string) => {
+export const getAllChatTags = async (token: string): Promise<Nullable<TagsByUserResponse>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/tags/all`, {
@@ -237,10 +244,8 @@ export const getAllChatTags = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			const data: TagsByUserResponse = await res.json();
+			return data;
 		})
 		.catch((err) => {
 			error = err;
@@ -255,7 +260,10 @@ export const getAllChatTags = async (token: string) => {
 	return res;
 };
 
-export const getChatListByTagName = async (token: string = '', tagName: string) => {
+export const getChatListByTagName = async (
+	token: string = '',
+	tagName: string
+): Promise<Nullable<FilteredChatList>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/tags`, {
@@ -271,7 +279,8 @@ export const getChatListByTagName = async (token: string = '', tagName: string) 
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			const data: FilteredChatList = await res.json();
+			return data;
 		})
 		.then((json) => {
 			return json;
@@ -285,6 +294,9 @@ export const getChatListByTagName = async (token: string = '', tagName: string) 
 	if (error) {
 		throw error;
 	}
+	if (res === null) {
+		return null;
+	}
 
 	return res.map((chat) => ({
 		...chat,
@@ -292,7 +304,9 @@ export const getChatListByTagName = async (token: string = '', tagName: string) 
 	}));
 };
 
-export const getChatById = async (token: string, id: string) => {
+// Get a chat by the chat id
+// This is used in the Chat.svelte page where the chatIdProp or $chatId is used to get the chat by id
+export const getChatById = async (token: string, id: string): Promise<Nullable<ChatResponse>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/${id}`, {
@@ -305,8 +319,12 @@ export const getChatById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			console.log(`Get Chat By Id: ${res.json()}`);
-			return res.json();
+			const data = await res.json();
+			console.log(
+				'[getChatById:apis/chats/index.ts] Get Chat By Id res.json ->: ',
+				JSON.stringify(data, null, 2)
+			);
+			return data;
 		})
 		.then((json) => {
 			return json;
@@ -325,7 +343,10 @@ export const getChatById = async (token: string, id: string) => {
 	return res;
 };
 
-export const getChatByShareId = async (token: string, share_id: string) => {
+export const getChatByShareId = async (
+	token: string,
+	share_id: string
+): Promise<Nullable<ChatResponse>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/share/${share_id}`, {
@@ -357,7 +378,7 @@ export const getChatByShareId = async (token: string, share_id: string) => {
 	return res;
 };
 
-export const cloneChatById = async (token: string, id: string) => {
+export const cloneChatById = async (token: string, id: string): Promise<Nullable<ChatResponse>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/${id}/clone`, {
@@ -370,10 +391,7 @@ export const cloneChatById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err;
@@ -395,7 +413,7 @@ export const cloneChatById = async (token: string, id: string) => {
 	return res;
 };
 
-export const shareChatById = async (token: string, id: string) => {
+export const shareChatById = async (token: string, id: string): Promise<ChatResponse | null> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/${id}/share`, {
@@ -408,10 +426,7 @@ export const shareChatById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err;
@@ -427,7 +442,7 @@ export const shareChatById = async (token: string, id: string) => {
 	return res;
 };
 
-export const archiveChatById = async (token: string, id: string) => {
+export const archiveChatById = async (token: string, id: string): Promise<ChatResponse | null> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/${id}/archive`, {
@@ -440,10 +455,7 @@ export const archiveChatById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err;
@@ -459,7 +471,7 @@ export const archiveChatById = async (token: string, id: string) => {
 	return res;
 };
 
-export const deleteSharedChatById = async (token: string, id: string) => {
+export const deleteSharedChatById = async (token: string, id: string): Promise<boolean | null> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/${id}/share`, {
@@ -472,11 +484,9 @@ export const deleteSharedChatById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
-		.then((json) => {
-			return json;
-		})
+
 		.catch((err) => {
 			error = err;
 
@@ -491,7 +501,11 @@ export const deleteSharedChatById = async (token: string, id: string) => {
 	return res;
 };
 
-export const updateChatById = async (token: string, id: string, chat: object) => {
+export const updateChatById = async (
+	token: string,
+	id: string,
+	chat: object
+): Promise<ChatResponse | null> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/${id}`, {
@@ -507,11 +521,9 @@ export const updateChatById = async (token: string, id: string, chat: object) =>
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
-		.then((json) => {
-			return json;
-		})
+
 		.catch((err) => {
 			error = err;
 
@@ -526,7 +538,7 @@ export const updateChatById = async (token: string, id: string, chat: object) =>
 	return res;
 };
 
-export const deleteChatById = async (token: string, id: string) => {
+export const deleteChatById = async (token: string, id: string): Promise<boolean | null> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/${id}`, {
@@ -539,11 +551,9 @@ export const deleteChatById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
-		.then((json) => {
-			return json;
-		})
+
 		.catch((err) => {
 			error = err.detail;
 
@@ -558,7 +568,10 @@ export const deleteChatById = async (token: string, id: string) => {
 	return res;
 };
 
-export const getTagsById = async (token: string, id: string) => {
+export const getTagsById = async (
+	token: string,
+	id: string
+): Promise<ChatTagListResponse | null> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/${id}/tags`, {
@@ -571,7 +584,7 @@ export const getTagsById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.then((json) => {
 			return json;

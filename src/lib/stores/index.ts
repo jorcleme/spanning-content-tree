@@ -1,5 +1,6 @@
 import { APP_NAME } from '$lib/constants';
 import { type Writable, writable } from 'svelte/store';
+import type { Nullable, FilteredChatList } from '$lib/types';
 import { derived } from 'svelte/store';
 import type { GlobalModelConfig, ModelConfig } from '$lib/apis';
 import type { Banner } from '$lib/types';
@@ -11,7 +12,7 @@ export const config: Writable<Config | undefined> = writable(undefined);
 export const user: Writable<SessionUser | undefined> = writable(undefined);
 
 // Frontend
-export const MODEL_DOWNLOAD_POOL = writable({});
+export const MODEL_DOWNLOAD_POOL = writable<ModelDownloadPool>({});
 
 export const mobile = writable(false);
 
@@ -22,7 +23,7 @@ export const USAGE_POOL: Writable<null | string[]> = writable(null);
 export const theme = writable('system');
 export const chatId = writable('');
 
-export const chats = writable([]);
+export const chats = writable<Nullable<FilteredChatList>>([]);
 export const pinnedChats = writable([]);
 export const tags = writable([]);
 
@@ -49,11 +50,14 @@ type BaseModel = {
 	id: string;
 	name: string;
 	info?: ModelConfig;
+	ollama?: OllamaPullDetails;
+	openai?: OpenAIModelDetails;
 };
 
 export interface OpenAIModel extends BaseModel {
 	external: boolean;
 	source?: string;
+	owned_by?: 'openai';
 }
 
 export interface OllamaModel extends BaseModel {
@@ -63,7 +67,25 @@ export interface OllamaModel extends BaseModel {
 	model: string;
 	modified_at: string;
 	digest: string;
+	owned_by?: 'ollama';
 }
+
+type OpenAIModelDetails = {
+	created: number;
+	id: string;
+	object: string;
+	owned_by: 'openai';
+};
+
+type OllamaPullDetails = {
+	details: OllamaModelDetails;
+	digest: string;
+	model: string;
+	modified_at: string;
+	name: string;
+	size: number;
+	urls: string[];
+};
 
 type OllamaModelDetails = {
 	parent_model: string;
@@ -98,8 +120,23 @@ type Settings = {
 	num_batch?: string;
 	num_keep?: string;
 	options?: ModelOptions;
+	memory?: boolean;
+	userLocation?: string | { latitude: any; longitude: any };
+	params?: Record<string, any>;
+	responseAutoCopy?: boolean;
+	splitLargeChunks?: boolean;
 };
 
+// Cisco Defined Types
+
+// PersistentConfig Settings
+export type PersistentConfigSettings = {
+	ui: Partial<Settings>;
+};
+
+type ModelDownloadPool = Record<string, any>;
+
+// End Cisco Defined Types
 type ModelOptions = {
 	stop?: boolean;
 };

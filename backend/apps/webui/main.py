@@ -97,6 +97,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+##############################
+#
+#
+# Mounted Routers (APIs)
+#
+#
+##############################
 
 app.include_router(configs.router, prefix="/configs", tags=["configs"])
 app.include_router(auths.router, prefix="/auths", tags=["auths"])

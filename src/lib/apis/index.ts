@@ -1,9 +1,11 @@
 import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+import type { Message } from '$lib/types';
+import type { Model } from '$lib/stores';
 
-export const getModels = async (token: string = '') => {
+export const getModels = async (token: string = ''): Promise<Model[]> => {
 	let error = null;
 
-	const res = await fetch(`${WEBUI_BASE_URL}/api/models`, {
+	const res: { data: Model[] } = await fetch(`${WEBUI_BASE_URL}/api/models`, {
 		method: 'GET',
 		headers: {
 			Accept: 'application/json',
@@ -13,7 +15,7 @@ export const getModels = async (token: string = '') => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -37,7 +39,7 @@ export const getModels = async (token: string = '') => {
 
 			// If both a and b have the position property
 			if (aHasPosition && bHasPosition) {
-				return a.info.meta.position - b.info.meta.position;
+				return a.info!.meta!.position! - b.info!.meta!.position!;
 			}
 
 			// If only a has the position property, it should come first
@@ -67,8 +69,10 @@ export const getModels = async (token: string = '') => {
 
 type ChatCompletedForm = {
 	model: string;
-	messages: string[];
+	messages: Message[];
 	chat_id: string;
+	session_id?: string;
+	id?: string;
 };
 
 export const chatCompleted = async (token: string, body: ChatCompletedForm) => {
@@ -357,7 +361,7 @@ export const getPipelinesList = async (token: string = '') => {
 		throw error;
 	}
 
-	let pipelines = res?.data ?? [];
+	const pipelines = res?.data ?? [];
 	return pipelines;
 };
 
@@ -500,7 +504,7 @@ export const getPipelines = async (token: string, urlIdx?: string) => {
 		throw error;
 	}
 
-	let pipelines = res?.data ?? [];
+	const pipelines = res?.data ?? [];
 	return pipelines;
 };
 
@@ -886,7 +890,7 @@ export const getModelConfig = async (token: string): Promise<GlobalModelConfig> 
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -909,9 +913,17 @@ export interface ModelConfig {
 	params: ModelParams;
 }
 
+interface ModelMetaCapabilities {
+	vision?: boolean;
+	[capability: string]: any;
+}
 export interface ModelMeta {
 	description?: string;
-	capabilities?: object;
+	capabilities?: ModelMetaCapabilities;
+	knowledge?: any;
+	tags: any[];
+	hidden?: boolean;
+	position?: number;
 }
 
 export interface ModelParams {}

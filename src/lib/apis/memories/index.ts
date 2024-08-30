@@ -1,6 +1,7 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
+import type { Nullable, Memory, UserMemoryQuery } from '$lib/types';
 
-export const getMemories = async (token: string) => {
+export const getMemories = async (token: string): Promise<Nullable<Memory[]>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/memories/`, {
@@ -13,7 +14,7 @@ export const getMemories = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -28,7 +29,7 @@ export const getMemories = async (token: string) => {
 	return res;
 };
 
-export const addNewMemory = async (token: string, content: string) => {
+export const addNewMemory = async (token: string, content: string): Promise<Nullable<Memory>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/memories/add`, {
@@ -44,7 +45,7 @@ export const addNewMemory = async (token: string, content: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -59,7 +60,11 @@ export const addNewMemory = async (token: string, content: string) => {
 	return res;
 };
 
-export const updateMemoryById = async (token: string, id: string, content: string) => {
+export const updateMemoryById = async (
+	token: string,
+	id: string,
+	content: string
+): Promise<Nullable<Memory>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/memories/${id}/update`, {
@@ -75,7 +80,7 @@ export const updateMemoryById = async (token: string, id: string, content: strin
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -90,7 +95,10 @@ export const updateMemoryById = async (token: string, id: string, content: strin
 	return res;
 };
 
-export const queryMemory = async (token: string, content: string) => {
+export const queryMemory = async (
+	token: string,
+	content: string
+): Promise<Nullable<UserMemoryQuery>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/memories/query`, {
@@ -106,7 +114,7 @@ export const queryMemory = async (token: string, content: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -121,7 +129,7 @@ export const queryMemory = async (token: string, content: string) => {
 	return res;
 };
 
-export const deleteMemoryById = async (token: string, id: string) => {
+export const deleteMemoryById = async (token: string, id: string): Promise<Nullable<boolean>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/memories/${id}`, {
@@ -134,14 +142,10 @@ export const deleteMemoryById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
-
 			console.log(err);
 			return null;
 		});
@@ -153,7 +157,7 @@ export const deleteMemoryById = async (token: string, id: string) => {
 	return res;
 };
 
-export const deleteMemoriesByUserId = async (token: string) => {
+export const deleteMemoriesByUserId = async (token: string): Promise<Nullable<boolean>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/memories/user`, {
@@ -166,14 +170,10 @@ export const deleteMemoriesByUserId = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
-
 			console.log(err);
 			return null;
 		});

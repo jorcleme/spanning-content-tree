@@ -127,7 +127,7 @@ export const getUserSettings = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);

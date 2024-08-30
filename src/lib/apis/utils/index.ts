@@ -18,7 +18,9 @@ export const getGravatarUrl = async (email: string) => {
 			error = err;
 			return null;
 		});
-
+	// if (error) {
+	// throw error;
+	//}
 	return res;
 };
 

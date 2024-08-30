@@ -1286,7 +1286,7 @@ async def chat_completed(form_data: dict, user=Depends(get_verified_user)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": str(e)},
             )
-
+    log.info(f"chat_completed: {data}")
     return data
 
 

@@ -63,6 +63,14 @@
 	import ChatControls from './ChatControls.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import ClarificationCard from './Messages/ClarificationCard.svelte';
+	import type {
+		ChatResponse,
+		Message,
+		MessageHistory,
+		ClientFile,
+		ChatTagListResponse
+	} from '$lib/types';
+	import { isErrorWithDetail } from '$lib/utils';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
 
@@ -90,6 +98,19 @@
 
 	let selectedModelIds = [];
 	$: selectedModelIds = atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
+	// Custom replacer to handle circular references, particularly for $socket
+	function getCircularReplacer() {
+		const seen = new WeakSet();
+		return (key: string, value: any) => {
+			if (typeof value === 'object' && value !== null) {
+				if (seen.has(value)) {
+					return '[Circular]';
+				}
+				seen.add(value);
+			}
+			return value;
+		};
+	}
 
 	// Cisco Logging to see shape of values
 	$: {
@@ -103,27 +124,42 @@
 			)}`
 		);
 		console.log(`[$page:Chat.svelte] -> ${JSON.stringify($page, null, 2)}`);
-		console.log(`[$socket:Chat.svelte] -> ${$socket}`);
+		console.log(`[$socket:Chat.svelte] -> ${JSON.stringify($socket, getCircularReplacer(), 2)}`);
+		console.log('[files:Chat.svelte] ->', files);
+		/* 
+		File object shape:
+		-------------------
+		collection_name: "2a1113258f84e36ba0f4734b33092836936e538c539b2c741218fa9bc7aef13"
+		error: ""
+		file: {id: '362ec854-789f-4563-8981-92c0f196cd47', user_id: 'b7ad0b4d-972a-4225-8cbf-b592b4a51a90', filename: '362ec854-789f-4563-8981-92c0f196cd47_auto-surveillance-vlan-catalyst-1200-1300-switches.pdf', meta: {…}, created_at: 1724870348}
+		id: "362ec854-789f-4563-8981-92c0f196cd47"
+		name: "auto-surveillance-vlan-catalyst-1200-1300-switches.pdf"
+		status: "processed"
+		type: "file"
+		url: "/api/v1/files/362ec854-789f-4563-8981-92c0f196cd47"
+		-------------------
+		*/
 	}
 
-	let selectedToolIds = [];
+	let selectedToolIds: string[] = [];
 	let webSearchEnabled = false;
 
-	let chat = null;
-	let tags = [];
+	let chat: ChatResponse | null = null;
+	let tags: ChatTagListResponse = [];
 
 	let title = '';
 	let prompt = '';
 
-	let chatFiles = [];
-	let files = [];
-	let messages = [];
-	let history = {
+	let chatFiles: ClientFile[] = [];
+	let files: ClientFile[] = [];
+	let messages: Message[] = [];
+
+	let history: MessageHistory = {
 		messages: {},
 		currentId: null
 	};
 
-	let params = {};
+	let params: { [x: string]: any } = {};
 	let valves = {};
 
 	///////////////////
@@ -134,14 +170,14 @@
 	let awaitingClarification = false;
 	let originalUserPrompt = '';
 	let clarificationQuestion = '';
-	export let selectedOptionsString = '';
-	export let selectedNotOptionsString = '';
+	// export let selectedOptionsString = '';
+	// export let selectedNotOptionsString = '';
 	let clarificationOptions = [];
 	let clarificationNotOptions = [];
-	export let question = '';
-	export let option = '';
-	export let notOption = '';
-	export let options = [];
+	// export let question = '';
+	// export let option = '';
+	// export let notOption = '';
+	// export let options = [];
 	let keepContext = false;
 	let clarificationNeeded = false;
 	let selectedOption = '';
@@ -149,295 +185,308 @@
 
 	let userMessage = null;
 
-	const generateQuestions = async (responseMessage, previousQuestions) => {
-		console.log('Chat.svelte -> generateQuestions -> responseMessage', responseMessage);
+	/////////////////////////
+	//
+	// 	(Cisco) ClarificationCard functions
+	//
+	/////////////////////////
 
-		console.log('Chat.svelte -> generateQuestions -> previousQuestions', previousQuestions);
+	// const generateQuestions = async (responseMessage, previousQuestions) => {
+	// 	console.log('Chat.svelte -> generateQuestions -> responseMessage', responseMessage);
 
-		const prompt_template = `Generate 3 (and only 3) questions based on the following text.
-		do not provide any explainations about the questions. each between 3-5 words long:
-			1. [3-5 word(s)]
-			2. [3-5 word(s)]
-			3. [3-5 word(s)]
+	// 	console.log('Chat.svelte -> generateQuestions -> previousQuestions', previousQuestions);
 
-			Avoid generating questions similar to the provided examples:\n\n`;
-		const exampleQuestions = previousQuestions.join('\n');
-		const prompt = `${prompt_template}${responseMessage.content}\n\nExample questions to avoid:\n${exampleQuestions}\n\nNew questions:`;
+	// 	const prompt_template = `Generate 3 (and only 3) questions based on the following text.
+	// 	do not provide any explainations about the questions. each between 3-5 words long:
+	// 		1. [3-5 word(s)]
+	// 		2. [3-5 word(s)]
+	// 		3. [3-5 word(s)]
 
-		try {
-			// Send a request to the LLM with the prompt
-			const res = await generateTextCompletion(localStorage.token, selectedModels[0], prompt);
+	// 		Avoid generating questions similar to the provided examples:\n\n`;
+	// 	const exampleQuestions = previousQuestions.join('\n');
+	// 	const prompt = `${prompt_template}${responseMessage.content}\n\nExample questions to avoid:\n${exampleQuestions}\n\nNew questions:`;
 
-			// Check status of the response
-			// console.log('hey corey the res', res);
+	// 	try {
+	// 		// Send a request to the LLM with the prompt
+	// 		const res = await generateTextCompletion(localStorage.token, selectedModels[0], prompt);
 
-			if (res && res.ok) {
-				const reader = res
-					.body!.pipeThrough(new TextDecoderStream())
-					.pipeThrough(splitStream('\n'))
-					.getReader();
+	// 		// Check status of the response
+	// 		// console.log('hey corey the res', res);
 
-				let data = '';
+	// 		if (res && res.ok) {
+	// 			const reader = res
+	// 				.body!.pipeThrough(new TextDecoderStream())
+	// 				.pipeThrough(splitStream('\n'))
+	// 				.getReader();
 
-				while (true) {
-					const { value, done } = await reader.read();
-					if (done) {
-						break;
-					}
+	// 			let data = '';
 
-					const lines = value.split('\n');
-					for (const line of lines) {
-						if (line !== '') {
-							const parsedLine = JSON.parse(line);
-							if (parsedLine.response) {
-								data += parsedLine.response;
-							}
-						}
-					}
-				}
+	// 			while (true) {
+	// 				const { value, done } = await reader.read();
+	// 				if (done) {
+	// 					break;
+	// 				}
 
-				console.log('hey corey the data', data);
+	// 				const lines = value.split('\n');
+	// 				for (const line of lines) {
+	// 					if (line !== '') {
+	// 						const parsedLine = JSON.parse(line);
+	// 						if (parsedLine.response) {
+	// 							data += parsedLine.response;
+	// 						}
+	// 					}
+	// 				}
+	// 			}
 
-				const questions = data.trim().split('\n').slice(1);
-				const filteredQuestions = questions
-					.map((q) => q.replace(/^\d+\.\s*/, ''))
-					.filter((q) => q.trim() !== '' && !q.includes('Note:') && !q.includes('Please note'));
-				responseMessage.questions = filteredQuestions;
-				messages = [...messages]; // Update the messages array to trigger reactivity
+	// 			console.log('hey corey the data', data);
 
-				return { success: true, data: filteredQuestions };
-			} else {
-				const error = await res!.text(); // Get the error as text instead of JSON
-				toast.error(error);
-				console.log('hey corey the error', error);
-				return { success: false, data: '' };
-			}
-		} catch (error) {
-			console.error('Failed to query LLM:', error);
-			toast.error(`${error}`);
-			return { success: false, data: '' };
-		}
-	};
+	// 			const questions = data.trim().split('\n').slice(1);
+	// 			const filteredQuestions = questions
+	// 				.map((q) => q.replace(/^\d+\.\s*/, ''))
+	// 				.filter((q) => q.trim() !== '' && !q.includes('Note:') && !q.includes('Please note'));
+	// 			responseMessage.questions = filteredQuestions;
+	// 			messages = [...messages]; // Update the messages array to trigger reactivity
 
-	const checkClarificationNeeded = async (
-		userMessage: string
-	): Promise<{ question: string; options: { label: string; value: string }[] } | null> => {
-		// Send a request to the LLM to generate clarification options
-		const clarificationOptionsFromLLM = await getClarificationOptions(userMessage);
+	// 			return { success: true, data: filteredQuestions };
+	// 		} else {
+	// 			const error = await res!.text(); // Get the error as text instead of JSON
+	// 			toast.error(error);
+	// 			console.log('hey corey the error', error);
+	// 			return { success: false, data: '' };
+	// 		}
+	// 	} catch (error) {
+	// 		console.error('Failed to query LLM:', error);
+	// 		toast.error(`${error}`);
+	// 		return { success: false, data: '' };
+	// 	}
+	// };
 
-		if (clarificationOptionsFromLLM && clarificationOptionsFromLLM.success) {
-			let parsedOptions = parseclarificationOptionsFromLLM(clarificationOptionsFromLLM.data);
-			if (parsedOptions.length > 0) {
-				// Reset the selected option if it's a new clarification request and context is not being kept
-				if (!clarificationNeeded || !keepContext) {
-					selectedOption = '';
-					notOptions = []; // Reset notOptions to an empty array
-				}
+	// const checkClarificationNeeded = async (
+	// 	userMessage: string
+	// ): Promise<{ question: string; options: { label: string; value: string }[] } | null> => {
+	// 	// Send a request to the LLM to generate clarification options
+	// 	const clarificationOptionsFromLLM = await getClarificationOptions(userMessage);
 
-				// Remove the 'keep_context' option from the visible options
-				parsedOptions = parsedOptions.filter((option) => option.label !== 'keep_context');
+	// 	if (clarificationOptionsFromLLM && clarificationOptionsFromLLM.success) {
+	// 		let parsedOptions = parseclarificationOptionsFromLLM(clarificationOptionsFromLLM.data);
+	// 		if (parsedOptions.length > 0) {
+	// 			// Reset the selected option if it's a new clarification request and context is not being kept
+	// 			if (!clarificationNeeded || !keepContext) {
+	// 				selectedOption = '';
+	// 				notOptions = []; // Reset notOptions to an empty array
+	// 			}
 
-				return {
-					question: 'Please clarify your request:',
-					options: parsedOptions
-				};
-			}
-		}
+	// 			// Remove the 'keep_context' option from the visible options
+	// 			parsedOptions = parsedOptions.filter((option) => option.label !== 'keep_context');
 
-		// If the LLM response fails or doesn't provide any options, use default options
-		return {
-			question: 'Please provide more details for your request:',
-			options: [
-				{ label: 'Option 1', value: 'option1' },
-				{ label: 'Option 2', value: 'option2' },
-				{ label: 'Option 3', value: 'option3' }
-			]
-		};
-	};
+	// 			return {
+	// 				question: 'Please clarify your request:',
+	// 				options: parsedOptions
+	// 			};
+	// 		}
+	// 	}
 
-	// Helper function to query the LLM and get a response
-	const getClarificationOptions = async (
-		prompt: string
-	): Promise<{ success: boolean; data: string }> => {
-		console.log('Hey corey, the selectedModels', selectedModels[0], 'and the prompt is ', prompt);
+	// 	// If the LLM response fails or doesn't provide any options, use default options
+	// 	return {
+	// 		question: 'Please provide more details for your request:',
+	// 		options: [
+	// 			{ label: 'Option 1', value: 'option1' },
+	// 			{ label: 'Option 2', value: 'option2' },
+	// 			{ label: 'Option 3', value: 'option3' }
+	// 		]
+	// 	};
+	// };
 
-		const modifiedPrompt = `Please provide exactly 3 short, concise options (2-3 words each) for clarifying the user's request. Limit your response to only the options in the following format, without any additional text or explanations:
+	// // Helper function to query the LLM and get a response
+	// const getClarificationOptions = async (
+	// 	prompt: string
+	// ): Promise<{ success: boolean; data: string }> => {
+	// 	console.log('Hey corey, the selectedModels', selectedModels[0], 'and the prompt is ', prompt);
 
-			Option 1: [word(s)]
-			Option 2: [word(s)]
-			Option 3: [word(s)]
+	// 	const modifiedPrompt = `Please provide exactly 3 short, concise options (2-3 words each) for clarifying the user's request. Limit your response to only the options in the following format, without any additional text or explanations:
 
-			Based on the user's request: "${prompt}", provide the 3 clarifying options now.`;
+	// 		Option 1: [word(s)]
+	// 		Option 2: [word(s)]
+	// 		Option 3: [word(s)]
 
-		try {
-			// Send a request to the LLM with the prompt
-			const res = await generateTextCompletion(
-				localStorage.token,
-				selectedModels[0],
-				modifiedPrompt
-			);
+	// 		Based on the user's request: "${prompt}", provide the 3 clarifying options now.`;
 
-			// Check status of the response
-			console.log('hey corey the res', res);
-			if (res && res.ok) {
-				const reader = res.body
-					.pipeThrough(new TextDecoderStream())
-					.pipeThrough(splitStream('\n'))
-					.getReader();
+	// 	try {
+	// 		// Send a request to the LLM with the prompt
+	// 		const res = await generateTextCompletion(
+	// 			localStorage.token,
+	// 			selectedModels[0],
+	// 			modifiedPrompt
+	// 		);
 
-				let data = '';
-				while (true) {
-					const { value, done } = await reader.read();
-					if (done) {
-						break;
-					}
+	// 		// Check status of the response
+	// 		console.log('hey corey the res', res);
+	// 		if (res && res.ok) {
+	// 			const reader = res.body
+	// 				.pipeThrough(new TextDecoderStream())
+	// 				.pipeThrough(splitStream('\n'))
+	// 				.getReader();
 
-					const lines = value.split('\n');
-					for (const line of lines) {
-						if (line !== '') {
-							console.log(line);
-							const parsedLine = JSON.parse(line);
-							if (parsedLine.response) {
-								data += parsedLine.response;
-							}
-						}
-					}
-				}
+	// 			let data = '';
+	// 			while (true) {
+	// 				const { value, done } = await reader.read();
+	// 				if (done) {
+	// 					break;
+	// 				}
 
-				// console.log('hey corey the data', data);
-				return { success: true, data };
-			} else {
-				const error = await res.text(); // Get the error as text instead of JSON
-				// console.log('hey corey the error', error);
-				return { success: false, data: '' };
-			}
-		} catch (error) {
-			console.error('Failed to query LLM:', error);
-			return { success: false, data: '' };
-		}
-	};
+	// 				const lines = value.split('\n');
+	// 				for (const line of lines) {
+	// 					if (line !== '') {
+	// 						console.log(line);
+	// 						const parsedLine = JSON.parse(line);
+	// 						if (parsedLine.response) {
+	// 							data += parsedLine.response;
+	// 						}
+	// 					}
+	// 				}
+	// 			}
 
-	// Helper function to parse the LLM response and extract the clarification options
-	const parseclarificationOptionsFromLLM = (
-		responseData: string
-	): { label: string; value: string }[] => {
-		// console.log('hey corey the responseData from parseclarificationOptionsFromLLM', responseData);
+	// 			// console.log('hey corey the data', data);
+	// 			return { success: true, data };
+	// 		} else {
+	// 			const error = await res.text(); // Get the error as text instead of JSON
+	// 			// console.log('hey corey the error', error);
+	// 			return { success: false, data: '' };
+	// 		}
+	// 	} catch (error) {
+	// 		console.error('Failed to query LLM:', error);
+	// 		return { success: false, data: '' };
+	// 	}
+	// };
 
-		const lines = responseData.split('\n').map((line) => line.trim());
-		const options = lines
-			.filter((line) => line.startsWith('Option'))
-			.map((line) => {
-				const [_, label] = line.split(':').map((part) => part.trim());
-				const value = label.toLowerCase().replace(/\s+/g, '_');
-				return { label, value };
-			});
+	// // Helper function to parse the LLM response and extract the clarification options
+	// const parseclarificationOptionsFromLLM = (
+	// 	responseData: string
+	// ): { label: string; value: string }[] => {
+	// 	// console.log('hey corey the responseData from parseclarificationOptionsFromLLM', responseData);
 
-		if (options.length === 0) {
-			// If no valid options are found, return an empty array
-			return [];
-		}
+	// 	const lines = responseData.split('\n').map((line) => line.trim());
+	// 	const options = lines
+	// 		.filter((line) => line.startsWith('Option'))
+	// 		.map((line) => {
+	// 			const [_, label] = line.split(':').map((part) => part.trim());
+	// 			const value = label.toLowerCase().replace(/\s+/g, '_');
+	// 			return { label, value };
+	// 		});
 
-		return options;
-	};
-	export let _user;
-	export let promptNotIncluded = [];
+	// 	if (options.length === 0) {
+	// 		// If no valid options are found, return an empty array
+	// 		return [];
+	// 	}
 
-	const handleClarificationSubmit = (
-		selectedOptionsString = [],
-		notOptionsString = '[]',
-		inputValue = '',
-		originalUserPrompt = ''
-	) => {
-		let selectedOptions = [];
-		let notOptions = [];
-		console.log(
-			'hey corey from handleClarificationSubmit the originalUserPrompt is',
-			originalUserPrompt
-		);
+	// 	return options;
+	// };
+	// export let _user;
+	// export let promptNotIncluded = [];
 
-		if (selectedOptionsString.length !== 0) {
-			console.log(
-				'corey after checking selectedOptions in handleClarificationSubmit selectedOptionsString is',
-				selectedOptionsString
-			);
-			selectedOptions = JSON.parse(selectedOptionsString);
-		}
+	// const handleClarificationSubmit = (
+	// 	selectedOptionsString = [],
+	// 	notOptionsString = '[]',
+	// 	inputValue = '',
+	// 	originalUserPrompt = ''
+	// ) => {
+	// 	let selectedOptions = [];
+	// 	let notOptions = [];
+	// 	console.log(
+	// 		'hey corey from handleClarificationSubmit the originalUserPrompt is',
+	// 		originalUserPrompt
+	// 	);
 
-		console.log(
-			'corey after checking selectedOptions in handleClarificationSubmit notOptionsString is',
-			notOptionsString
-		);
+	// 	if (selectedOptionsString.length !== 0) {
+	// 		console.log(
+	// 			'corey after checking selectedOptions in handleClarificationSubmit selectedOptionsString is',
+	// 			selectedOptionsString
+	// 		);
+	// 		selectedOptions = JSON.parse(selectedOptionsString);
+	// 	}
 
-		if (notOptionsString.length !== 0) {
-			console.log(
-				'corey after checking notOptionsString in handleClarificationSubmit notOptionsString is',
-				selectedOptionsString
-			);
-			notOptions = JSON.parse(notOptionsString);
-		}
+	// 	console.log(
+	// 		'corey after checking selectedOptions in handleClarificationSubmit notOptionsString is',
+	// 		notOptionsString
+	// 	);
 
-		if (selectedOptions.length > 0 || notOptions.length > 0 || inputValue.trim() !== '') {
-			const includedOptions = selectedOptions.length > 0 ? selectedOptions.join(', ') : '';
-			const excludedOptions = notOptions.length > 0 ? notOptions.join(', ') : '';
-			const userDirection = inputValue.trim() !== '' ? inputValue.trim() : '';
+	// 	if (notOptionsString.length !== 0) {
+	// 		console.log(
+	// 			'corey after checking notOptionsString in handleClarificationSubmit notOptionsString is',
+	// 			selectedOptionsString
+	// 		);
+	// 		notOptions = JSON.parse(notOptionsString);
+	// 	}
 
-			let clarifiedPrompt = `${originalUserPrompt}\n`;
+	// 	if (selectedOptions.length > 0 || notOptions.length > 0 || inputValue.trim() !== '') {
+	// 		const includedOptions = selectedOptions.length > 0 ? selectedOptions.join(', ') : '';
+	// 		const excludedOptions = notOptions.length > 0 ? notOptions.join(', ') : '';
+	// 		const userDirection = inputValue.trim() !== '' ? inputValue.trim() : '';
 
-			if (includedOptions) {
-				clarifiedPrompt += `\nSelected Options: ${includedOptions}\n`;
-			}
+	// 		let clarifiedPrompt = `${originalUserPrompt}\n`;
 
-			if (excludedOptions) {
-				clarifiedPrompt += `Excluded Options: ${excludedOptions}\n`;
-			}
+	// 		if (includedOptions) {
+	// 			clarifiedPrompt += `\nSelected Options: ${includedOptions}\n`;
+	// 		}
 
-			if (userDirection) {
-				clarifiedPrompt += `User Direction: ${userDirection}\n`;
-			}
+	// 		if (excludedOptions) {
+	// 			clarifiedPrompt += `Excluded Options: ${excludedOptions}\n`;
+	// 		}
 
-			console.log('Clarified Prompt:', clarifiedPrompt);
+	// 		if (userDirection) {
+	// 			clarifiedPrompt += `User Direction: ${userDirection}\n`;
+	// 		}
 
-			// Submit the clarified prompt
-			submitPrompt(clarifiedPrompt);
+	// 		console.log('Clarified Prompt:', clarifiedPrompt);
 
-			// Reset clarification state
-			selectedOption = '';
-			notOptions = '';
-			clarificationVisible = false;
-			clarificationQuestion = '';
-			clarificationOptions = [];
-			clarificationNeeded = false;
-		} else {
-			// Submit the clarified prompt
-			submitPrompt(originalUserPrompt);
+	// 		// Submit the clarified prompt
+	// 		submitPrompt(clarifiedPrompt);
 
-			// Reset clarification state
-			selectedOption = '';
-			notOptions = '';
-			clarificationVisible = false;
-			clarificationQuestion = '';
-			clarificationOptions = [];
-			clarificationNeeded = false;
-		}
-	};
+	// 		// Reset clarification state
+	// 		selectedOption = '';
+	// 		notOptions = '';
+	// 		clarificationVisible = false;
+	// 		clarificationQuestion = '';
+	// 		clarificationOptions = [];
+	// 		clarificationNeeded = false;
+	// 	} else {
+	// 		// Submit the clarified prompt
+	// 		submitPrompt(originalUserPrompt);
 
-	export function handleSelect(selectedOptions) {
-		console.log('Selected options:', selectedOptions);
+	// 		// Reset clarification state
+	// 		selectedOption = '';
+	// 		notOptions = '';
+	// 		clarificationVisible = false;
+	// 		clarificationQuestion = '';
+	// 		clarificationOptions = [];
+	// 		clarificationNeeded = false;
+	// 	}
+	// };
 
-		notOptions = notOptions.filter((option) => !selectedOptions.includes(option));
-		const deselectedOptions = options
-			.filter((option) => !selectedOptions.includes(option.label))
-			.map((option) => option.label);
-		notOptions = [...notOptions, ...deselectedOptions];
-		console.log('Updated notOptions:', notOptions);
-	}
+	// export function handleSelect(selectedOptions) {
+	// 	console.log('Selected options:', selectedOptions);
+
+	// 	notOptions = notOptions.filter((option) => !selectedOptions.includes(option));
+	// 	const deselectedOptions = options
+	// 		.filter((option) => !selectedOptions.includes(option.label))
+	// 		.map((option) => option.label);
+	// 	notOptions = [...notOptions, ...deselectedOptions];
+	// 	console.log('Updated notOptions:', notOptions);
+	// }
+
+	/////////////////////////
+	//
+	// Reactive Statements
+	//
+	/////////////////////////
+
+	File;
 
 	$: if (history.currentId !== null) {
 		let _messages = [];
 
-		let currentMessage = history.messages[history.currentId];
+		let currentMessage: Message | null = history.messages[history.currentId];
 		while (currentMessage !== null) {
-			console.log(`currentMessage:Chat.svelte -> ${JSON.stringify(currentMessage, null, 2)}`);
 			_messages.unshift({ ...currentMessage });
 			currentMessage =
 				currentMessage.parentId !== null ? history.messages[currentMessage.parentId] : null;
@@ -463,7 +512,7 @@
 		})();
 	}
 
-	const chatEventHandler = async (event, cb) => {
+	const chatEventHandler = async (event, cb: Function) => {
 		console.log(`[chatEventHandler(event):Chat.svelte] -> Event is: ${event}`);
 		if (event.chat_id === $chatId) {
 			await tick();
@@ -515,7 +564,7 @@
 	};
 
 	onMount(async () => {
-		const onMessageHandler = async (event) => {
+		const onMessageHandler = async (event: { [x: string]: any }): Promise<void> => {
 			if (event.origin === window.origin) {
 				// Replace with your iframe's origin
 				console.log('Message received from iframe:', event.data);
@@ -551,7 +600,7 @@
 		};
 		window.addEventListener('message', onMessageHandler);
 
-		$socket.on('chat-events', chatEventHandler);
+		$socket?.on('chat-events', chatEventHandler);
 
 		if (!$chatId) {
 			chatId.subscribe(async (value) => {
@@ -568,7 +617,7 @@
 		return () => {
 			window.removeEventListener('message', onMessageHandler);
 
-			$socket.off('chat-events');
+			$socket?.off('chat-events');
 		};
 	});
 
@@ -578,7 +627,7 @@
 
 	const initNewChat = async () => {
 		window.history.replaceState(history.state, '', `/`);
-		await chatId.set('');
+		chatId.set('');
 
 		autoScroll = true;
 
@@ -593,7 +642,7 @@
 		params = {};
 
 		if ($page.url.searchParams.get('models')) {
-			selectedModels = $page.url.searchParams.get('models')?.split(',');
+			selectedModels = $page.url.searchParams.get('models')?.split(',') as string[];
 		} else if ($settings?.models) {
 			selectedModels = $settings?.models;
 		} else if ($config?.default_models) {
@@ -641,11 +690,15 @@
 
 			if (chatContent) {
 				console.log(chatContent);
-
 				selectedModels =
-					(chatContent?.models ?? undefined) !== undefined
+					chatContent?.models !== undefined && chatContent?.models !== null
 						? chatContent.models
-						: [chatContent.models ?? ''];
+						: [''];
+
+				// selectedModels =
+				// 	(chatContent?.models ?? undefined) !== undefined
+				// 		? chatContent.models
+				// 		: [chatContent.models ?? ''];
 				history =
 					(chatContent?.history ?? undefined) !== undefined
 						? chatContent.history
@@ -655,9 +708,9 @@
 				const userSettings = await getUserSettings(localStorage.token);
 
 				if (userSettings) {
-					await settings.set(userSettings.ui);
+					settings.set(userSettings.ui);
 				} else {
-					await settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
+					settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
 				}
 
 				params = chatContent?.params ?? {};
@@ -694,7 +747,7 @@
 		}
 	};
 
-	const chatCompletedHandler = async (chatId, modelId, responseMessageId, messages) => {
+	const chatCompletedHandler = async (chatId, modelId, responseMessageId, messages: Message[]) => {
 		await mermaid.run({
 			querySelector: '.mermaid'
 		});
@@ -713,7 +766,7 @@
 			id: responseMessageId
 		}).catch((error) => {
 			toast.error(error);
-			messages.at(-1).error = { content: error };
+			messages.at(-1)!.error = { content: error };
 
 			return null;
 		});
@@ -740,7 +793,7 @@
 					params: params,
 					files: chatFiles
 				});
-				await chats.set(await getChatList(localStorage.token));
+				chats.set(await getChatList(localStorage.token));
 			}
 		}
 	};
@@ -786,7 +839,7 @@
 					params: params,
 					files: chatFiles
 				});
-				await chats.set(await getChatList(localStorage.token));
+				chats.set(await getChatList(localStorage.token));
 			}
 		}
 	};
@@ -998,8 +1051,8 @@
 	// Chat functions
 	//////////////////////////
 
-	const submitPrompt = async (userPrompt, { _raw = false } = {}) => {
-		let _responses = [];
+	const submitPrompt = async (userPrompt: string, { _raw = false } = {}) => {
+		let _responses: string[] = [];
 		console.log('submitPrompt', $chatId);
 
 		selectedModels = selectedModels.map((modelId) =>
@@ -1008,16 +1061,27 @@
 
 		if (selectedModels.includes('')) {
 			toast.error($i18n.t('Model not selected'));
-		} else if (messages.length != 0 && messages.at(-1).done != true) {
+		} else if (messages.length != 0 && messages.at(-1)?.done != true) {
 			// Response not done
 			console.log('wait');
-		} else if (messages.length != 0 && messages.at(-1).error) {
+		} else if (messages.length != 0 && messages.at(-1)?.error) {
 			// Error in response
 			toast.error(
 				$i18n.t(
 					`Oops! There was an error in the previous response. Please try again or contact admin.`
 				)
 			);
+			// File object shape:
+			// -------------------
+			// collection_name: "2a1113258f84e36ba0f4734b33092836936e538c539b2c741218fa9bc7aef13"
+			// error: ""
+			// file: {id: '362ec854-789f-4563-8981-92c0f196cd47', user_id: 'b7ad0b4d-972a-4225-8cbf-b592b4a51a90', filename: '362ec854-789f-4563-8981-92c0f196cd47_auto-surveillance-vlan-catalyst-1200-1300-switches.pdf', meta: {…}, created_at: 1724870348}
+			// id: "362ec854-789f-4563-8981-92c0f196cd47"
+			// name: "auto-surveillance-vlan-catalyst-1200-1300-switches.pdf"
+			// status: "processed"
+			// type: "file"
+			// url: "/api/v1/files/362ec854-789f-4563-8981-92c0f196cd47"
+			// -------------------
 		} else if (
 			files.length > 0 &&
 			files.filter((file) => file.type !== 'image' && file.status !== 'processed').length > 0
@@ -1030,14 +1094,17 @@
 			);
 		} else {
 			// Reset chat input textarea
-			const chatTextAreaElement = document.getElementById('chat-textarea');
+			const chatTextAreaElement = document.getElementById(
+				'chat-textarea'
+			) as unknown as HTMLTextAreaElement;
 
 			if (chatTextAreaElement) {
 				chatTextAreaElement.value = '';
 				chatTextAreaElement.style.height = '';
 			}
 
-			const _files = JSON.parse(JSON.stringify(files));
+			const _files: ClientFile[] = JSON.parse(JSON.stringify(files));
+			console.log('[submitPrompt:Chat.svelte] -> _files: ', _files);
 			chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type)));
 			chatFiles = chatFiles.filter(
 				// Remove duplicates
@@ -1045,20 +1112,21 @@
 					array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
 			);
 
+			// Reset files
 			files = [];
-
+			// Reset prompt
 			prompt = '';
 
 			// Create user message
 			let userMessageId = uuidv4();
 			let userMessage = {
 				id: userMessageId,
-				parentId: messages.length !== 0 ? messages.at(-1).id : null,
+				parentId: messages.length !== 0 ? messages.at(-1)?.id : null,
 				childrenIds: [],
 				role: 'user',
 				content: userPrompt,
 				files: _files.length > 0 ? _files : undefined,
-				timestamp: Math.floor(Date.now() / 1000), // Unix epoch
+				timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
 				models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx)
 			};
 
@@ -1067,8 +1135,8 @@
 			history.currentId = userMessageId;
 
 			// Append messageId to childrenIds of parent message
-			if (messages.length !== 0) {
-				history.messages[messages.at(-1).id].childrenIds.push(userMessageId);
+			if (messages.length !== 0 && messages.at(-1)) {
+				history.messages[messages.at(-1)!.id].childrenIds.push(userMessageId);
 			}
 
 			// Wait until history/message have been updated
@@ -1079,18 +1147,35 @@
 		return _responses;
 	};
 
-	const sendPrompt = async (prompt, parentId, { modelId = null, newChat = false } = {}) => {
-		let _responses = [];
+	const sendPrompt = async (
+		prompt: string,
+		parentId: string,
+		{ modelId = null, newChat = false }: { modelId?: string | null; newChat?: boolean } = {}
+	) => {
+		let _responses: string[] = [];
 
 		// If modelId is provided, use it, else use selected model
-		let selectedModelIds = modelId
-			? [modelId]
-			: atSelectedModel !== undefined
-			? [atSelectedModel.id]
-			: selectedModels;
+		// let selectedModelIds = modelId
+		// 	? [modelId]
+		// 	: atSelectedModel !== undefined
+		// 	? [atSelectedModel.id]
+		// 	: selectedModels;
+
+		// Re-writing the above logic to see values of variables
+		let selectedModelIds: string[];
+		if (modelId) {
+			console.log('modelId is defined: ', modelId);
+			selectedModelIds = [modelId];
+		} else if (atSelectedModel !== undefined) {
+			console.log('atSelectedModel is defined: ', atSelectedModel);
+			selectedModelIds = [atSelectedModel.id];
+		} else {
+			console.log('selectedModels is used: ', selectedModels);
+			selectedModelIds = selectedModels;
+		}
 
 		// Create response messages for each selected model
-		const responseMessageIds = {};
+		const responseMessageIds: { [x: string]: string } = {};
 		for (const modelId of selectedModelIds) {
 			const model = $models.filter((m) => m.id === modelId).at(0);
 
@@ -1115,7 +1200,7 @@
 				// Append messageId to childrenIds of parent message
 				if (parentId !== null) {
 					history.messages[parentId].childrenIds = [
-						...history.messages[parentId].childrenIds,
+						...(history.messages[parentId].childrenIds ?? []),
 						responseMessageId
 					];
 				}
@@ -1139,15 +1224,15 @@
 					tags: [],
 					timestamp: Date.now()
 				});
-				await chats.set(await getChatList(localStorage.token));
-				await chatId.set(chat.id);
+				chats.set(await getChatList(localStorage.token));
+				chatId.set(chat!.id);
 			} else {
-				await chatId.set('local');
+				chatId.set('local');
 			}
 			await tick();
 		}
 
-		const _chatId = JSON.parse(JSON.stringify($chatId));
+		const _chatId: string = JSON.parse(JSON.stringify($chatId));
 
 		await Promise.all(
 			selectedModelIds.map(async (modelId) => {
@@ -1200,7 +1285,7 @@
 						await getWebSearchResults(model.id, parentId, responseMessageId);
 					}
 
-					let _response = null;
+					let _response: string | null = null;
 					if (model?.owned_by === 'openai') {
 						console.log('Sending via OpenAI Model');
 						_response = await sendPromptOpenAI(model, prompt, responseMessageId, _chatId);
@@ -1208,7 +1293,7 @@
 						console.log('Sending via Ollama Model');
 						_response = await sendPromptOllama(model, prompt, responseMessageId, _chatId);
 					}
-					_responses.push(_response);
+					_responses.push(_response as string);
 
 					if (chatEventEmitter) clearInterval(chatEventEmitter);
 				} else {
@@ -1217,11 +1302,16 @@
 			})
 		);
 
-		await chats.set(await getChatList(localStorage.token));
+		chats.set(await getChatList(localStorage.token));
 		return _responses;
 	};
 
-	const sendPromptOllama = async (model, userPrompt, responseMessageId, _chatId) => {
+	const sendPromptOllama = async (
+		model: Model,
+		userPrompt: string,
+		responseMessageId: string,
+		_chatId: string
+	) => {
 		let _response = null;
 
 		const responseMessage = history.messages[responseMessageId];
@@ -1232,13 +1322,13 @@
 		// Scroll down
 		scrollToBottom();
 
-		const messagesBody = [
+		const messagesBody: Array<Partial<Message>> = [
 			params?.system || $settings.system || (responseMessage?.userContext ?? null)
-				? {
+				? ({
 						role: 'system',
 						content: `${promptTemplate(
 							params?.system ?? $settings?.system ?? '',
-							$user.name,
+							$user?.name,
 							$settings?.userLocation
 								? await getAndUpdateUserLocation(localStorage.token)
 								: undefined
@@ -1247,25 +1337,25 @@
 								? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}`
 								: ''
 						}`
-				  }
+				  } as Partial<Message>)
 				: undefined,
 			...messages
 		]
 			.filter((message) => message?.content?.trim())
 			.map((message, idx, arr) => {
 				// Prepare the base message object
-				const baseMessage = {
-					role: message.role,
-					content: message.content
+				const baseMessage: { role?: string; content?: string; images?: string[] } = {
+					role: message?.role,
+					content: message?.content
 				};
 
 				// Extract and format image URLs if any exist
-				const imageUrls = message.files
+				const imageUrls = message?.files
 					?.filter((file) => file.type === 'image')
 					.map((file) => file.url.slice(file.url.indexOf(',') + 1));
 
 				// Add images array only if it contains elements
-				if (imageUrls && imageUrls.length > 0 && message.role === 'user') {
+				if (imageUrls && imageUrls.length > 0 && message!.role === 'user') {
 					baseMessage.images = imageUrls;
 				}
 				return baseMessage;
@@ -1289,7 +1379,7 @@
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...model.info.meta.knowledge);
+			files.push(...model.info!.meta.knowledge);
 		}
 		if (responseMessage?.files) {
 			files.push(
@@ -1307,36 +1397,52 @@
 
 		await tick();
 
-		const [res, controller] = await generateChatCompletion(localStorage.token, {
-			stream: true,
-			model: model.id,
-			messages: messagesBody,
-			options: {
-				...(params ?? $settings.params ?? {}),
-				stop:
-					params?.stop ?? $settings?.params?.stop ?? undefined
-						? (params?.stop ?? $settings.params.stop).map((str) =>
-								decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
-						  )
-						: undefined,
-				num_predict: params?.max_tokens ?? $settings?.params?.max_tokens ?? undefined,
-				repeat_penalty:
-					params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined
-			},
-			format: $settings.requestFormat ?? undefined,
-			keep_alive: $settings.keepAlive ?? undefined,
-			tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
-			files: files.length > 0 ? files : undefined,
-			...(Object.keys(valves).length ? { valves } : {}),
-			session_id: $socket?.id,
-			chat_id: $chatId,
-			id: responseMessageId
-		});
+		const [res, controller]: [Response | null, AbortController] = await generateChatCompletion(
+			localStorage.token,
+			{
+				stream: true,
+				model: model.id,
+				messages: messagesBody,
+				options: {
+					...(params ?? $settings.params ?? {}),
+					stop:
+						params?.stop ?? $settings?.params?.stop ?? undefined
+							? (params?.stop ?? $settings.params?.stop).map((str) =>
+									decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
+							  )
+							: undefined,
+					num_predict: params?.max_tokens ?? $settings?.params?.max_tokens ?? undefined,
+					repeat_penalty:
+						params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined
+				},
+				format: $settings.requestFormat ?? undefined,
+				keep_alive: $settings.keepAlive ?? undefined,
+				tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
+				files: files.length > 0 ? files : undefined,
+				...(Object.keys(valves).length ? { valves } : {}),
+				session_id: $socket?.id,
+				chat_id: $chatId,
+				id: responseMessageId
+			}
+		);
+
+		if (res === null) {
+			toast.error(
+				$i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, { provider: 'Ollama' })
+			);
+			responseMessage.error = {
+				content: $i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, {
+					provider: 'Ollama'
+				})
+			};
+		}
 
 		if (res && res.ok) {
 			console.log('controller', controller);
 
-			const reader = res.body
+			const response = res as { body: ReadableStream<Uint8Array> };
+
+			const reader = response.body
 				.pipeThrough(new TextDecoderStream())
 				.pipeThrough(splitStream('\n'))
 				.getReader();
@@ -1442,9 +1548,12 @@
 					}
 				} catch (error) {
 					console.log(error);
-					if ('detail' in error) {
+					if (isErrorWithDetail(error)) {
 						toast.error(error.detail);
 					}
+					// if ('detail' in error) {
+					// 	toast.error(error.detail);
+					// }
 					break;
 				}
 
@@ -1462,7 +1571,7 @@
 						params: params,
 						files: chatFiles
 					});
-					await chats.set(await getChatList(localStorage.token));
+					chats.set(await getChatList(localStorage.token));
 				}
 			}
 		} else {
@@ -1514,7 +1623,7 @@
 			scrollToBottom();
 		}
 
-		if (messages.length == 2 && messages.at(1).content !== '' && selectedModels[0] === model.id) {
+		if (messages.length == 2 && messages.at(1)!.content !== '' && selectedModels[0] === model.id) {
 			window.history.replaceState(history.state, '', `/c/${_chatId}`);
 			const _title = await generateChatTitle(userPrompt);
 			await setChatTitle(_chatId, _title);
@@ -1523,13 +1632,18 @@
 		return _response;
 	};
 
-	const sendPromptOpenAI = async (model, userPrompt, responseMessageId, _chatId) => {
+	const sendPromptOpenAI = async (
+		model: Model,
+		userPrompt: string,
+		responseMessageId: string,
+		_chatId: string
+	) => {
 		let _response = null;
 		const responseMessage = history.messages[responseMessageId];
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...model.info.meta.knowledge);
+			files.push(...model.info?.meta.knowledge);
 		}
 		if (responseMessage?.files) {
 			files.push(
@@ -1547,6 +1661,75 @@
 			})
 		);
 		await tick();
+		const messagesBody = [
+			params?.system || $settings.system || (responseMessage?.userContext ?? null)
+				? {
+						role: 'system',
+						content: `${promptTemplate(
+							params?.system ?? $settings?.system ?? '',
+							$user?.name,
+							$settings?.userLocation
+								? await getAndUpdateUserLocation(localStorage.token)
+								: undefined
+						)}${
+							responseMessage?.userContext ?? null
+								? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}`
+								: ''
+						}`
+				  }
+				: undefined,
+			...messages
+		]
+			.filter((message) => message?.content?.trim())
+			.map((message, idx, arr) => ({
+				role: message!.role,
+				...('files' in message! &&
+				(message?.files!.filter((file) => file.type === 'image').length > 0 ?? false) &&
+				message.role === 'user'
+					? {
+							content: [
+								{
+									type: 'text',
+									text:
+										arr.length - 1 !== idx
+											? message!.content
+											: message?.raContent ?? message!.content
+								},
+								...message!
+									.files!.filter((file) => file.type === 'image')
+									.map((file) => ({
+										type: 'image_url',
+										image_url: {
+											url: file.url
+										}
+									}))
+							]
+					  }
+					: {
+							content:
+								// @ts-ignore
+								arr.length - 1 !== idx ? message?.content : message?.raContent ?? message!.content
+					  })
+			}));
+		// const messageBody: Array<Partial<Message>> = [
+		// 	params?.system || $settings.system || (responseMessage?.userContext ?? null)
+		// 		? ({
+		// 				role: 'system',
+		// 				content: `${promptTemplate(
+		// 					params?.system ?? $settings?.system ?? '',
+		// 					$user?.name,
+		// 					$settings?.userLocation
+		// 						? await getAndUpdateUserLocation(localStorage.token)
+		// 						: undefined
+		// 				)}${
+		// 					responseMessage?.userContext ?? null
+		// 						? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}`
+		// 						: ''
+		// 				}`
+		// 		  } as Partial<Message>)
+		// 		: undefined,
+		// 	...messages
+		// ];
 
 		try {
 			const [res, controller] = await generateOpenAIChatCompletion(
@@ -1560,60 +1743,61 @@
 									include_usage: true
 							  }
 							: undefined,
-					messages: [
-						params?.system || $settings.system || (responseMessage?.userContext ?? null)
-							? {
-									role: 'system',
-									content: `${promptTemplate(
-										params?.system ?? $settings?.system ?? '',
-										$user.name,
-										$settings?.userLocation
-											? await getAndUpdateUserLocation(localStorage.token)
-											: undefined
-									)}${
-										responseMessage?.userContext ?? null
-											? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}`
-											: ''
-									}`
-							  }
-							: undefined,
-						...messages
-					]
-						.filter((message) => message?.content?.trim())
-						.map((message, idx, arr) => ({
-							role: message.role,
-							...((message.files?.filter((file) => file.type === 'image').length > 0 ?? false) &&
-							message.role === 'user'
-								? {
-										content: [
-											{
-												type: 'text',
-												text:
-													arr.length - 1 !== idx
-														? message.content
-														: message?.raContent ?? message.content
-											},
-											...message.files
-												.filter((file) => file.type === 'image')
-												.map((file) => ({
-													type: 'image_url',
-													image_url: {
-														url: file.url
-													}
-												}))
-										]
-								  }
-								: {
-										content:
-											arr.length - 1 !== idx
-												? message.content
-												: message?.raContent ?? message.content
-								  })
-						})),
+					messages: messagesBody,
+					// messages: [
+					// 	params?.system || $settings.system || (responseMessage?.userContext ?? null)
+					// 		? {
+					// 				role: 'system',
+					// 				content: `${promptTemplate(
+					// 					params?.system ?? $settings?.system ?? '',
+					// 					$user?.name,
+					// 					$settings?.userLocation
+					// 						? await getAndUpdateUserLocation(localStorage.token)
+					// 						: undefined
+					// 				)}${
+					// 					responseMessage?.userContext ?? null
+					// 						? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}`
+					// 						: ''
+					// 				}`
+					// 		  }
+					// 		: undefined,
+					// 	...messages
+					// ]
+					// 	.filter((message) => message?.content?.trim())
+					// 	.map((message, idx, arr) => ({
+					// 		role: message!.role,
+					// 		...((message!.files?.filter((file) => file.type === 'image').length > 0 ?? false) &&
+					// 		message.role === 'user'
+					// 			? {
+					// 					content: [
+					// 						{
+					// 							type: 'text',
+					// 							text:
+					// 								arr.length - 1 !== idx
+					// 									? message!.content
+					// 									: message?.raContent ?? message!.content
+					// 						},
+					// 						...message.files
+					// 							.filter((file) => file.type === 'image')
+					// 							.map((file) => ({
+					// 								type: 'image_url',
+					// 								image_url: {
+					// 									url: file.url
+					// 								}
+					// 							}))
+					// 					]
+					// 			  }
+					// 			: {
+					// 					content:
+					// 						arr.length - 1 !== idx
+					// 							? message.content
+					// 							: message?.raContent ?? message.content
+					// 			  })
+					// 	})),
 					seed: params?.seed ?? $settings?.params?.seed ?? undefined,
 					stop:
 						params?.stop ?? $settings?.params?.stop ?? undefined
-							? (params?.stop ?? $settings.params.stop).map((str) =>
+							? (params?.stop ?? $settings.params?.stop).map((str: string) =>
 									decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
 							  )
 							: undefined,
@@ -1636,9 +1820,12 @@
 			await tick();
 
 			scrollToBottom();
-
+			console.log('[Chat.svelte] $settings.splitLargeChunks: ', $settings.splitLargeChunks);
 			if (res && res.ok && res.body) {
-				const textStream = await createOpenAITextStream(res.body, $settings.splitLargeChunks);
+				const textStream = await createOpenAITextStream(
+					res.body,
+					$settings.splitLargeChunks ?? true
+				);
 				let lastUsage = null;
 
 				for await (const update of textStream) {
@@ -1732,7 +1919,7 @@
 							params: params,
 							files: chatFiles
 						});
-						await chats.set(await getChatList(localStorage.token));
+						chats.set(await getChatList(localStorage.token));
 					}
 				}
 			} else {
@@ -1778,7 +1965,12 @@
 		return _response;
 	};
 
-	const handleOpenAIError = async (error, res: Response | null, model, responseMessage) => {
+	const handleOpenAIError = async (
+		error: any,
+		res: Response | null,
+		model: Model,
+		responseMessage: Message
+	) => {
 		let errorMessage = '';
 		let innerError;
 
@@ -1822,10 +2014,10 @@
 		console.log('stopResponse');
 	};
 
-	const regenerateResponse = async (message) => {
+	const regenerateResponse = async (message: Message) => {
 		console.log('regenerateResponse');
 
-		if (messages.length != 0) {
+		if (messages.length != 0 && message.parentId) {
 			let userMessage = history.messages[message.parentId];
 			let userPrompt = userMessage.content;
 
@@ -1843,9 +2035,10 @@
 	const continueGeneration = async () => {
 		console.log('continueGeneration');
 		const _chatId = JSON.parse(JSON.stringify($chatId));
+		let modelId;
 
-		if (messages.length != 0 && messages.at(-1).done == true) {
-			const responseMessage = history.messages[history.currentId];
+		if (messages.length != 0 && messages.at(-1)?.done == true) {
+			const responseMessage = history.messages[history.currentId!];
 			responseMessage.done = false;
 			await tick();
 
@@ -1855,14 +2048,14 @@
 				if (model?.owned_by === 'openai') {
 					await sendPromptOpenAI(
 						model,
-						history.messages[responseMessage.parentId].content,
+						history.messages[responseMessage.parentId!].content,
 						responseMessage.id,
 						_chatId
 					);
 				} else
 					await sendPromptOllama(
 						model,
-						history.messages[responseMessage.parentId].content,
+						history.messages[responseMessage.parentId!].content,
 						responseMessage.id,
 						_chatId
 					);
@@ -1872,7 +2065,7 @@
 		}
 	};
 
-	const generateChatTitle = async (userPrompt) => {
+	const generateChatTitle = async (userPrompt: string) => {
 		if ($settings?.title?.auto ?? true) {
 			const title = await generateTitle(
 				localStorage.token,
@@ -1890,14 +2083,14 @@
 		}
 	};
 
-	const setChatTitle = async (_chatId, _title) => {
+	const setChatTitle = async (_chatId: string, _title: string) => {
 		if (_chatId === $chatId) {
 			title = _title;
 		}
 
 		if ($settings.saveChatHistory ?? true) {
 			chat = await updateChatById(localStorage.token, _chatId, { title: _title });
-			await chats.set(await getChatList(localStorage.token));
+			chats.set(await getChatList(localStorage.token));
 		}
 	};
 
@@ -1981,9 +2174,15 @@
 	};
 
 	const getTags = async () => {
-		return await getTagsById(localStorage.token, $chatId).catch(async (error) => {
+		try {
+			const tags = await getTagsById(localStorage.token, $chatId);
+			return tags ? tags : [];
+		} catch (error: unknown) {
 			return [];
-		});
+		}
+		// return await getTagsById(localStorage.token, $chatId).catch(async (error) => {
+		// 	return [];
+		// });
 	};
 </script>
 

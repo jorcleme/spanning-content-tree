@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import sha256 from 'js-sha256';
 import { WEBUI_BASE_URL } from '$lib/constants';
+import { MessageHistory, Message } from '$lib/types';
 
 //////////////////////////
 // Helper functions
@@ -88,8 +89,8 @@ export const splitStream = (splitOn) => {
 	});
 };
 
-export const convertMessagesToHistory = (messages) => {
-	const history = {
+export const convertMessagesToHistory = (messages: Message[]) => {
+	const history: MessageHistory = {
 		messages: {},
 		currentId: null
 	};
@@ -351,11 +352,13 @@ export const getImportOrigin = (_chats) => {
 	return 'webui';
 };
 
-export const getUserPosition = async (raw = false) => {
+export const getUserPosition = async (raw: boolean = false) => {
 	// Get the user's location using the Geolocation API
-	const position = await new Promise((resolve, reject) => {
-		navigator.geolocation.getCurrentPosition(resolve, reject);
-	}).catch((error) => {
+	const position: GeolocationPosition = await new Promise<GeolocationPosition>(
+		(resolve, reject) => {
+			navigator.geolocation.getCurrentPosition(resolve, reject);
+		}
+	).catch((error) => {
 		console.error('Error getting user location:', error);
 		throw error;
 	});
@@ -569,7 +572,7 @@ export const blobToFile = (blob, fileName) => {
 export const promptTemplate = (
 	template: string,
 	user_name?: string,
-	user_location?: string
+	user_location?: string | { latitude: number; longitude: number }
 ): string => {
 	// Get the current date
 	const currentDate = new Date();
@@ -605,8 +608,18 @@ export const promptTemplate = (
 	}
 
 	if (user_location) {
+		// If the user location is an object, extract the latitude and longitude
+		if (typeof user_location !== 'string') {
+			const { latitude, longitude } = user_location;
+			const replacer = `${latitude.toFixed(3)}, ${longitude.toFixed(3)} (lat, long)`;
+			// Replace {{USER_LOCATION}} in the template with the current location
+			template = template.replace('{{USER_LOCATION}}', replacer);
+		} else {
+			// Replace {{USER_LOCATION}} in the template with the current location
+			template = template.replace('{{USER_LOCATION}}', user_location);
+		}
 		// Replace {{USER_LOCATION}} in the template with the current location
-		template = template.replace('{{USER_LOCATION}}', user_location);
+		// template = template.replace('{{USER_LOCATION}}', user_location);
 	}
 
 	return template;
@@ -757,4 +770,12 @@ export const bestMatchingLanguage = (supportedLanguages, preferredLanguages, def
 
 	console.log(languages, preferredLanguages, match, defaultLocale);
 	return match || defaultLocale;
+};
+
+export const isErrorWithDetail = (error: unknown): error is { detail: string } => {
+	return typeof error === 'object' && error !== null && 'detail' in error;
+};
+
+export const isErrorWithMessage = (error: unknown): error is { message: string } => {
+	return typeof error === 'object' && error !== null && 'message' in error;
 };
