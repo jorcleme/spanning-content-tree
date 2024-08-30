@@ -1,5 +1,6 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import NodeRollupPolyfills from 'rollup-plugin-node-polyfills';
 
 // /** @type {import('vite').Plugin} */
 // const viteServerConfig = {
@@ -22,7 +23,10 @@ export default defineConfig({
 		APP_BUILD_HASH: JSON.stringify(process.env.APP_BUILD_HASH || 'dev-build')
 	},
 	build: {
-		sourcemap: true
+		sourcemap: true,
+		rollupOptions: {
+			plugins: [NodeRollupPolyfills({ crypto: true, fs: true })]
+		}
 	},
 	worker: {
 		format: 'es'

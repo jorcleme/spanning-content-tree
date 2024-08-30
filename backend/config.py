@@ -128,8 +128,7 @@ try:
         changelog_content = file.read()
 
 except:
-    changelog_content = (pkgutil.get_data(
-        "open_webui", "CHANGELOG.md") or b"").decode()
+    changelog_content = (pkgutil.get_data("open_webui", "CHANGELOG.md") or b"").decode()
 
 
 # Convert markdown content to HTML
@@ -143,8 +142,7 @@ changelog_json = {}
 
 # Iterate over each version
 for version in soup.find_all("h2"):
-    version_number = version.get_text().strip().split(
-        " - ")[0][1:-1]  # Remove brackets
+    version_number = version.get_text().strip().split(" - ")[0][1:-1]  # Remove brackets
     date = version.get_text().strip().split(" - ")[1]
 
     version_data = {"date": date}
@@ -184,8 +182,7 @@ WEBUI_BUILD_HASH = os.environ.get("WEBUI_BUILD_HASH", "dev-build")
 ####################################
 
 DATA_DIR = Path(os.getenv("DATA_DIR", BACKEND_DIR / "data")).resolve()
-FRONTEND_BUILD_DIR = Path(
-    os.getenv("FRONTEND_BUILD_DIR", BASE_DIR / "build")).resolve()
+FRONTEND_BUILD_DIR = Path(os.getenv("FRONTEND_BUILD_DIR", BASE_DIR / "build")).resolve()
 
 RESET_CONFIG_ON_START = (
     os.environ.get("RESET_CONFIG_ON_START", "False").lower() == "true"
@@ -301,8 +298,7 @@ WEBUI_AUTH = os.environ.get("WEBUI_AUTH", "True").lower() == "true"
 WEBUI_AUTH_TRUSTED_EMAIL_HEADER = os.environ.get(
     "WEBUI_AUTH_TRUSTED_EMAIL_HEADER", None
 )
-WEBUI_AUTH_TRUSTED_NAME_HEADER = os.environ.get(
-    "WEBUI_AUTH_TRUSTED_NAME_HEADER", None)
+WEBUI_AUTH_TRUSTED_NAME_HEADER = os.environ.get("WEBUI_AUTH_TRUSTED_NAME_HEADER", None)
 JWT_EXPIRES_IN = PersistentConfig(
     "JWT_EXPIRES_IN", "auth.jwt_expiry", os.environ.get("JWT_EXPIRES_IN", "-1")
 )
@@ -483,8 +479,7 @@ CUSTOM_NAME = os.environ.get("CUSTOM_NAME", "")
 
 if CUSTOM_NAME:
     try:
-        r = requests.get(
-            f"https://api.openwebui.com/api/v1/custom/{CUSTOM_NAME}")
+        r = requests.get(f"https://api.openwebui.com/api/v1/custom/{CUSTOM_NAME}")
         data = r.json()
         if r.ok:
             if "logo" in data:
@@ -721,8 +716,7 @@ DEFAULT_LOCALE = PersistentConfig(
 )
 
 DEFAULT_MODELS = PersistentConfig(
-    "DEFAULT_MODELS", "ui.default_models", os.environ.get(
-        "DEFAULT_MODELS", None)
+    "DEFAULT_MODELS", "ui.default_models", os.environ.get("DEFAULT_MODELS", None)
 )
 
 DEFAULT_PROMPT_SUGGESTIONS = PersistentConfig(
@@ -792,8 +786,7 @@ WEBHOOK_URL = PersistentConfig(
     "WEBHOOK_URL", "webhook_url", os.environ.get("WEBHOOK_URL", "")
 )
 
-ENABLE_ADMIN_EXPORT = os.environ.get(
-    "ENABLE_ADMIN_EXPORT", "True").lower() == "true"
+ENABLE_ADMIN_EXPORT = os.environ.get("ENABLE_ADMIN_EXPORT", "True").lower() == "true"
 
 ENABLE_COMMUNITY_SHARING = PersistentConfig(
     "ENABLE_COMMUNITY_SHARING",
@@ -985,8 +978,7 @@ ENABLE_RAG_HYBRID_SEARCH = PersistentConfig(
 ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION = PersistentConfig(
     "ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION",
     "rag.enable_web_loader_ssl_verification",
-    os.environ.get("ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION",
-                   "True").lower() == "true",
+    os.environ.get("ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION", "True").lower() == "true",
 )
 
 RAG_EMBEDDING_ENGINE = PersistentConfig(
@@ -1004,8 +996,7 @@ PDF_EXTRACT_IMAGES = PersistentConfig(
 RAG_EMBEDDING_MODEL = PersistentConfig(
     "RAG_EMBEDDING_MODEL",
     "rag.embedding_model",
-    os.environ.get("RAG_EMBEDDING_MODEL",
-                   "sentence-transformers/all-MiniLM-L6-v2"),
+    os.environ.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"),
 )
 log.info(f"Embedding model set: {RAG_EMBEDDING_MODEL.value}"),
 
@@ -1014,8 +1005,7 @@ RAG_EMBEDDING_MODEL_AUTO_UPDATE = (
 )
 
 RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE = (
-    os.environ.get("RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE",
-                   "").lower() == "true"
+    os.environ.get("RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE", "").lower() == "true"
 )
 
 RAG_EMBEDDING_OPENAI_BATCH_SIZE = PersistentConfig(
@@ -1037,8 +1027,7 @@ RAG_RERANKING_MODEL_AUTO_UPDATE = (
 )
 
 RAG_RERANKING_MODEL_TRUST_REMOTE_CODE = (
-    os.environ.get("RAG_RERANKING_MODEL_TRUST_REMOTE_CODE",
-                   "").lower() == "true"
+    os.environ.get("RAG_RERANKING_MODEL_TRUST_REMOTE_CODE", "").lower() == "true"
 )
 
 
@@ -1216,8 +1205,7 @@ RAG_WEB_SEARCH_CONCURRENT_REQUESTS = PersistentConfig(
 ####################################
 
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
-WHISPER_MODEL_DIR = os.getenv("WHISPER_MODEL_DIR", f"{
-                              CACHE_DIR}/whisper/models")
+WHISPER_MODEL_DIR = os.getenv("WHISPER_MODEL_DIR", f"{CACHE_DIR}/whisper/models")
 WHISPER_MODEL_AUTO_UPDATE = (
     os.environ.get("WHISPER_MODEL_AUTO_UPDATE", "").lower() == "true"
 )
