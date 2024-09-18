@@ -3,34 +3,30 @@
 	import Modal from '../common/Modal.svelte';
 	import Controls from './Controls/Controls.svelte';
 	import { onMount } from 'svelte';
+	import type { ChatFile } from '$lib/types';
+	import type { Model, ChatParams } from '$lib/stores';
 
 	export let show = false;
 
-	export let models = [];
+	export let models: Model[] = [];
 
-	export let chatId = null;
+	export const chatId = null;
 
-	export let chatFiles = [];
+	export let chatFiles: ChatFile[] = [];
 	export let valves = {};
-	export let params = {};
+	export let params: ChatParams = {};
 
 	let largeScreen = false;
 	onMount(() => {
 		// listen to resize 1024px
-		const mediaQuery = window.matchMedia('(min-width: 1024px)');
 
-		const handleMediaQuery = (e) => {
-			if (e.matches) {
-				largeScreen = true;
-			} else {
-				largeScreen = false;
-			}
+		const mediaQuery = window.matchMedia('(min-width: 1024px)');
+		const handleMediaQuery = (e: MediaQueryListEvent) => {
+			largeScreen = e.matches;
 		};
 
 		mediaQuery.addEventListener('change', handleMediaQuery);
-
-		handleMediaQuery(mediaQuery);
-
+		handleMediaQuery({ matches: mediaQuery.matches } as MediaQueryListEvent);
 		return () => {
 			mediaQuery.removeEventListener('change', handleMediaQuery);
 		};

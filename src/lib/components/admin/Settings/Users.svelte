@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { i18n as i18nType } from 'i18next';
+	import type { Writable } from 'svelte/store';
 	import { getBackendConfig, getModelFilterConfig, updateModelFilterConfig } from '$lib/apis';
 	import { getSignUpEnabledStatus, toggleSignUpEnabledStatus } from '$lib/apis/auths';
 	import { getUserPermissions, updateUserPermissions } from '$lib/apis/users';
@@ -8,7 +10,7 @@
 	import Switch from '$lib/components/common/Switch.svelte';
 	import { setDefaultModels } from '$lib/apis/configs';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let saveHandler: Function;
 
@@ -31,7 +33,7 @@
 			whitelistModels = res.models.length > 0 ? res.models : [''];
 		}
 
-		defaultModelId = $config.default_models ? $config?.default_models.split(',')[0] : '';
+		defaultModelId = $config?.default_models ? $config?.default_models.split(',')[0] : '';
 	});
 </script>
 

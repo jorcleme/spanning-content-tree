@@ -879,6 +879,14 @@ async def generate_chat_completion(
                     "num_thread", None
                 )
 
+            if (
+                model_info.params.get("proficiency", None)
+                and payload["options"].get("proficiency") is None
+            ):
+                payload["options"]["proficiency"] = model_info.params.get(
+                    "proficiency", None
+                )
+
         system = model_info.params.get("system", None)
         if system:
             system = prompt_template(

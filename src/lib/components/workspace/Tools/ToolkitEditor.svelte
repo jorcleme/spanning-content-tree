@@ -1,15 +1,18 @@
-<script>
-	import { getContext, createEventDispatcher, onMount } from 'svelte';
+<script lang="ts">
+	import { getContext, createEventDispatcher, onMount, SvelteComponent } from 'svelte';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	import CodeEditor from '$lib/components/common/CodeEditor.svelte';
+
 	import { goto } from '$app/navigation';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
 	const dispatch = createEventDispatcher();
 
-	let formElement = null;
+	let formElement: HTMLFormElement | null = null;
 	let loading = false;
 	let showConfirm = false;
 
@@ -27,7 +30,7 @@
 		id = name.replace(/\s+/g, '_').toLowerCase();
 	}
 
-	let codeEditor;
+	let codeEditor: CodeEditor;
 	let boilerplate = `import os
 import requests
 from datetime import datetime
@@ -174,12 +177,7 @@ class Tools:
 					type="button"
 				>
 					<div class=" self-center">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 							<path
 								fill-rule="evenodd"
 								d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
@@ -214,9 +212,7 @@ class Tools:
 					<input
 						class="w-full px-3 py-2 text-sm font-medium bg-gray-50 dark:bg-gray-850 dark:text-gray-200 rounded-lg outline-none"
 						type="text"
-						placeholder={$i18n.t(
-							'Toolkit Description (e.g. A toolkit for performing various operations)'
-						)}
+						placeholder={$i18n.t('Toolkit Description (e.g. A toolkit for performing various operations)')}
 						bind:value={meta.description}
 						required
 					/>

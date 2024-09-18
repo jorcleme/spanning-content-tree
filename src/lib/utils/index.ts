@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import sha256 from 'js-sha256';
 import { WEBUI_BASE_URL } from '$lib/constants';
+import type { MessageHistory, Message } from '$lib/types';
 
 //////////////////////////
 // Helper functions
@@ -88,8 +89,8 @@ export const splitStream = (splitOn) => {
 	});
 };
 
-export const convertMessagesToHistory = (messages) => {
-	const history = {
+export const convertMessagesToHistory = (messages: Message[]) => {
+	const history: MessageHistory = {
 		messages: {},
 		currentId: null
 	};
@@ -101,10 +102,7 @@ export const convertMessagesToHistory = (messages) => {
 		messageId = uuidv4();
 
 		if (parentMessageId !== null) {
-			history.messages[parentMessageId].childrenIds = [
-				...history.messages[parentMessageId].childrenIds,
-				messageId
-			];
+			history.messages[parentMessageId].childrenIds = [...history.messages[parentMessageId].childrenIds, messageId];
 		}
 
 		history.messages[messageId] = {
@@ -182,9 +180,7 @@ export const generateInitialsImage = (name) => {
 	canvas.height = 100;
 
 	if (!canvasPixelTest()) {
-		console.log(
-			'generateInitialsImage: failed pixel test, fingerprint evasion is likely. Using default image.'
-		);
+		console.log('generateInitialsImage: failed pixel test, fingerprint evasion is likely. Using default image.');
 		return '/user.png';
 	}
 
@@ -200,9 +196,7 @@ export const generateInitialsImage = (name) => {
 	const initials =
 		sanitizedName.length > 0
 			? sanitizedName[0] +
-			  (sanitizedName.split(' ').length > 1
-					? sanitizedName[sanitizedName.lastIndexOf(' ') + 1]
-					: '')
+			  (sanitizedName.split(' ').length > 1 ? sanitizedName[sanitizedName.lastIndexOf(' ') + 1] : '')
 			: '';
 
 	ctx.fillText(initials.toUpperCase(), canvas.width / 2, canvas.height / 2);
@@ -351,9 +345,9 @@ export const getImportOrigin = (_chats) => {
 	return 'webui';
 };
 
-export const getUserPosition = async (raw = false) => {
+export const getUserPosition = async (raw: boolean = false) => {
 	// Get the user's location using the Geolocation API
-	const position = await new Promise((resolve, reject) => {
+	const position: GeolocationPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
 		navigator.geolocation.getCurrentPosition(resolve, reject);
 	}).catch((error) => {
 		console.error('Error getting user location:', error);
@@ -381,15 +375,14 @@ const convertOpenAIMessages = (convo) => {
 	let currentId = '';
 	let lastId = null;
 
-	for (let message_id in mapping) {
+	for (const message_id in mapping) {
 		const message = mapping[message_id];
 		currentId = message_id;
 		try {
 			if (
 				messages.length == 0 &&
 				(message['message'] == null ||
-					(message['message']['content']['parts']?.[0] == '' &&
-						message['message']['content']['text'] == null))
+					(message['message']['content']['parts']?.[0] == '' && message['message']['content']['text'] == null))
 			) {
 				// Skip chat messages with no content
 				continue;
@@ -399,10 +392,7 @@ const convertOpenAIMessages = (convo) => {
 					parentId: lastId,
 					childrenIds: message['children'] || [],
 					role: message['message']?.['author']?.['role'] !== 'user' ? 'assistant' : 'user',
-					content:
-						message['message']?.['content']?.['parts']?.[0] ||
-						message['message']?.['content']?.['text'] ||
-						'',
+					content: message['message']?.['content']?.['parts']?.[0] || message['message']?.['content']?.['text'] || '',
 					model: 'gpt-3.5-turbo',
 					done: true,
 					context: null
@@ -415,7 +405,7 @@ const convertOpenAIMessages = (convo) => {
 		}
 	}
 
-	let history = {};
+	const history: { [id: string]: any } = {};
 	messages.forEach((obj) => (history[obj.id] = obj));
 
 	const chat = {
@@ -462,12 +452,12 @@ const validateChat = (chat) => {
 
 	return true;
 };
-
-export const convertOpenAIChats = (_chats) => {
+import type { Chat } from '$lib/types';
+export const convertOpenAIChats = (_chats: Chat[]) => {
 	// Create a list of dictionaries with each conversation from import
 	const chats = [];
 	let failed = 0;
-	for (let convo of _chats) {
+	for (const convo of _chats) {
 		const chat = convertOpenAIMessages(convo);
 
 		if (validateChat(chat)) {
@@ -486,11 +476,11 @@ export const convertOpenAIChats = (_chats) => {
 	return chats;
 };
 
-export const isValidHttpUrl = (string) => {
+export const isValidHttpUrl = (str: string) => {
 	let url;
 
 	try {
-		url = new URL(string);
+		url = new URL(str);
 	} catch (_) {
 		return false;
 	}
@@ -498,7 +488,7 @@ export const isValidHttpUrl = (string) => {
 	return url.protocol === 'http:' || url.protocol === 'https:';
 };
 
-export const removeEmojis = (str) => {
+export const removeEmojis = (str: string) => {
 	// Regular expression to match emojis
 	const emojiRegex = /[\uD800-\uDBFF][\uDC00-\uDFFF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDE4F]/g;
 
@@ -506,20 +496,20 @@ export const removeEmojis = (str) => {
 	return str.replace(emojiRegex, '');
 };
 
-export const removeFormattings = (str) => {
+export const removeFormattings = (str: string) => {
 	return str.replace(/(\*)(.*?)\1/g, '').replace(/(```)(.*?)\1/gs, '');
 };
 
-export const extractSentences = (text) => {
+export const extractSentences = (text: string) => {
 	// This regular expression matches code blocks marked by triple backticks
 	const codeBlockRegex = /```[\s\S]*?```/g;
 
-	let codeBlocks = [];
+	const codeBlocks: string[] = [];
 	let index = 0;
 
 	// Temporarily replace code blocks with placeholders and store the blocks separately
 	text = text.replace(codeBlockRegex, (match) => {
-		let placeholder = `\u0000${index}\u0000`; // Use a unique placeholder
+		const placeholder = `\u0000${index}\u0000`; // Use a unique placeholder
 		codeBlocks[index++] = match;
 		return placeholder;
 	});
@@ -530,15 +520,14 @@ export const extractSentences = (text) => {
 	// Restore code blocks and process sentences
 	sentences = sentences.map((sentence) => {
 		// Check if the sentence includes a placeholder for a code block
+		// eslint-disable-next-line no-control-regex
 		return sentence.replace(/\u0000(\d+)\u0000/g, (_, idx) => codeBlocks[idx]);
 	});
 
-	return sentences
-		.map((sentence) => removeFormattings(removeEmojis(sentence.trim())))
-		.filter((sentence) => sentence);
+	return sentences.map((sentence) => removeFormattings(removeEmojis(sentence.trim()))).filter((sentence) => sentence);
 };
 
-export const extractSentencesForAudio = (text) => {
+export const extractSentencesForAudio = (text: string) => {
 	return extractSentences(text).reduce((mergedTexts, currentText) => {
 		const lastIndex = mergedTexts.length - 1;
 		if (lastIndex >= 0) {
@@ -553,23 +542,19 @@ export const extractSentencesForAudio = (text) => {
 			mergedTexts.push(currentText);
 		}
 		return mergedTexts;
-	}, []);
+	}, [] as string[]);
 };
 
-export const blobToFile = (blob, fileName) => {
+export const blobToFile = (blob: Blob, fileName: string) => {
 	// Create a new File object from the Blob
 	const file = new File([blob], fileName, { type: blob.type });
 	return file;
 };
 
-/**
- * @param {string} template - The template string containing placeholders.
- * @returns {string} The template string with the placeholders replaced by the prompt.
- */
 export const promptTemplate = (
 	template: string,
 	user_name?: string,
-	user_location?: string
+	user_location?: string | { latitude: number; longitude: number }
 ): string => {
 	// Get the current date
 	const currentDate = new Date();
@@ -605,8 +590,18 @@ export const promptTemplate = (
 	}
 
 	if (user_location) {
+		// If the user location is an object, extract the latitude and longitude
+		if (typeof user_location !== 'string') {
+			const { latitude, longitude } = user_location;
+			const replacer = `${latitude.toFixed(3)}, ${longitude.toFixed(3)} (lat, long)`;
+			// Replace {{USER_LOCATION}} in the template with the current location
+			template = template.replace('{{USER_LOCATION}}', replacer);
+		} else {
+			// Replace {{USER_LOCATION}} in the template with the current location
+			template = template.replace('{{USER_LOCATION}}', user_location);
+		}
 		// Replace {{USER_LOCATION}} in the template with the current location
-		template = template.replace('{{USER_LOCATION}}', user_location);
+		// template = template.replace('{{USER_LOCATION}}', user_location);
 	}
 
 	return template;
@@ -673,7 +668,7 @@ export const approximateToHumanReadable = (nanoseconds: number) => {
 	return results.reverse().join(' ');
 };
 
-export const getTimeRange = (timestamp) => {
+export const getTimeRange = (timestamp: number) => {
 	const now = new Date();
 	const date = new Date(timestamp * 1000); // Convert Unix timestamp to milliseconds
 
@@ -704,13 +699,8 @@ export const getTimeRange = (timestamp) => {
 	}
 };
 
-/**
- * Extract frontmatter as a dictionary from the specified content string.
- * @param content {string} - The content string with potential frontmatter.
- * @returns {Object} - The extracted frontmatter as a dictionary.
- */
-export const extractFrontmatter = (content) => {
-	const frontmatter = {};
+export const extractFrontmatter = (content: string) => {
+	const frontmatter: { [key: string]: string } = {};
 	let frontmatterStarted = false;
 	let frontmatterEnded = false;
 	const frontmatterPattern = /^\s*([a-z_]+):\s*(.*)\s*$/i;
@@ -748,13 +738,21 @@ export const extractFrontmatter = (content) => {
 };
 
 // Function to determine the best matching language
-export const bestMatchingLanguage = (supportedLanguages, preferredLanguages, defaultLocale) => {
+export const bestMatchingLanguage = (supportedLanguages: any[], preferredLanguages: any[], defaultLocale: string) => {
 	const languages = supportedLanguages.map((lang) => lang.code);
 
-	const match = preferredLanguages
-		.map((prefLang) => languages.find((lang) => lang.startsWith(prefLang)))
-		.find(Boolean);
+	const match = preferredLanguages.map((prefLang) => languages.find((lang) => lang.startsWith(prefLang))).find(Boolean);
 
 	console.log(languages, preferredLanguages, match, defaultLocale);
 	return match || defaultLocale;
 };
+
+export const isErrorWithDetail = (error: unknown): error is { detail: string } => {
+	return typeof error === 'object' && error !== null && 'detail' in error;
+};
+
+export const isErrorWithMessage = (error: unknown): error is { message: string } => {
+	return typeof error === 'object' && error !== null && 'message' in error;
+};
+
+export const isErrorAsString = (error: unknown): error is string => typeof error === 'string';

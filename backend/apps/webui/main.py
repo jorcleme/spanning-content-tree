@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 from apps.webui.routers import (
+    articles,
     auths,
     users,
     chats,
@@ -17,6 +18,7 @@ from apps.webui.routers import (
     utils,
     files,
     functions,
+    series,
 )
 from apps.webui.models.functions import Functions
 from apps.webui.models.models import Models
@@ -97,8 +99,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+##############################
+#
+#
+# Mounted Routers (APIs)
+#
+#
+##############################
 
 app.include_router(configs.router, prefix="/configs", tags=["configs"])
+app.include_router(articles.router, prefix="/articles", tags=["articles"])
 app.include_router(auths.router, prefix="/auths", tags=["auths"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(chats.router, prefix="/chats", tags=["chats"])
@@ -112,6 +122,7 @@ app.include_router(files.router, prefix="/files", tags=["files"])
 app.include_router(tools.router, prefix="/tools", tags=["tools"])
 app.include_router(functions.router, prefix="/functions", tags=["functions"])
 
+app.include_router(series.router, prefix="/series", tags=["series"])
 app.include_router(utils.router, prefix="/utils", tags=["utils"])
 
 

@@ -5,7 +5,6 @@
 		user,
 		chats,
 		settings,
-		showSettings,
 		chatId,
 		tags,
 		showSidebar,
@@ -14,8 +13,10 @@
 		pinnedChats
 	} from '$lib/stores';
 	import { onMount, getContext, tick } from 'svelte';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	import { updateUserSettings } from '$lib/apis/users';
 	import {
@@ -34,6 +35,8 @@
 	import UserMenu from './Sidebar/UserMenu.svelte';
 	import ChatItem from './Sidebar/ChatItem.svelte';
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import type { ChatListResponse } from '$lib/types';
+	import Tooltip from '../common/Tooltip.svelte';
 
 	const BREAKPOINT = 768;
 
@@ -42,34 +45,35 @@
 
 	let shiftKey = false;
 
-	let selectedChatId = null;
-	let deleteChat = null;
+	let selectedChatId: string | null = null;
+	let deleteChat: { id: string; title: string } | null = null;
 
 	let showDeleteConfirm = false;
 	let showDropdown = false;
 
 	let filteredChatList = [];
 
-	$: filteredChatList = $chats.filter((chat) => {
-		if (search === '') {
-			return true;
-		} else {
-			let title = chat.title.toLowerCase();
-			const query = search.toLowerCase();
+	$: filteredChatList =
+		$chats?.filter((chat) => {
+			if (search === '') {
+				return true;
+			} else {
+				let title = chat.title.toLowerCase();
+				const query = search.toLowerCase();
 
-			let contentMatches = false;
-			// Access the messages within chat.chat.messages
-			if (chat.chat && chat.chat.messages && Array.isArray(chat.chat.messages)) {
-				contentMatches = chat.chat.messages.some((message) => {
-					// Check if message.content exists and includes the search query
-					return message.content && message.content.toLowerCase().includes(query);
-				});
+				let contentMatches = false;
+				// Access the messages within chat.chat.messages
+				if (chat.chat && chat.chat.messages && Array.isArray(chat.chat.messages)) {
+					contentMatches = chat.chat.messages.some((message) => {
+						// Check if message.content exists and includes the search query
+						return message.content && message.content.toLowerCase().includes(query);
+					});
+				}
+
+				return title.includes(query) || contentMatches;
 			}
-
-			return title.includes(query) || contentMatches;
-		}
-	});
-
+		}) ?? [];
+	// @ts-ignore
 	onMount(async () => {
 		mobile.subscribe((e) => {
 			if ($showSidebar && e) {
@@ -83,11 +87,11 @@
 
 		showSidebar.set(window.innerWidth > BREAKPOINT);
 
-		await pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned'));
-		await chats.set(await getChatList(localStorage.token));
+		pinnedChats.set((await getChatListByTagName(localStorage.token, 'pinned')) as ChatListResponse);
+		chats.set(await getChatList(localStorage.token));
 
-		let touchstart;
-		let touchend;
+		let touchstart: { screenX: number; clientX: number };
+		let touchend: { screenX: number; clientX: number };
 
 		function checkDirection() {
 			const screenWidth = window.innerWidth;
@@ -102,23 +106,23 @@
 			}
 		}
 
-		const onTouchStart = (e) => {
+		const onTouchStart = (e: TouchEvent) => {
 			touchstart = e.changedTouches[0];
 			console.log(touchstart.clientX);
 		};
 
-		const onTouchEnd = (e) => {
+		const onTouchEnd = (e: TouchEvent) => {
 			touchend = e.changedTouches[0];
 			checkDirection();
 		};
 
-		const onKeyDown = (e) => {
+		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Shift') {
 				shiftKey = true;
 			}
 		};
 
-		const onKeyUp = (e) => {
+		const onKeyUp = (e: KeyboardEvent) => {
 			if (e.key === 'Shift') {
 				shiftKey = false;
 			}
@@ -153,7 +157,7 @@
 	});
 
 	// Helper function to fetch and add chat content to each chat
-	const enrichChatsWithContent = async (chatList) => {
+	const enrichChatsWithContent = async (chatList: ChatListResponse) => {
 		const enrichedChats = await Promise.all(
 			chatList.map(async (chat) => {
 				const chatDetails = await getChatById(localStorage.token, chat.id).catch((error) => null); // Handle error or non-existent chat gracefully
@@ -164,16 +168,16 @@
 			})
 		);
 
-		await chats.set(enrichedChats);
+		chats.set(enrichedChats);
 	};
 
-	const saveSettings = async (updated) => {
-		await settings.set({ ...$settings, ...updated });
+	const saveSettings = async (updated: object) => {
+		settings.set({ ...$settings, ...updated });
 		await updateUserSettings(localStorage.token, { ui: $settings });
 		location.href = '/';
 	};
 
-	const deleteChatHandler = async (id) => {
+	const deleteChatHandler = async (id: string) => {
 		const res = await deleteChatById(localStorage.token, id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -181,12 +185,12 @@
 
 		if (res) {
 			if ($chatId === id) {
-				await chatId.set('');
+				chatId.set('');
 				await tick();
 				goto('/');
 			}
-			await chats.set(await getChatList(localStorage.token));
-			await pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned'));
+			chats.set(await getChatList(localStorage.token));
+			pinnedChats.set((await getChatListByTagName(localStorage.token, 'pinned')) as ChatListResponse);
 		}
 	};
 </script>
@@ -194,7 +198,7 @@
 <ArchivedChatsModal
 	bind:show={$showArchivedChats}
 	on:change={async () => {
-		await chats.set(await getChatList(localStorage.token));
+		chats.set(await getChatList(localStorage.token));
 	}}
 />
 
@@ -202,11 +206,11 @@
 	bind:show={showDeleteConfirm}
 	title={$i18n.t('Delete chat?')}
 	on:confirm={() => {
-		deleteChatHandler(deleteChat.id);
+		deleteChatHandler(deleteChat?.id ?? '');
 	}}
 >
 	<div class=" text-sm text-gray-500">
-		{$i18n.t('This will delete')} <span class="  font-semibold">{deleteChat.title}</span>.
+		{$i18n.t('This will delete')} <span class="  font-semibold">{deleteChat?.title}</span>.
 	</div>
 </DeleteConfirmDialog>
 
@@ -350,12 +354,7 @@
 					{$i18n.t('New Chat')}
 				</div>
 				<div class="self-center ml-auto">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="url(#paint0_linear_30_740)"
-						class="w-4 h-4"
-					>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="url(#paint0_linear_30_740)" class="w-4 h-4">
 						<path
 							d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z"
 						/>
@@ -396,20 +395,99 @@
 						stroke="currentColor"
 						class="size-5"
 					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12"
-						/>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
 					</svg>
 				</div>
 			</button>
 		</div>
-
+		<div class="px-2.5 flex space-evenly space-x-1 text-gray-600 dark:text-gray-400">
+			<a
+				id="sidebar-new-chat-button"
+				class="flex flex-1 rounded-xl px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-850 transition"
+				href="/"
+				draggable="false"
+				on:click={async () => {
+					selectedChatId = null;
+					await goto('/');
+					const newChatButton = document.getElementById('new-article-support-button');
+					setTimeout(() => {
+						newChatButton?.click();
+						if ($mobile) {
+							showSidebar.set(false);
+						}
+					}, 0);
+				}}
+			>
+				<div class="self-center mr-2">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						id="art"
+						width="80"
+						height="80"
+						viewBox="0 0 80 80"
+						fill="url(#grad1)"
+					>
+						<defs>
+							<linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+								<stop offset="0%" stop-color="#00BCEB" stop-opacity="1" />
+								<stop offset="100%" stop-color="#63FFF7" stop-opacity="1" />
+							</linearGradient>
+						</defs>
+						<path
+							class="cls-1"
+							d="M40,52.75c-7.03,0-12.75-5.72-12.75-12.75s5.72-12.75,12.75-12.75,12.75,5.72,12.75,12.75-5.72,12.75-12.75,12.75ZM40,28.75c-6.2,0-11.25,5.05-11.25,11.25s5.05,11.25,11.25,11.25,11.25-5.05,11.25-11.25-5.05-11.25-11.25-11.25Z"
+						/>
+						<path
+							class="cls-1"
+							d="M66,20.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM66,12.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
+						/>
+						<path
+							class="cls-1"
+							d="M14,20.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM14,12.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
+						/>
+						<path
+							class="cls-1"
+							d="M66,68.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM66,60.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
+						/>
+						<path
+							class="cls-1"
+							d="M14,68.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM14,60.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
+						/>
+						<path
+							class="cls-1"
+							d="M66,44.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM66,36.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
+						/>
+						<path
+							class="cls-1"
+							d="M14,44.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM14,36.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
+						/>
+						<rect class="cls-1" x="18" y="39.25" width="10" height="1.5" />
+						<rect class="cls-1" x="52" y="39.25" width="10" height="1.5" />
+						<path
+							class="cls-1"
+							d="M20,64.75h-2v-1.5h2c7.31,0,13.25-5.94,13.25-13.25h1.5c0,8.13-6.62,14.75-14.75,14.75Z"
+						/>
+						<path
+							class="cls-1"
+							d="M62,64.75h-2c-8.13,0-14.75-6.62-14.75-14.75h1.5c0,7.31,5.94,13.25,13.25,13.25h2v1.5Z"
+						/>
+						<path
+							class="cls-1"
+							d="M34.75,30h-1.5c0-7.31-5.94-13.25-13.25-13.25h-2v-1.5h2c8.13,0,14.75,6.62,14.75,14.75Z"
+						/>
+						<path
+							class="cls-1"
+							d="M46.75,30h-1.5c0-8.13,6.62-14.75,14.75-14.75h2v1.5h-2c-7.31,0-13.25,5.94-13.25,13.25Z"
+						/>
+					</svg>
+				</div>
+				<div class=" self-center font-medium text-sm text-gray-850 dark:text-white font-primary">Article Support</div>
+			</a>
+		</div>
 		{#if $user?.role === 'admin'}
 			<div class="px-2.5 flex justify-center text-gray-800 dark:text-gray-200">
 				<a
-					class="flex-grow flex space-x-3 rounded-xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+					class="flex-grow flex space-x-3 rounded-xl px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
 					href="/workspace"
 					on:click={() => {
 						selectedChatId = null;
@@ -454,9 +532,7 @@
 							{$i18n.t(
 								"When history is turned off, new chats on this browser won't appear in your history on any of your devices."
 							)}
-							<span class=" font-semibold"
-								>{$i18n.t('This setting does not sync across browsers or devices.')}</span
-							>
+							<span class=" font-semibold">{$i18n.t('This setting does not sync across browsers or devices.')}</span>
 						</div>
 
 						<div class="mt-3">
@@ -469,12 +545,7 @@
 									});
 								}}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 16 16"
-									fill="currentColor"
-									class="w-3 h-3"
-								>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3">
 									<path
 										fill-rule="evenodd"
 										d="M8 1a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-1.5 0v-6.5A.75.75 0 0 1 8 1ZM4.11 3.05a.75.75 0 0 1 0 1.06 5.5 5.5 0 1 0 7.78 0 .75.75 0 0 1 1.06-1.06 7 7 0 1 1-9.9 0 .75.75 0 0 1 1.06 0Z"
@@ -492,12 +563,7 @@
 			<div class="px-2 mt-0.5 mb-2 flex justify-center space-x-2">
 				<div class="flex w-full rounded-xl" id="chat-search">
 					<div class="self-center pl-3 py-2 rounded-l-xl bg-transparent">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 							<path
 								fill-rule="evenodd"
 								d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
@@ -522,7 +588,7 @@
 					<button
 						class="px-2.5 text-xs font-medium bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800 transition rounded-full"
 						on:click={async () => {
-							await chats.set(await getChatList(localStorage.token));
+							chats.set(await getChatList(localStorage.token));
 						}}
 					>
 						{$i18n.t('all')}
@@ -532,11 +598,13 @@
 							class="px-2.5 text-xs font-medium bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800 transition rounded-full"
 							on:click={async () => {
 								let chatIds = await getChatListByTagName(localStorage.token, tag.name);
-								if (chatIds.length === 0) {
-									await tags.set(await getAllChatTags(localStorage.token));
+								if (chatIds && chatIds.length === 0) {
+									tags.set(await getAllChatTags(localStorage.token));
 									chatIds = await getChatList(localStorage.token);
 								}
-								await chats.set(chatIds);
+								if (chatIds) {
+									chats.set(chatIds);
+								}
 							}}
 						>
 							{tag.name}
@@ -650,11 +718,7 @@
 							}}
 						>
 							<div class=" self-center mr-3">
-								<img
-									src={$user.profile_image_url}
-									class=" max-w-[30px] object-cover rounded-full"
-									alt="User profile"
-								/>
+								<img src={$user.profile_image_url} class=" max-w-[30px] object-cover rounded-full" alt="User profile" />
 							</div>
 							<div class=" self-center font-medium">{$user.name}</div>
 						</button>
@@ -673,5 +737,11 @@
 	}
 	.scrollbar-hidden::-webkit-scrollbar-thumb {
 		visibility: hidden;
+	}
+
+	#art {
+		fill: #1990fa;
+		width: 1.1rem;
+		height: auto;
 	}
 </style>

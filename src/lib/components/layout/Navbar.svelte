@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -23,10 +25,11 @@
 	import MenuLines from '../icons/MenuLines.svelte';
 	import AdjustmentsHorizontal from '../icons/AdjustmentsHorizontal.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let initNewChat: Function;
-	export let title: string = $WEBUI_NAME;
+	export let initNewChatForSupport: () => void;
+	export const title: string = $WEBUI_NAME;
 	export let shareEnabled: boolean = false;
 
 	export let chat;
@@ -129,12 +132,7 @@
 						}}
 					>
 						<div class=" m-auto self-center">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								class="w-5 h-5"
-							>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 								<path
 									d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z"
 								/>
@@ -145,6 +143,9 @@
 						</div>
 					</button>
 				</Tooltip>
+				<button class="hidden" id="new-article-support-button" on:click={() => initNewChatForSupport()}>
+					Article Support
+				</button>
 
 				{#if $user !== undefined}
 					<UserMenu

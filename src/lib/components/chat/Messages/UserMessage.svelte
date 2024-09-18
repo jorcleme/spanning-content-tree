@@ -1,4 +1,7 @@
 <script lang="ts">
+	import type { SessionUser } from '$lib/stores';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import dayjs from 'dayjs';
 
 	import { tick, createEventDispatcher, getContext } from 'svelte';
@@ -8,14 +11,15 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
 	import { user as _user } from '$lib/stores';
+
 	import { getFileContentById } from '$lib/apis/files';
 	import FileItem from '$lib/components/common/FileItem.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 
-	export let user;
+	export let user: SessionUser;
 	export let message;
 	export let siblings;
 	export let isFirstMessage: boolean;
@@ -73,16 +77,14 @@
 					{#if message.user}
 						{$i18n.t('You')}
 						<span class=" text-gray-500 text-sm font-medium">{message?.user ?? ''}</span>
-					{:else if $settings.showUsername || $_user.name !== user.name}
+					{:else if $settings.showUsername || $_user?.name !== user.name}
 						{user.name}
 					{:else}
 						{$i18n.t('You')}
 					{/if}
 
 					{#if message.timestamp}
-						<span
-							class=" invisible group-hover:visible text-gray-400 text-xs font-medium uppercase"
-						>
+						<span class=" invisible group-hover:visible text-gray-400 text-xs font-medium uppercase">
 							{dayjs(message.timestamp * 1000).format($i18n.t('h:mm a'))}
 						</span>
 					{/if}
@@ -159,20 +161,14 @@
 					<div class="flex {$settings?.chatBubble ?? true ? 'justify-end' : ''} mb-2">
 						<div
 							class="rounded-3xl {$settings?.chatBubble ?? true
-								? `max-w-[90%] px-5 py-2  bg-gray-50 dark:bg-gray-850 ${
-										message.files ? 'rounded-tr-lg' : ''
-								  }`
+								? `max-w-[90%] px-5 py-2  bg-gray-50 dark:bg-gray-850 ${message.files ? 'rounded-tr-lg' : ''}`
 								: ''}  "
 						>
 							<pre id="user-message">{message.content}</pre>
 						</div>
 					</div>
 
-					<div
-						class=" flex {$settings?.chatBubble ?? true
-							? 'justify-end'
-							: ''}  text-gray-600 dark:text-gray-500"
-					>
+					<div class=" flex {$settings?.chatBubble ?? true ? 'justify-end' : ''}  text-gray-600 dark:text-gray-500">
 						{#if !($settings?.chatBubble ?? true)}
 							{#if siblings.length > 1}
 								<div class="flex self-center" dir="ltr">
@@ -190,11 +186,7 @@
 											stroke-width="2.5"
 											class="size-3.5"
 										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M15.75 19.5 8.25 12l7.5-7.5"
-											/>
+											<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
 										</svg>
 									</button>
 
@@ -216,11 +208,7 @@
 											stroke-width="2.5"
 											class="size-3.5"
 										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="m8.25 4.5 7.5 7.5-7.5 7.5"
-											/>
+											<path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
 										</svg>
 									</button>
 								</div>
@@ -319,11 +307,7 @@
 											stroke-width="2.5"
 											class="size-3.5"
 										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M15.75 19.5 8.25 12l7.5-7.5"
-											/>
+											<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
 										</svg>
 									</button>
 
@@ -345,11 +329,7 @@
 											stroke-width="2.5"
 											class="size-3.5"
 										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="m8.25 4.5 7.5 7.5-7.5 7.5"
-											/>
+											<path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
 										</svg>
 									</button>
 								</div>

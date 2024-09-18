@@ -15,6 +15,7 @@ __pycache__/
 
 spanning-content-tree/backend/data/config.json
 
+backend/data/config.json
 # C extensions
 *.so
 
@@ -309,3 +310,4 @@ dist
 cypress/videos
 cypress/screenshots
 .vscode/settings.json
+backend/data/config.json

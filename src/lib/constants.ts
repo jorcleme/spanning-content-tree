@@ -1,6 +1,11 @@
 import { browser, dev } from '$app/environment';
-// import { version } from '../../package.json';
+import { version } from '../../package.json';
 
+export const APP_VERSION = process.env.npm_package_version || version;
+export const APP_BUILD_HASH = process.env.APP_BUILD_HASH || process.env.BUILD_HASH || 'dev-build';
+console.log(`APP_VERSION: ${APP_VERSION}`);
+console.log(`APP_BUILD_HASH: ${APP_BUILD_HASH}`);
+console.log(`BUILD_HASH: ${process.env.BUILD_HASH}`);
 export const APP_NAME = 'Open WebUI';
 
 export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:8080` : ``) : '';

@@ -2,9 +2,11 @@ name: Deploy to HuggingFace Spaces
 
 on:
   push:
-    branches:
-      - dev
+    branches-ignore:
       - main
+    # branches:
+    #   - dev
+    #   - main
   workflow_dispatch:
 
 jobs:

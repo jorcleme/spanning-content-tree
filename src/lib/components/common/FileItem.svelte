@@ -10,10 +10,10 @@
 	export let clickHandler: Function | null = null;
 
 	export let dismissible = false;
-	export let status = 'processed';
+	export let status: string | boolean = 'processed';
 
-	export let name: string;
-	export let type: string;
+	export let name: string | null = null;
+	export let type: string | null = null;
 </script>
 
 <div class="relative group">

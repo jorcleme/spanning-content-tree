@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
-	import { onMount, tick, getContext } from 'svelte';
+	import { onMount, tick, getContext, SvelteComponent } from 'svelte';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import {
 		type Model,
 		mobile,
@@ -12,7 +14,7 @@
 		tools,
 		user as _user
 	} from '$lib/stores';
-	import { blobToFile, calculateSHA256, findWordIndices } from '$lib/utils';
+	import { blobToFile, calculateSHA256, findWordIndices, isErrorAsString, isErrorWithDetail } from '$lib/utils';
 
 	import {
 		processDocToVectorDB,
@@ -22,12 +24,7 @@
 	} from '$lib/apis/rag';
 
 	import { uploadFile } from '$lib/apis/files';
-	import {
-		SUPPORTED_FILE_TYPE,
-		SUPPORTED_FILE_EXTENSIONS,
-		WEBUI_BASE_URL,
-		WEBUI_API_BASE_URL
-	} from '$lib/constants';
+	import { SUPPORTED_FILE_TYPE, SUPPORTED_FILE_EXTENSIONS, WEBUI_BASE_URL, WEBUI_API_BASE_URL } from '$lib/constants';
 
 	import Prompts from './MessageInput/PromptCommands.svelte';
 	import Suggestions from './MessageInput/Suggestions.svelte';
@@ -42,10 +39,12 @@
 	import { transcribeAudio } from '$lib/apis/audio';
 	import FileItem from '../common/FileItem.svelte';
 	import FilesOverlay from './MessageInput/FilesOverlay.svelte';
+	import type { ClientFile } from '$lib/types';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
-	export let transparentBackground = false;
+	// @svelte-ignore
+	export let transparentBackground: string | boolean = false;
 
 	export let submitPrompt: Function;
 	export let stopResponse: Function;
@@ -53,31 +52,31 @@
 	export let autoScroll = true;
 
 	export let atSelectedModel: Model | undefined;
-	export let selectedModels: [''];
+	export let selectedModels: string[];
 
 	let recording = false;
 
 	let chatTextAreaElement: HTMLTextAreaElement;
-	let filesInputElement;
+	let filesInputElement: HTMLInputElement;
 
-	let promptsElement;
-	let documentsElement;
-	let modelsElement;
+	let promptsElement: SvelteComponent;
+	let documentsElement: SvelteComponent;
+	let modelsElement: SvelteComponent;
 
-	let inputFiles;
+	let inputFiles: FileList;
 	let dragged = false;
 
 	let user = null;
 	let chatInputPlaceholder = '';
 
-	export let files = [];
+	export let files: ClientFile[] = [];
 
-	export let availableToolIds = [];
-	export let selectedToolIds = [];
+	export let availableToolIds: string[] = [];
+	export let selectedToolIds: string[] = [];
 	export let webSearchEnabled = false;
 
 	export let prompt = '';
-	export let messages = [];
+	export let messages: any[] = [];
 
 	let visionCapableModels = [];
 	$: visionCapableModels = [...(atSelectedModel ? [atSelectedModel] : selectedModels)].filter(
@@ -87,16 +86,16 @@
 	$: if (prompt) {
 		if (chatTextAreaElement) {
 			chatTextAreaElement.style.height = '';
-			chatTextAreaElement.style.height = Math.min(chatTextAreaElement.scrollHeight, 200) + 'px';
+			chatTextAreaElement.style.height = `${Math.min(chatTextAreaElement.scrollHeight, 200)}px`;
 		}
 	}
 
 	const scrollToBottom = () => {
 		const element = document.getElementById('messages-container');
-		element.scrollTop = element.scrollHeight;
+		if (element) element.scrollTop = element.scrollHeight;
 	};
 
-	const uploadFileHandler = async (file) => {
+	const uploadFileHandler = async (file: File) => {
 		console.log(file);
 		// Check if the file is an audio file and transcribe/convert it to text file
 		if (['audio/mpeg', 'audio/wav'].includes(file['type'])) {
@@ -119,7 +118,7 @@
 		});
 
 		if (uploadedFile) {
-			const fileItem = {
+			const fileItem: ClientFile = {
 				type: 'file',
 				file: uploadedFile,
 				id: uploadedFile.id,
@@ -135,7 +134,7 @@
 			// Default Upload to VectorDB
 			if (
 				SUPPORTED_FILE_TYPE.includes(file['type']) ||
-				SUPPORTED_FILE_EXTENSIONS.includes(file.name.split('.').at(-1))
+				SUPPORTED_FILE_EXTENSIONS.includes(file?.name?.split('.').at(-1) ?? '')
 			) {
 				processFileItem(fileItem);
 			} else {
@@ -149,9 +148,10 @@
 		}
 	};
 
-	const processFileItem = async (fileItem) => {
+	const processFileItem = async (fileItem: ClientFile) => {
+		console.log(`[MessageInput.svelte] processFileItem (fileItem) => fileItem is: `, fileItem);
 		try {
-			const res = await processDocToVectorDB(localStorage.token, fileItem.id);
+			const res = await processDocToVectorDB(localStorage.token, fileItem.id as string);
 
 			if (res) {
 				fileItem.status = 'processed';
@@ -161,17 +161,23 @@
 		} catch (e) {
 			// Remove the failed doc from the files array
 			// files = files.filter((f) => f.id !== fileItem.id);
-			toast.error(e);
+			if (isErrorAsString(e)) {
+				toast.error(e);
+			} else if (isErrorWithDetail(e)) {
+				toast.error(e.detail);
+			} else {
+				toast.error(e as string);
+			}
 
 			fileItem.status = 'processed';
 			files = files;
 		}
 	};
 
-	const uploadWeb = async (url) => {
+	const uploadWeb = async (url: string) => {
 		console.log(url);
 
-		const doc = {
+		const doc: ClientFile = {
 			type: 'doc',
 			name: url,
 			collection_name: '',
@@ -192,18 +198,24 @@
 		} catch (e) {
 			// Remove the failed doc from the files array
 			files = files.filter((f) => f.name !== url);
-			toast.error(e);
+			if (isErrorAsString(e)) {
+				toast.error(e);
+			} else if (isErrorWithDetail(e)) {
+				toast.error(e.detail);
+			} else {
+				toast.error(e as string);
+			}
 		}
 	};
 
-	const uploadYoutubeTranscription = async (url) => {
+	const uploadYoutubeTranscription = async (url: string) => {
 		console.log(url);
 
 		const doc = {
 			type: 'doc',
 			name: url,
 			collection_name: '',
-			status: false,
+			status: false as string | boolean,
 			url: url,
 			error: ''
 		};
@@ -220,7 +232,7 @@
 		} catch (e) {
 			// Remove the failed doc from the files array
 			files = files.filter((f) => f.name !== url);
-			toast.error(e);
+			toast.error(e as string);
 		}
 	};
 
@@ -245,7 +257,7 @@
 			dragged = false;
 		};
 
-		const onDrop = async (e) => {
+		const onDrop = async (e: DragEvent) => {
 			e.preventDefault();
 			console.log(e);
 
@@ -266,7 +278,7 @@
 									...files,
 									{
 										type: 'image',
-										url: `${event.target.result}`
+										url: `${event.target?.result}`
 									}
 								];
 							};
@@ -298,7 +310,7 @@
 		};
 	});
 	export let generatePrompt: (existingText: string) => void;
-	export let isTextareaEmpty: boolean;
+	export let isTextareaEmpty: boolean = false;
 	let textareaValue = '';
 
 	$: if (prompt) {
@@ -322,6 +334,17 @@
 		const existingText = chatTextAreaElement ? chatTextAreaElement.value : '';
 		generatePrompt(existingText);
 	}
+
+	$: _tools = $tools.reduce((a, e, i, arr) => {
+		if (availableToolIds.includes(e.id) || ($_user?.role ?? 'user') === 'admin') {
+			a[e.id] = {
+				name: e.name,
+				description: e.meta.description,
+				enabled: false
+			};
+		}
+		return a;
+	}, {} as { [id: string]: any });
 </script>
 
 <FilesOverlay show={dragged} />
@@ -331,9 +354,7 @@
 		<div class="flex flex-col max-w-6xl px-2.5 md:px-6 w-full">
 			<div class="relative">
 				{#if autoScroll === false && messages.length > 0}
-					<div
-						class=" absolute -top-12 left-0 right-0 flex justify-center z-30 pointer-events-none"
-					>
+					<div class=" absolute -top-12 left-0 right-0 flex justify-center z-30 pointer-events-none">
 						<button
 							class=" bg-white border border-gray-100 dark:border-none dark:bg-white/20 p-1.5 rounded-full pointer-events-auto"
 							on:click={() => {
@@ -341,12 +362,7 @@
 								scrollToBottom();
 							}}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								class="w-5 h-5"
-							>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 								<path
 									fill-rule="evenodd"
 									d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z"
@@ -407,11 +423,8 @@
 								crossorigin="anonymous"
 								alt="model profile"
 								class="size-5 max-w-[28px] object-cover rounded-full"
-								src={$models.find((model) => model.id === atSelectedModel.id)?.info?.meta
-									?.profile_image_url ??
-									($i18n.language === 'dg-DG'
-										? `/doge.png`
-										: `${WEBUI_BASE_URL}/static/favicon.png`)}
+								src={$models.find((model) => model.id === atSelectedModel?.id)?.info?.meta.user?.profile_image_url ??
+									($i18n.language === 'dg-DG' ? `/doge.png` : `${WEBUI_BASE_URL}/static/favicon.png`)}
 							/>
 							<div>
 								Talking to <span class=" font-medium">{atSelectedModel.name}</span>
@@ -457,7 +470,7 @@
 											...files,
 											{
 												type: 'image',
-												url: `${event.target.result}`
+												url: `${event.target?.result}`
 											}
 										];
 									};
@@ -515,11 +528,7 @@
 										{#if file.type === 'image'}
 											<div class=" relative group">
 												<div class="relative">
-													<img
-														src={file.url}
-														alt="input"
-														class=" h-16 w-16 rounded-xl object-cover"
-													/>
+													<img src={file.url} alt="input" class=" h-16 w-16 rounded-xl object-cover" />
 													{#if atSelectedModel ? visionCapableModels.length === 0 : selectedModels.length !== visionCapableModels.length}
 														<Tooltip
 															className=" absolute top-1 left-1"
@@ -568,7 +577,7 @@
 											</div>
 										{:else}
 											<FileItem
-												name={file.name}
+												name={file?.name}
 												type={file.type}
 												status={file.status}
 												dismissible={true}
@@ -587,16 +596,7 @@
 									<InputMenu
 										bind:webSearchEnabled
 										bind:selectedToolIds
-										tools={$tools.reduce((a, e, i, arr) => {
-											if (availableToolIds.includes(e.id) || ($_user?.role ?? 'user') === 'admin') {
-												a[e.id] = {
-													name: e.name,
-													description: e.meta.description,
-													enabled: false
-												};
-											}
-											return a;
-										}, {})}
+										tools={_tools}
 										uploadFilesHandler={() => {
 											filesInputElement.click();
 										}}
@@ -609,12 +609,7 @@
 											class="bg-gray-50 hover:bg-gray-100 text-gray-800 dark:bg-gray-850 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-2 outline-none focus:outline-none"
 											type="button"
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 16 16"
-												fill="currentColor"
-												class="size-5"
-											>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-5">
 												<path
 													d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
 												/>
@@ -637,13 +632,11 @@
 										class="lucide lucide-brain-circuit inline-block m-auto"
 										><path
 											d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"
-										/><path d="M9 13a4.5 4.5 0 0 0 3-4" /><path
-											d="M6.003 5.125A3 3 0 0 0 6.401 6.5"
-										/><path d="M3.477 10.896a4 4 0 0 1 .585-.396" /><path
-											d="M6 18a4 4 0 0 1-1.967-.516"
-										/><path d="M12 13h4" /><path d="M12 18h6a2 2 0 0 1 2 2v1" /><path
-											d="M12 8h8"
-										/><path d="M16 8V5a2 2 0 0 1 2-2" /><circle cx="16" cy="13" r=".5" /><circle
+										/><path d="M9 13a4.5 4.5 0 0 0 3-4" /><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" /><path
+											d="M3.477 10.896a4 4 0 0 1 .585-.396"
+										/><path d="M6 18a4 4 0 0 1-1.967-.516" /><path d="M12 13h4" /><path
+											d="M12 18h6a2 2 0 0 1 2 2v1"
+										/><path d="M12 8h8" /><path d="M16 8V5a2 2 0 0 1 2-2" /><circle cx="16" cy="13" r=".5" /><circle
 											cx="18"
 											cy="3"
 											r=".5"
@@ -705,18 +698,12 @@
 									id="chat-textarea"
 									bind:this={chatTextAreaElement}
 									class="scrollbar-hidden bg-gray-50 dark:bg-gray-850 dark:text-gray-100 outline-none w-full py-3 px-1 rounded-xl resize-none h-[48px]"
-									placeholder={chatInputPlaceholder !== ''
-										? chatInputPlaceholder
-										: $i18n.t('Send a Message')}
+									placeholder={chatInputPlaceholder !== '' ? chatInputPlaceholder : $i18n.t('Send a Message')}
 									bind:value={prompt}
 									on:keypress={(e) => {
 										if (
 											!$mobile ||
-											!(
-												'ontouchstart' in window ||
-												navigator.maxTouchPoints > 0 ||
-												navigator.msMaxTouchPoints > 0
-											)
+											!('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0)
 										) {
 											// Prevent Enter key from creating a new line
 											if (e.key === 'Enter' && !e.shiftKey) {
@@ -737,9 +724,9 @@
 											e.preventDefault();
 											console.log('regenerate');
 
-											const regenerateButton = [
-												...document.getElementsByClassName('regenerate-response-button')
-											]?.at(-1);
+											const regenerateButton = [...document.getElementsByClassName('regenerate-response-button')]?.at(
+												-1
+											);
 
 											regenerateButton?.click();
 										}
@@ -747,17 +734,13 @@
 										if (prompt === '' && e.key == 'ArrowUp') {
 											e.preventDefault();
 
-											const userMessageElement = [
-												...document.getElementsByClassName('user-message')
-											]?.at(-1);
+											const userMessageElement = [...document.getElementsByClassName('user-message')]?.at(-1);
 
-											const editButton = [
-												...document.getElementsByClassName('edit-user-message-button')
-											]?.at(-1);
+											const editButton = [...document.getElementsByClassName('edit-user-message-button')]?.at(-1);
 
 											console.log(userMessageElement);
 
-											userMessageElement.scrollIntoView({ block: 'center' });
+											userMessageElement?.scrollIntoView({ block: 'center' });
 											editButton?.click();
 										}
 
@@ -769,7 +752,7 @@
 											const commandOptionButton = [
 												...document.getElementsByClassName('selected-command-option-button')
 											]?.at(-1);
-											commandOptionButton.scrollIntoView({ block: 'center' });
+											commandOptionButton?.scrollIntoView({ block: 'center' });
 										}
 
 										if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'ArrowDown') {
@@ -780,7 +763,7 @@
 											const commandOptionButton = [
 												...document.getElementsByClassName('selected-command-option-button')
 											]?.at(-1);
-											commandOptionButton.scrollIntoView({ block: 'center' });
+											commandOptionButton?.scrollIntoView({ block: 'center' });
 										}
 
 										if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'Enter') {
@@ -811,22 +794,23 @@
 											const words = findWordIndices(prompt);
 
 											if (words.length > 0) {
-												const word = words.at(0);
+												const word = words.at(0) ?? words[0];
+												// const word = words.at(0);
 												const fullPrompt = prompt;
 
 												prompt = prompt.substring(0, word?.endIndex + 1);
 												await tick();
 
-												e.target.scrollTop = e.target.scrollHeight;
+												e.currentTarget.scrollTop = e.currentTarget.scrollHeight;
 												prompt = fullPrompt;
 												await tick();
 
 												e.preventDefault();
-												e.target.setSelectionRange(word?.startIndex, word.endIndex + 1);
+												e.currentTarget.setSelectionRange(word?.startIndex, word.endIndex + 1);
 											}
 
-											e.target.style.height = '';
-											e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+											e.currentTarget.style.height = '';
+											e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
 										}
 
 										if (e.key === 'Escape') {
@@ -836,13 +820,13 @@
 									}}
 									rows="1"
 									on:input={(e) => {
-										e.target.style.height = '';
-										e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+										e.currentTarget.style.height = '';
+										e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
 										user = null;
 									}}
 									on:focus={(e) => {
-										e.target.style.height = '';
-										e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+										e.currentTarget.style.height = '';
+										e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
 									}}
 									on:paste={(e) => {
 										const clipboardData = e.clipboardData || window.clipboardData;
@@ -858,7 +842,7 @@
 															...files,
 															{
 																type: 'image',
-																url: `${e.target.result}`
+																url: `${e.target?.result}`
 															}
 														];
 													};
@@ -883,12 +867,9 @@
 															.getUserMedia({ audio: true })
 															.catch(function (err) {
 																toast.error(
-																	$i18n.t(
-																		`Permission denied when accessing microphone: {{error}}`,
-																		{
-																			error: err
-																		}
-																	)
+																	$i18n.t(`Permission denied when accessing microphone: {{error}}`, {
+																		error: err
+																	})
 																);
 																return null;
 															});
@@ -933,10 +914,8 @@
 														return;
 													}
 
-													if ($config.audio.stt.engine === 'web') {
-														toast.error(
-															$i18n.t('Call feature is not supported when using Web STT engine')
-														);
+													if ($config?.audio?.stt?.engine === 'web') {
+														toast.error($i18n.t('Call feature is not supported when using Web STT engine'));
 
 														return;
 													}
@@ -967,12 +946,7 @@
 												type="submit"
 												disabled={prompt === ''}
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													class="size-6"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-6">
 													<path
 														fill-rule="evenodd"
 														d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z"
@@ -991,12 +965,7 @@
 											stopResponse();
 										}}
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 24 24"
-											fill="currentColor"
-											class="size-6"
-										>
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
 											<path
 												fill-rule="evenodd"
 												d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm6-2.438c0-.724.588-1.312 1.313-1.312h4.874c.725 0 1.313.588 1.313 1.313v4.874c0 .725-.588 1.313-1.313 1.313H9.564a1.312 1.312 0 01-1.313-1.313V9.564z"

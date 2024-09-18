@@ -5,11 +5,7 @@
 	import { addUser } from '$lib/apis/auths';
 
 	import Modal from '../../common/Modal.svelte';
-	import {
-		getFunctionValvesById,
-		getFunctionValvesSpecById,
-		updateFunctionValvesById
-	} from '$lib/apis/functions';
+	import { getFunctionValvesById, getFunctionValvesSpecById, updateFunctionValvesById } from '$lib/apis/functions';
 	import { getToolValvesById, getToolValvesSpecById, updateToolValvesById } from '$lib/apis/tools';
 	import Spinner from '../../common/Spinner.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
@@ -21,7 +17,7 @@
 	export let show = false;
 
 	export let type = 'tool';
-	export let id = null;
+	export let id: string | null = null;
 
 	let saving = false;
 	let loading = false;
@@ -105,12 +101,7 @@
 					show = false;
 				}}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="w-5 h-5"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 					<path
 						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 					/>
@@ -146,11 +137,7 @@
 
 							{#if saving}
 								<div class="ml-2 self-center">
-									<svg
-										class=" w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="currentColor"
-										xmlns="http://www.w3.org/2000/svg"
+									<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
 										><style>
 											.spinner_ajPY {
 												transform-origin: center;

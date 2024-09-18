@@ -1,4 +1,7 @@
 <script lang="ts">
+	import type { Or } from '$lib/types';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { toast } from 'svelte-sonner';
 	import { createEventDispatcher, tick, getContext } from 'svelte';
 	import { config, settings } from '$lib/stores';
@@ -6,7 +9,7 @@
 
 	import { transcribeAudio } from '$lib/apis/audio';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 
@@ -16,7 +19,7 @@
 	let confirmed = false;
 
 	let durationSeconds = 0;
-	let durationCounter = null;
+	let durationCounter: number | Timer | null = null;
 
 	let transcription = '';
 
@@ -27,7 +30,7 @@
 	};
 
 	const stopDurationCounter = () => {
-		clearInterval(durationCounter);
+		clearInterval(durationCounter as number);
 		durationSeconds = 0;
 	};
 
@@ -37,17 +40,17 @@
 		stopRecording();
 	}
 
-	const formatSeconds = (seconds) => {
+	const formatSeconds = (seconds: number) => {
 		const minutes = Math.floor(seconds / 60);
 		const remainingSeconds = seconds % 60;
 		const formattedSeconds = remainingSeconds < 10 ? `0${remainingSeconds}` : remainingSeconds;
 		return `${minutes}:${formattedSeconds}`;
 	};
 
-	let speechRecognition;
+	let speechRecognition: any;
 
-	let mediaRecorder;
-	let audioChunks = [];
+	let mediaRecorder: MediaRecorder;
+	let audioChunks: BlobPart[] = [];
 
 	const MIN_DECIBELS = -45;
 	const VISUALIZER_BUFFER_LENGTH = 300;
@@ -64,7 +67,7 @@
 		return Math.sqrt(sumSquares / data.length);
 	};
 
-	const normalizeRMS = (rms) => {
+	const normalizeRMS = (rms: number) => {
 		rms = rms * 10;
 		const exp = 1.5; // Adjust exponent value; values greater than 1 expand larger numbers more and compress smaller numbers more
 		const scaledRMS = Math.pow(rms, exp);
@@ -73,7 +76,7 @@
 		return Math.min(1.0, Math.max(0.01, scaledRMS));
 	};
 
-	const analyseAudio = (stream) => {
+	const analyseAudio = (stream: MediaStream) => {
 		const audioContext = new AudioContext();
 		const audioStreamSource = audioContext.createMediaStreamSource(stream);
 
@@ -128,7 +131,7 @@
 		detectSound();
 	};
 
-	const transcribeHandler = async (audioBlob) => {
+	const transcribeHandler = async (audioBlob: Blob) => {
 		// Create a blob from the audio chunks
 
 		await tick();
@@ -145,11 +148,11 @@
 		}
 	};
 
-	const saveRecording = (blob) => {
+	const saveRecording = (blob: Blob | MediaSource) => {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		document.body.appendChild(a);
-		a.style = 'display: none';
+		a.setAttribute('style', 'display: none');
 		a.href = url;
 		a.download = 'recording.wav';
 		a.click();
@@ -173,7 +176,7 @@
 				audioChunks = [];
 			} else {
 				if (confirmed) {
-					const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+					const audioBlob = new Blob(audioChunks as BlobPart[], { type: 'audio/wav' });
 
 					await transcribeHandler(audioBlob);
 
@@ -185,7 +188,7 @@
 			}
 		};
 		mediaRecorder.start();
-		if ($config.audio.stt.engine === 'web' || ($settings?.audio?.stt?.engine ?? '') === 'web') {
+		if ($config?.audio?.stt?.engine === 'web' || ($settings?.audio?.stt?.engine ?? '') === 'web') {
 			if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
 				// Create a SpeechRecognition object
 				speechRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -196,12 +199,12 @@
 				// Set the timeout for turning off the recognition after inactivity (in milliseconds)
 				const inactivityTimeout = 2000; // 3 seconds
 
-				let timeoutId;
+				let timeoutId: number | Timer;
 				// Start recognition
 				speechRecognition.start();
 
 				// Event triggered when speech is recognized
-				speechRecognition.onresult = async (event) => {
+				speechRecognition.onresult = async (event: any) => {
 					// Clear the inactivity timeout
 					clearTimeout(timeoutId);
 
@@ -234,7 +237,7 @@
 				};
 
 				// Event triggered when an error occurs
-				speechRecognition.onerror = function (event) {
+				speechRecognition.onerror = function (event: any) {
 					console.log(event);
 					toast.error($i18n.t(`Speech recognition error: {{error}}`, { error: event.error }));
 					dispatch('cancel');
@@ -247,7 +250,7 @@
 
 	const stopRecording = async () => {
 		if (recording && mediaRecorder) {
-			await mediaRecorder.stop();
+			mediaRecorder.stop();
 		}
 		stopDurationCounter();
 		audioChunks = [];
@@ -258,9 +261,9 @@
 		confirmed = true;
 
 		if (recording && mediaRecorder) {
-			await mediaRecorder.stop();
+			mediaRecorder.stop();
 		}
-		clearInterval(durationCounter);
+		clearInterval(durationCounter as Or<number, Timer>);
 	};
 </script>
 
@@ -274,9 +277,7 @@
 			type="button"
 			class="p-1.5
 
-            {loading
-				? ' bg-gray-200 dark:bg-gray-700/50'
-				: 'bg-indigo-400/20 text-indigo-600 dark:text-indigo-300 '} 
+            {loading ? ' bg-gray-200 dark:bg-gray-700/50' : 'bg-indigo-400/20 text-indigo-600 dark:text-indigo-300 '} 
 
 
              rounded-full"
@@ -298,18 +299,13 @@
 		</button>
 	</div>
 
-	<div
-		class="flex flex-1 self-center items-center justify-between ml-2 mx-1 overflow-hidden h-6"
-		dir="rtl"
-	>
+	<div class="flex flex-1 self-center items-center justify-between ml-2 mx-1 overflow-hidden h-6" dir="rtl">
 		<div class="flex-1 flex items-center gap-0.5 h-6">
 			{#each visualizerData.slice().reverse() as rms}
 				<div
 					class="w-[2px]
                     
-                    {loading
-						? ' bg-gray-500 dark:bg-gray-400   '
-						: 'bg-indigo-500 dark:bg-indigo-400  '} 
+                    {loading ? ' bg-gray-500 dark:bg-gray-400   ' : 'bg-indigo-500 dark:bg-indigo-400  '} 
                     
                     inline-block h-full"
 					style="height: {Math.min(100, Math.max(14, rms * 100))}%;"
@@ -333,12 +329,7 @@
 	<div class="flex items-center mr-1">
 		{#if loading}
 			<div class=" text-gray-500 rounded-full cursor-not-allowed">
-				<svg
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					xmlns="http://www.w3.org/2000/svg"
-					fill="currentColor"
+				<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"
 					><style>
 						.spinner_OSmW {
 							transform-origin: center;
@@ -390,28 +381,14 @@
 							height="5"
 							transform="rotate(30 12 12)"
 							opacity=".29"
-						/><rect
-							x="11"
-							y="1"
-							width="2"
-							height="5"
-							transform="rotate(60 12 12)"
-							opacity=".43"
-						/><rect
+						/><rect x="11" y="1" width="2" height="5" transform="rotate(60 12 12)" opacity=".43" /><rect
 							x="11"
 							y="1"
 							width="2"
 							height="5"
 							transform="rotate(90 12 12)"
 							opacity=".57"
-						/><rect
-							x="11"
-							y="1"
-							width="2"
-							height="5"
-							transform="rotate(120 12 12)"
-							opacity=".71"
-						/><rect
+						/><rect x="11" y="1" width="2" height="5" transform="rotate(120 12 12)" opacity=".71" /><rect
 							x="11"
 							y="1"
 							width="2"

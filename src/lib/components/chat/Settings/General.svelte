@@ -2,11 +2,15 @@
 	import { toast } from 'svelte-sonner';
 	import { createEventDispatcher, onMount, getContext } from 'svelte';
 	import { getLanguages } from '$lib/i18n';
+	import type { Writable } from 'svelte/store';
+	import { type i18n as i18nType } from 'i18next';
+	import type { ChatParams } from '$lib/stores';
+
 	const dispatch = createEventDispatcher();
 
 	import { models, settings, theme, user } from '$lib/stores';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	import AdvancedParams from './Advanced/AdvancedParams.svelte';
 
@@ -14,10 +18,10 @@
 	export let getModels: Function;
 
 	// General
-	let themes = ['cisco', 'dark', 'light', 'rose-pine dark', 'rose-pine-dawn light', 'oled-dark'];
+	let themes = ['dark', 'light', 'rose-pine dark', 'rose-pine-dawn light', 'oled-dark', 'cisco'];
 	let selectedTheme = 'system';
 
-	let languages = [];
+	let languages: Array<{ code: string; title: string }> = [];
 	let lang = $i18n.language;
 	let notificationEnabled = false;
 	let system = '';
@@ -41,9 +45,9 @@
 
 	// Advanced
 	let requestFormat = '';
-	let keepAlive = null;
+	let keepAlive: string | number | null = null;
 
-	let params = {
+	let params: ChatParams = {
 		// Advanced
 		seed: null,
 		temperature: null,
@@ -151,6 +155,7 @@
 						<option value="oled-dark">🌃 {$i18n.t('OLED Dark')}</option>
 						<option value="light">☀️ {$i18n.t('Light')}</option>
 						<option value="her">🌷 Her</option>
+						<option value="cisco">📱 Cisco</option>
 						<!-- <option value="rose-pine dark">🪻 {$i18n.t('Rosé Pine')}</option>
 						<option value="rose-pine-dawn light">🌷 {$i18n.t('Rosé Pine Dawn')}</option> -->
 					</select>
@@ -308,8 +313,7 @@
 						seed: (params.seed !== null ? params.seed : undefined) ?? undefined,
 						stop: params.stop ? params.stop.split(',').filter((e) => e) : undefined,
 						temperature: params.temperature !== null ? params.temperature : undefined,
-						frequency_penalty:
-							params.frequency_penalty !== null ? params.frequency_penalty : undefined,
+						frequency_penalty: params.frequency_penalty !== null ? params.frequency_penalty : undefined,
 						repeat_last_n: params.repeat_last_n !== null ? params.repeat_last_n : undefined,
 						mirostat: params.mirostat !== null ? params.mirostat : undefined,
 						mirostat_eta: params.mirostat_eta !== null ? params.mirostat_eta : undefined,

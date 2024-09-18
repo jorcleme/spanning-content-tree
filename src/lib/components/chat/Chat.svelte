@@ -2,15 +2,12 @@
 	import { v4 as uuidv4 } from 'uuid';
 	import { toast } from 'svelte-sonner';
 	import mermaid from 'mermaid';
-
-	import { getContext, onMount, tick } from 'svelte';
+	import { getContext, onDestroy, onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-
 	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import { type i18n as i18nType } from 'i18next';
 	import { OLLAMA_API_BASE_URL, OPENAI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
-
 	import {
 		chatId,
 		chats,
@@ -35,7 +32,6 @@
 		promptTemplate,
 		splitStream
 	} from '$lib/utils';
-
 	import { generateChatCompletion, generateTextCompletion } from '$lib/apis/ollama';
 	import {
 		addTagById,
@@ -62,6 +58,10 @@
 	import { error } from '@sveltejs/kit';
 	import ChatControls from './ChatControls.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
+	import ClarificationCard from './Messages/ClarificationCard.svelte';
+	import type { ChatResponse, Message, MessageHistory, ClientFile, ChatTagListResponse } from '$lib/types';
+	import { isErrorWithDetail } from '$lib/utils';
+	import PromptContainer from '../Cisco/components/PromptContainer.svelte';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
 
@@ -80,7 +80,7 @@
 	let eventConfirmationMessage = '';
 	let eventConfirmationInput = false;
 	let eventConfirmationInputPlaceholder = '';
-	let eventCallback = null;
+	let eventCallback: Function = null;
 
 	let showModelSelector = true;
 
@@ -89,35 +89,396 @@
 
 	let selectedModelIds = [];
 	$: selectedModelIds = atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
+	// Custom replacer to handle circular references, particularly for $socket
+	function getCircularReplacer() {
+		const seen = new WeakSet();
+		return (key: string, value: any) => {
+			if (typeof value === 'object' && value !== null) {
+				if (seen.has(value)) {
+					return '[Circular]';
+				}
+				seen.add(value);
+			}
+			return value;
+		};
+	}
 
-	let selectedToolIds = [];
+	// Cisco Logging to see shape of values
+	$: {
+		console.log(`[selectedModels:Chat.svelte] -> ${JSON.stringify(selectedModels, null, 2)}`);
+		console.log(`[selectedModelIds:Chat.svelte] -> ${selectedModelIds}`);
+		console.log(`[atSelectedModel:Chat.svelte] -> ${atSelectedModel}\n${JSON.stringify(atSelectedModel, null, 2)}`);
+		console.log(`[$page:Chat.svelte] -> ${JSON.stringify($page, null, 2)}`);
+		// console.log(`[$socket:Chat.svelte] -> ${JSON.stringify($socket, getCircularReplacer(), 2)}`);
+		console.log('[files:Chat.svelte] ->', files);
+		/* 
+		File object shape:
+		-------------------
+		collection_name: "2a1113258f84e36ba0f4734b33092836936e538c539b2c741218fa9bc7aef13"
+		error: ""
+		file: {id: '362ec854-789f-4563-8981-92c0f196cd47', user_id: 'b7ad0b4d-972a-4225-8cbf-b592b4a51a90', filename: '362ec854-789f-4563-8981-92c0f196cd47_auto-surveillance-vlan-catalyst-1200-1300-switches.pdf', meta: {…}, created_at: 1724870348}
+		id: "362ec854-789f-4563-8981-92c0f196cd47"
+		name: "auto-surveillance-vlan-catalyst-1200-1300-switches.pdf"
+		status: "processed"
+		type: "file"
+		url: "/api/v1/files/362ec854-789f-4563-8981-92c0f196cd47"
+		-------------------
+		*/
+	}
+
+	let selectedToolIds: string[] = [];
 	let webSearchEnabled = false;
 
-	let chat = null;
-	let tags = [];
+	let chat: ChatResponse | null = null;
+	let tags: ChatTagListResponse = [];
 
 	let title = '';
 	let prompt = '';
 
-	let chatFiles = [];
-	let files = [];
-	let messages = [];
-	let history = {
+	let chatFiles: ClientFile[] = [];
+	let files: ClientFile[] = [];
+	let messages: Message[] = [];
+
+	let history: MessageHistory = {
 		messages: {},
 		currentId: null
 	};
 
-	let params = {};
+	let params: { [x: string]: any } = {};
 	let valves = {};
+
+	$: _availableToolIds = selectedModelIds.reduce((a, e, i, arr) => {
+		const model = $models.find((m) => m.id === e);
+		if (model && model.info && model.info.meta && model.info.meta.toolIds) {
+			return [...new Set([...a, ...model.info.meta.toolIds])];
+		}
+		return a;
+	}, [] as string[]);
+
+	///////////////////
+	// ClarificationCard variables
+	///////////////////
+
+	let clarificationVisible = false;
+	let awaitingClarification = false;
+	let clarificationQuestion = '';
+	// export let selectedOptionsString = '';
+	// export let selectedNotOptionsString = '';
+	let clarificationOptions = [];
+	let clarificationNotOptions = [];
+	// export let question = '';
+	// export let option = '';
+	// export let notOption = '';
+	// export let options = [];
+	let keepContext = false;
+	let clarificationNeeded = false;
+	let selectedOption = '';
+	let notOptions = [];
+
+	let userMessage = null;
+
+	/////////////////////////
+	//
+	// 	(Cisco) ClarificationCard functions
+	//
+	/////////////////////////
+
+	// const generateQuestions = async (responseMessage, previousQuestions) => {
+	// 	console.log('Chat.svelte -> generateQuestions -> responseMessage', responseMessage);
+
+	// 	console.log('Chat.svelte -> generateQuestions -> previousQuestions', previousQuestions);
+
+	// 	const prompt_template = `Generate 3 (and only 3) questions based on the following text.
+	// 	do not provide any explainations about the questions. each between 3-5 words long:
+	// 		1. [3-5 word(s)]
+	// 		2. [3-5 word(s)]
+	// 		3. [3-5 word(s)]
+
+	// 		Avoid generating questions similar to the provided examples:\n\n`;
+	// 	const exampleQuestions = previousQuestions.join('\n');
+	// 	const prompt = `${prompt_template}${responseMessage.content}\n\nExample questions to avoid:\n${exampleQuestions}\n\nNew questions:`;
+
+	// 	try {
+	// 		// Send a request to the LLM with the prompt
+	// 		const res = await generateTextCompletion(localStorage.token, selectedModels[0], prompt);
+
+	// 		// Check status of the response
+	// 		// console.log('hey corey the res', res);
+
+	// 		if (res && res.ok) {
+	// 			const reader = res
+	// 				.body!.pipeThrough(new TextDecoderStream())
+	// 				.pipeThrough(splitStream('\n'))
+	// 				.getReader();
+
+	// 			let data = '';
+
+	// 			while (true) {
+	// 				const { value, done } = await reader.read();
+	// 				if (done) {
+	// 					break;
+	// 				}
+
+	// 				const lines = value.split('\n');
+	// 				for (const line of lines) {
+	// 					if (line !== '') {
+	// 						const parsedLine = JSON.parse(line);
+	// 						if (parsedLine.response) {
+	// 							data += parsedLine.response;
+	// 						}
+	// 					}
+	// 				}
+	// 			}
+
+	// 			console.log('hey corey the data', data);
+
+	// 			const questions = data.trim().split('\n').slice(1);
+	// 			const filteredQuestions = questions
+	// 				.map((q) => q.replace(/^\d+\.\s*/, ''))
+	// 				.filter((q) => q.trim() !== '' && !q.includes('Note:') && !q.includes('Please note'));
+	// 			responseMessage.questions = filteredQuestions;
+	// 			messages = [...messages]; // Update the messages array to trigger reactivity
+
+	// 			return { success: true, data: filteredQuestions };
+	// 		} else {
+	// 			const error = await res!.text(); // Get the error as text instead of JSON
+	// 			toast.error(error);
+	// 			console.log('hey corey the error', error);
+	// 			return { success: false, data: '' };
+	// 		}
+	// 	} catch (error) {
+	// 		console.error('Failed to query LLM:', error);
+	// 		toast.error(`${error}`);
+	// 		return { success: false, data: '' };
+	// 	}
+	// };
+
+	// const checkClarificationNeeded = async (
+	// 	userMessage: string
+	// ): Promise<{ question: string; options: { label: string; value: string }[] } | null> => {
+	// 	// Send a request to the LLM to generate clarification options
+	// 	const clarificationOptionsFromLLM = await getClarificationOptions(userMessage);
+
+	// 	if (clarificationOptionsFromLLM && clarificationOptionsFromLLM.success) {
+	// 		let parsedOptions = parseclarificationOptionsFromLLM(clarificationOptionsFromLLM.data);
+	// 		if (parsedOptions.length > 0) {
+	// 			// Reset the selected option if it's a new clarification request and context is not being kept
+	// 			if (!clarificationNeeded || !keepContext) {
+	// 				selectedOption = '';
+	// 				notOptions = []; // Reset notOptions to an empty array
+	// 			}
+
+	// 			// Remove the 'keep_context' option from the visible options
+	// 			parsedOptions = parsedOptions.filter((option) => option.label !== 'keep_context');
+
+	// 			return {
+	// 				question: 'Please clarify your request:',
+	// 				options: parsedOptions
+	// 			};
+	// 		}
+	// 	}
+
+	// 	// If the LLM response fails or doesn't provide any options, use default options
+	// 	return {
+	// 		question: 'Please provide more details for your request:',
+	// 		options: [
+	// 			{ label: 'Option 1', value: 'option1' },
+	// 			{ label: 'Option 2', value: 'option2' },
+	// 			{ label: 'Option 3', value: 'option3' }
+	// 		]
+	// 	};
+	// };
+
+	// // Helper function to query the LLM and get a response
+	// const getClarificationOptions = async (
+	// 	prompt: string
+	// ): Promise<{ success: boolean; data: string }> => {
+	// 	console.log('Hey corey, the selectedModels', selectedModels[0], 'and the prompt is ', prompt);
+
+	// 	const modifiedPrompt = `Please provide exactly 3 short, concise options (2-3 words each) for clarifying the user's request. Limit your response to only the options in the following format, without any additional text or explanations:
+
+	// 		Option 1: [word(s)]
+	// 		Option 2: [word(s)]
+	// 		Option 3: [word(s)]
+
+	// 		Based on the user's request: "${prompt}", provide the 3 clarifying options now.`;
+
+	// 	try {
+	// 		// Send a request to the LLM with the prompt
+	// 		const res = await generateTextCompletion(
+	// 			localStorage.token,
+	// 			selectedModels[0],
+	// 			modifiedPrompt
+	// 		);
+
+	// 		// Check status of the response
+	// 		console.log('hey corey the res', res);
+	// 		if (res && res.ok) {
+	// 			const reader = res.body
+	// 				.pipeThrough(new TextDecoderStream())
+	// 				.pipeThrough(splitStream('\n'))
+	// 				.getReader();
+
+	// 			let data = '';
+	// 			while (true) {
+	// 				const { value, done } = await reader.read();
+	// 				if (done) {
+	// 					break;
+	// 				}
+
+	// 				const lines = value.split('\n');
+	// 				for (const line of lines) {
+	// 					if (line !== '') {
+	// 						console.log(line);
+	// 						const parsedLine = JSON.parse(line);
+	// 						if (parsedLine.response) {
+	// 							data += parsedLine.response;
+	// 						}
+	// 					}
+	// 				}
+	// 			}
+
+	// 			// console.log('hey corey the data', data);
+	// 			return { success: true, data };
+	// 		} else {
+	// 			const error = await res.text(); // Get the error as text instead of JSON
+	// 			// console.log('hey corey the error', error);
+	// 			return { success: false, data: '' };
+	// 		}
+	// 	} catch (error) {
+	// 		console.error('Failed to query LLM:', error);
+	// 		return { success: false, data: '' };
+	// 	}
+	// };
+
+	// // Helper function to parse the LLM response and extract the clarification options
+	// const parseclarificationOptionsFromLLM = (
+	// 	responseData: string
+	// ): { label: string; value: string }[] => {
+	// 	// console.log('hey corey the responseData from parseclarificationOptionsFromLLM', responseData);
+
+	// 	const lines = responseData.split('\n').map((line) => line.trim());
+	// 	const options = lines
+	// 		.filter((line) => line.startsWith('Option'))
+	// 		.map((line) => {
+	// 			const [_, label] = line.split(':').map((part) => part.trim());
+	// 			const value = label.toLowerCase().replace(/\s+/g, '_');
+	// 			return { label, value };
+	// 		});
+
+	// 	if (options.length === 0) {
+	// 		// If no valid options are found, return an empty array
+	// 		return [];
+	// 	}
+
+	// 	return options;
+	// };
+	// export let _user;
+	// export let promptNotIncluded = [];
+
+	// const handleClarificationSubmit = (
+	// 	selectedOptionsString = [],
+	// 	notOptionsString = '[]',
+	// 	inputValue = '',
+	// 	originalUserPrompt = ''
+	// ) => {
+	// 	let selectedOptions = [];
+	// 	let notOptions = [];
+	// 	console.log(
+	// 		'hey corey from handleClarificationSubmit the originalUserPrompt is',
+	// 		originalUserPrompt
+	// 	);
+
+	// 	if (selectedOptionsString.length !== 0) {
+	// 		console.log(
+	// 			'corey after checking selectedOptions in handleClarificationSubmit selectedOptionsString is',
+	// 			selectedOptionsString
+	// 		);
+	// 		selectedOptions = JSON.parse(selectedOptionsString);
+	// 	}
+
+	// 	console.log(
+	// 		'corey after checking selectedOptions in handleClarificationSubmit notOptionsString is',
+	// 		notOptionsString
+	// 	);
+
+	// 	if (notOptionsString.length !== 0) {
+	// 		console.log(
+	// 			'corey after checking notOptionsString in handleClarificationSubmit notOptionsString is',
+	// 			selectedOptionsString
+	// 		);
+	// 		notOptions = JSON.parse(notOptionsString);
+	// 	}
+
+	// 	if (selectedOptions.length > 0 || notOptions.length > 0 || inputValue.trim() !== '') {
+	// 		const includedOptions = selectedOptions.length > 0 ? selectedOptions.join(', ') : '';
+	// 		const excludedOptions = notOptions.length > 0 ? notOptions.join(', ') : '';
+	// 		const userDirection = inputValue.trim() !== '' ? inputValue.trim() : '';
+
+	// 		let clarifiedPrompt = `${originalUserPrompt}\n`;
+
+	// 		if (includedOptions) {
+	// 			clarifiedPrompt += `\nSelected Options: ${includedOptions}\n`;
+	// 		}
+
+	// 		if (excludedOptions) {
+	// 			clarifiedPrompt += `Excluded Options: ${excludedOptions}\n`;
+	// 		}
+
+	// 		if (userDirection) {
+	// 			clarifiedPrompt += `User Direction: ${userDirection}\n`;
+	// 		}
+
+	// 		console.log('Clarified Prompt:', clarifiedPrompt);
+
+	// 		// Submit the clarified prompt
+	// 		submitPrompt(clarifiedPrompt);
+
+	// 		// Reset clarification state
+	// 		selectedOption = '';
+	// 		notOptions = '';
+	// 		clarificationVisible = false;
+	// 		clarificationQuestion = '';
+	// 		clarificationOptions = [];
+	// 		clarificationNeeded = false;
+	// 	} else {
+	// 		// Submit the clarified prompt
+	// 		submitPrompt(originalUserPrompt);
+
+	// 		// Reset clarification state
+	// 		selectedOption = '';
+	// 		notOptions = '';
+	// 		clarificationVisible = false;
+	// 		clarificationQuestion = '';
+	// 		clarificationOptions = [];
+	// 		clarificationNeeded = false;
+	// 	}
+	// };
+
+	// export function handleSelect(selectedOptions) {
+	// 	console.log('Selected options:', selectedOptions);
+
+	// 	notOptions = notOptions.filter((option) => !selectedOptions.includes(option));
+	// 	const deselectedOptions = options
+	// 		.filter((option) => !selectedOptions.includes(option.label))
+	// 		.map((option) => option.label);
+	// 	notOptions = [...notOptions, ...deselectedOptions];
+	// 	console.log('Updated notOptions:', notOptions);
+	// }
+
+	/////////////////////////
+	//
+	// Reactive Statements
+	//
+	/////////////////////////
 
 	$: if (history.currentId !== null) {
 		let _messages = [];
 
-		let currentMessage = history.messages[history.currentId];
+		let currentMessage: Message | null = history.messages[history.currentId];
 		while (currentMessage !== null) {
 			_messages.unshift({ ...currentMessage });
-			currentMessage =
-				currentMessage.parentId !== null ? history.messages[currentMessage.parentId] : null;
+			currentMessage = currentMessage.parentId !== null ? history.messages[currentMessage.parentId!] : null;
 		}
 		messages = _messages;
 	} else {
@@ -126,7 +487,7 @@
 
 	$: if (chatIdProp) {
 		(async () => {
-			console.log(chatIdProp);
+			console.log(`[chatIdProp:Chat.svelte] -> ${chatIdProp}`);
 			if (chatIdProp && (await loadChat())) {
 				await tick();
 				loaded = true;
@@ -140,7 +501,8 @@
 		})();
 	}
 
-	const chatEventHandler = async (event, cb) => {
+	const chatEventHandler = async (event: { chat_id: string; message_id: string; data?: any }, cb: Function) => {
+		console.log(`[chatEventHandler(event):Chat.svelte] -> Event is: ${event}`);
 		if (event.chat_id === $chatId) {
 			await tick();
 			console.log(event);
@@ -161,10 +523,8 @@
 				} else {
 					message.citations = [data];
 				}
-			} else if (type === 'message') {
+			} else if (type === 'message' || type === 'replace') {
 				message.content += data.content;
-			} else if (type === 'replace') {
-				message.content = data.content;
 			} else if (type === 'confirmation') {
 				eventCallback = cb;
 
@@ -190,11 +550,11 @@
 		}
 	};
 
-	onMount(async () => {
-		const onMessageHandler = async (event) => {
+	const useOnMount = () => {
+		const onMessageHandler = (event: { [x: string]: any }) => {
 			if (event.origin === window.origin) {
-				// Replace with your iframe's origin
 				console.log('Message received from iframe:', event.data);
+
 				if (event.data.type === 'input:prompt') {
 					console.log(event.data.text);
 
@@ -210,8 +570,9 @@
 					console.log(event.data.text);
 
 					if (prompt !== '') {
-						await tick();
-						submitPrompt(prompt);
+						tick().then(() => {
+							submitPrompt(prompt);
+						});
 					}
 				}
 
@@ -219,15 +580,16 @@
 					console.log(event.data.text);
 
 					if (prompt !== '') {
-						await tick();
-						submitPrompt(event.data.text);
+						tick().then(() => {
+							submitPrompt(event.data.text);
+						});
 					}
 				}
 			}
 		};
 		window.addEventListener('message', onMessageHandler);
 
-		$socket.on('chat-events', chatEventHandler);
+		$socket?.on('chat-events', chatEventHandler);
 
 		if (!$chatId) {
 			chatId.subscribe(async (value) => {
@@ -237,16 +599,76 @@
 			});
 		} else {
 			if (!($settings.saveChatHistory ?? true)) {
-				await goto('/');
+				goto('/');
 			}
 		}
 
 		return () => {
 			window.removeEventListener('message', onMessageHandler);
 
-			$socket.off('chat-events');
+			$socket?.off('chat-events');
 		};
-	});
+	};
+
+	// const useOnMount = async (): Promise<void> => {
+	// 	const onMessageHandler = async (event: { [x: string]: any }) => {
+	// 		if (event.origin === window.origin) {
+	// 			// Replace with your iframe's origin
+	// 			console.log('Message received from iframe:', event.data);
+	// 			if (event.data.type === 'input:prompt') {
+	// 				console.log(event.data.text);
+
+	// 				const inputElement = document.getElementById('chat-textarea');
+
+	// 				if (inputElement) {
+	// 					prompt = event.data.text;
+	// 					inputElement.focus();
+	// 				}
+	// 			}
+
+	// 			if (event.data.type === 'action:submit') {
+	// 				console.log(event.data.text);
+
+	// 				if (prompt !== '') {
+	// 					await tick();
+	// 					submitPrompt(prompt);
+	// 				}
+	// 			}
+
+	// 			if (event.data.type === 'input:prompt:submit') {
+	// 				console.log(event.data.text);
+
+	// 				if (prompt !== '') {
+	// 					await tick();
+	// 					submitPrompt(event.data.text);
+	// 				}
+	// 			}
+	// 		}
+	// 	};
+	// 	window.addEventListener('message', onMessageHandler);
+
+	// 	$socket?.on('chat-events', chatEventHandler);
+
+	// 	if (!$chatId) {
+	// 		chatId.subscribe(async (value) => {
+	// 			if (!value) {
+	// 				await initNewChat();
+	// 			}
+	// 		});
+	// 	} else {
+	// 		if (!($settings.saveChatHistory ?? true)) {
+	// 			await goto('/');
+	// 		}
+	// 	}
+
+	// 	return () => {
+	// 		window.removeEventListener('message', onMessageHandler);
+
+	// 		$socket?.off('chat-events');
+	// 	};
+	// };
+
+	onMount(useOnMount);
 
 	//////////////////////////
 	// Cisco functions
@@ -261,7 +683,6 @@
 
 	let originalUserPrompt = '';
 	export let showPromptTemplate: boolean = false;
-	export let isGeneratingPrompt: boolean = false;
 	export let variables: Record<string, string> = {};
 	export let showPromptIntro = false;
 	export let generatedPrompt = '';
@@ -269,9 +690,10 @@
 	let messageInputComponent;
 
 	let explanationText = '';
-	export let _user;
 	let clarifiedPrompt;
 	let template;
+
+	let isGeneratingPrompt: boolean;
 
 	//dispatch
 	import { createEventDispatcher } from 'svelte';
@@ -294,21 +716,17 @@
 				// Check if result exists and contains necessary data
 				if (result) {
 					// Safely retrieve variables and explanation
-					const {
-						prompt = 'No prompt generated.',
-						explanation = 'No explanation provided.',
-						variables = []
-					} = result;
+					const { prompt = 'No prompt generated.', explanation = 'No explanation provided.', variables = [] } = result;
 
 					// Create an object from the variables array
-					const variablesObject = variables.reduce((acc, varName) => {
+					const variablesObject = variables.reduce((acc: { [key: string]: any }, varName: string) => {
 						acc[varName] = ''; // Initialize with empty string
 						return acc;
 					}, {});
 
 					// Update stores with validated data
-					promptStore.set(prompt);
-					explanationStore.set(explanation);
+					promptStore.set(prompt as string);
+					explanationStore.set(explanation as string);
 					variablesStore.set(variablesObject);
 
 					// Console log them to ensure visibility
@@ -338,7 +756,7 @@
 		}
 	}
 
-	async function fetchAndProcessData(template) {
+	async function fetchAndProcessData(template: string) {
 		if (!template || typeof template !== 'string') {
 			console.error('Invalid or empty prompt text', template);
 			console.error('typeof template is', typeof template);
@@ -402,23 +820,12 @@
 			`;
 
 		const stringWithoutOllama = 'phi3';
-		console.log(
-			'hey corey the template is right before generateTextCompletion',
-			promptTemplate,
-			stringWithoutOllama
-		);
-		const res = await generateTextCompletion(
-			localStorage.token,
-			stringWithoutOllama,
-			promptTemplate
-		);
+		console.log('hey corey the template is right before generateTextCompletion', promptTemplate, stringWithoutOllama);
+		const res = await generateTextCompletion(localStorage.token, stringWithoutOllama, promptTemplate);
 		console.log('hey corey the res', res);
 
 		if (res && res.ok) {
-			const reader = res.body
-				.pipeThrough(new TextDecoderStream())
-				.pipeThrough(splitStream('\n'))
-				.getReader();
+			const reader = res.body!.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			let data = '';
 
@@ -450,15 +857,17 @@
 			// Return both the prompt and variables
 			return { prompt, explanation, variables };
 		} else {
-			const error = await res.text();
+			const error = await res!.text();
 			console.log('hey corey the error', error);
-			throw new Error(`HTTP error! status: ${res.status}`);
+			throw new Error(`HTTP error! status: ${res!.status}`);
 		}
 	}
 
-	function handleVariableUpdate(event) {
-		const { name, value } = event.detail;
-		variablesStore.update((vars) => ({ ...vars, [name]: value }));
+	function handleVariableUpdate(event: CustomEvent) {
+		console.log('handleVariableUpdate event', event);
+		console.log('Variable Store', $variablesStore);
+		// const { name, value } = event.detail;
+		// variablesStore.update((vars) => ({ ...vars, [name]: value }));
 	}
 	function handleGeneratePromptClick(event) {
 		const { existingText } = event.detail;
@@ -479,7 +888,7 @@
 		variablesStore.set(variablesObject);
 	}
 	// Helper function to extract prompt and variables
-	function extractPromptAndVariables(response) {
+	function extractPromptAndVariables(response: string) {
 		const promptRegex = /<prompt>([\s\S]*?)<\/prompt>/;
 		const explanationRegex = /<explanation>([\s\S]*?)(?:<\/explanation>|$)/;
 		const variablesRegex = /<variables>([\s\S]*?)<\/variables>/;
@@ -495,13 +904,8 @@
 		return { prompt, explanation, variables };
 	}
 
-	function parseReceivedPrompt(rawPrompt) {
-		if (
-			typeof rawPrompt === 'object' &&
-			rawPrompt.prompt &&
-			rawPrompt.explanation &&
-			rawPrompt.variables
-		) {
+	function parseReceivedPrompt(rawPrompt: { prompt: string; explanation: string; variables: string[] }) {
+		if (typeof rawPrompt === 'object' && rawPrompt.prompt && rawPrompt.explanation && rawPrompt.variables) {
 			// If rawPrompt is already in the expected format, return it directly
 			return rawPrompt;
 		}
@@ -533,17 +937,22 @@
 			return acc;
 		}, {} as Record<string, string>);
 	}
-	function updateTemplate(newTemplate) {
+	function updateTemplate(newTemplate: string) {
 		template = newTemplate;
 		// If you need to inform the parent component about the template change:
 		dispatch('templateUpdate', { template: newTemplate });
 	}
-	function handleClosePromptTemplate() {
-		showPromptTemplate = false;
+	function handleClosePromptTemplate(event: CustomEvent) {
+		console.log('ClosePromptTemplate event', event);
+		const { state } = event.detail;
+		showPromptTemplate = state;
 		showPromptIntro = true;
+		showPromptTemplateGenerator = false;
+		console.log('ShowPromptTemplate is set to: ', showPromptTemplate);
+		console.log('ShowPromptIntro is set to: ', showPromptIntro);
 	}
 
-	function handleSubmit(event) {
+	function handleSubmit(event: CustomEvent) {
 		const { customizedPrompt, promptTemplate, explanation } = event.detail;
 		// Handle the submission of the customized prompt
 		if (typeof submitPrompt === 'function') {
@@ -558,9 +967,97 @@
 	// Web functions
 	//////////////////////////
 
+	const initNewChatForSupport = async () => {
+		window.history.replaceState(history.state, '', `/`);
+		chatId.set('');
+
+		autoScroll = true;
+
+		title = '';
+		messages = [];
+		history = {
+			messages: {},
+			currentId: null
+		};
+		chatFiles = [];
+		params = {};
+
+		if ($page.url.searchParams.get('models')) {
+			selectedModels = $page.url.searchParams.get('models')?.split(',') as string[];
+		} else if ($settings?.models) {
+			selectedModels = $settings?.models;
+		} else if ($config?.default_models) {
+			console.log($config?.default_models.split(',') ?? '');
+			selectedModels = $config?.default_models.split(',');
+		} else {
+			selectedModels = [''];
+		}
+		if ($page.url.searchParams.get('q')) {
+			prompt = $page.url.searchParams.get('q') ?? '';
+
+			if (prompt) {
+				await tick();
+				submitPrompt(prompt);
+			}
+		}
+
+		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
+
+		const userSettings = await getUserSettings(localStorage.token);
+
+		if (userSettings) {
+			settings.set(userSettings.ui);
+		} else {
+			settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
+		}
+
+		const chatInput = document.getElementById('chat-textarea');
+		setTimeout(() => chatInput?.focus(), 0);
+		setTimeout(() => {
+			if (chatInput) {
+				chatInput.textContent = prompt;
+			}
+		});
+		const _files: ClientFile[] = JSON.parse(JSON.stringify(files));
+		console.log('[submitPrompt:Chat.svelte] -> _files: ', _files);
+		chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type as string)));
+		chatFiles = chatFiles.filter(
+			// Remove duplicates
+			(item, index, array) => array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
+		);
+
+		let userPrompt = `<blockquote>
+    						"It looks like you're referring to an existing article. Would you like me to adjust the instructions based on your proficiency level?"
+						</blockquote>
+
+						<div class="flex space-x-2 mt-4">
+							<button class="flex text-xs items-center space-x-1 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition">
+								Yes
+							</button>
+							<button class="flex text-xs items-center space-x-1 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition">
+								No
+							</button>
+						</div>
+			`;
+
+		// let userMessageId = uuidv4();
+		// let userMessage = {
+		// 	id: userMessageId,
+		// 	parentId: messages.length !== 0 ? messages.at(-1)!.id : null,
+		// 	childrenIds: [],
+		// 	role: 'user',
+		// 	content: userPrompt,
+		// 	files: _files.length > 0 ? _files : undefined,
+		// 	timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
+		// 	models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx)
+		// };
+		console.log('[submitPrompt:Chat.svelte] -> userPrompt: ', userPrompt);
+		await submitPrompt(userPrompt);
+	};
+
 	const initNewChat = async () => {
 		window.history.replaceState(history.state, '', `/`);
-		await chatId.set('');
+		chatId.set('');
 
 		autoScroll = true;
 
@@ -575,7 +1072,7 @@
 		params = {};
 
 		if ($page.url.searchParams.get('models')) {
-			selectedModels = $page.url.searchParams.get('models')?.split(',');
+			selectedModels = $page.url.searchParams.get('models')?.split(',') as string[];
 		} else if ($settings?.models) {
 			selectedModels = $settings?.models;
 		} else if ($config?.default_models) {
@@ -594,9 +1091,7 @@
 			}
 		}
 
-		selectedModels = selectedModels.map((modelId) =>
-			$models.map((m) => m.id).includes(modelId) ? modelId : ''
-		);
+		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
 
 		const userSettings = await getUserSettings(localStorage.token);
 
@@ -623,11 +1118,12 @@
 
 			if (chatContent) {
 				console.log(chatContent);
+				selectedModels = chatContent?.models !== undefined && chatContent?.models !== null ? chatContent.models : [''];
 
-				selectedModels =
-					(chatContent?.models ?? undefined) !== undefined
-						? chatContent.models
-						: [chatContent.models ?? ''];
+				// selectedModels =
+				// 	(chatContent?.models ?? undefined) !== undefined
+				// 		? chatContent.models
+				// 		: [chatContent.models ?? ''];
 				history =
 					(chatContent?.history ?? undefined) !== undefined
 						? chatContent.history
@@ -637,9 +1133,9 @@
 				const userSettings = await getUserSettings(localStorage.token);
 
 				if (userSettings) {
-					await settings.set(userSettings.ui);
+					settings.set(userSettings.ui);
 				} else {
-					await settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
+					settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
 				}
 
 				params = chatContent?.params ?? {};
@@ -649,7 +1145,7 @@
 				await tick();
 
 				if (messages.length > 0) {
-					history.messages[messages.at(-1).id].done = true;
+					history.messages[messages.at(-1)!.id].done = true;
 				}
 				await tick();
 
@@ -667,7 +1163,7 @@
 		}
 	};
 
-	const createMessagesList = (responseMessageId) => {
+	const createMessagesList = (responseMessageId: string): Message[] => {
 		const message = history.messages[responseMessageId];
 		if (message.parentId) {
 			return [...createMessagesList(message.parentId), message];
@@ -676,7 +1172,12 @@
 		}
 	};
 
-	const chatCompletedHandler = async (chatId, modelId, responseMessageId, messages) => {
+	const chatCompletedHandler = async (
+		chatId: string,
+		modelId: string,
+		responseMessageId: string,
+		messages: Message[]
+	) => {
 		await mermaid.run({
 			querySelector: '.mermaid'
 		});
@@ -695,7 +1196,7 @@
 			id: responseMessageId
 		}).catch((error) => {
 			toast.error(error);
-			messages.at(-1).error = { content: error };
+			messages.at(-1)!.error = { content: error };
 
 			return null;
 		});
@@ -722,12 +1223,12 @@
 					params: params,
 					files: chatFiles
 				});
-				await chats.set(await getChatList(localStorage.token));
+				chats.set(await getChatList(localStorage.token));
 			}
 		}
 	};
 
-	const chatActionHandler = async (chatId, actionId, modelId, responseMessageId) => {
+	const chatActionHandler = async (chatId: string, actionId: string, modelId: string, responseMessageId: string) => {
 		const res = await chatAction(localStorage.token, actionId, {
 			model: modelId,
 			messages: messages.map((m) => ({
@@ -742,7 +1243,7 @@
 			id: responseMessageId
 		}).catch((error) => {
 			toast.error(error);
-			messages.at(-1).error = { content: error };
+			messages.at(-1)!.error = { content: error };
 			return null;
 		});
 
@@ -768,7 +1269,7 @@
 					params: params,
 					files: chatFiles
 				});
-				await chats.set(await getChatList(localStorage.token));
+				chats.set(await getChatList(localStorage.token));
 			}
 		}
 	};
@@ -784,29 +1285,236 @@
 	};
 
 	//////////////////////////
+	// Cisco Edited functions
+	//////////////////////////
+
+	//////////////////////////
+	// Cisco modified Ollama functions
+	//////////////////////////
+
+	// const submitPrompt = async (userPrompt, _user = null, _messages = null) => {
+	// 	console.log('corey userPrompt is ', userPrompt);
+
+	// 	selectedModels = selectedModels.map((modelId) =>
+	// 		$models.map((m) => m.id).includes(modelId) ? modelId : ''
+	// 	);
+
+	// 	if (selectedModels.includes('')) {
+	// 		toast.error($i18n.t('Model not selected'));
+	// 		return;
+	// 	}
+
+	// 	// Reset chat message textarea height
+	// 	document.getElementById('chat-textarea').style.height = '';
+
+	// 	// Set clarificationNeeded to true before checking for clarification
+	// 	// clarificationNeeded = true;
+
+	// 	// Check if clarification is needed before sending the prompt
+	// 	if (!clarificationNeeded) {
+	// 		// document.getElementById('chat-textarea')?.setAttribute('disabled', '');
+	// 		const clarification = await checkClarificationNeeded(userPrompt);
+	// 		console.log('Corey userPrompt from the await checkClarificationNeeded is', userPrompt);
+
+	// 		if (clarification) {
+	// 			clarificationNeeded = true;
+
+	// 			originalUserPrompt = userPrompt;
+
+	// 			clarificationQuestion = `Help me get you the best answer: "${userPrompt}"<br><br>${clarification.question}`;
+
+	// 			clarificationOptions = clarification.options;
+
+	// 			clarificationVisible = true;
+	// 			return;
+	// 		}
+	// 	} else {
+	// 		let clarificationMessageId = uuidv4();
+	// 		console.log('wake up corey files is:', files);
+
+	// 		const clarificationString = `
+	//            ${userPrompt || 'N/A'}
+	// 		    ${promptNotIncluded && promptNotIncluded.length > 0 ? promptNotIncluded.join(', ') : ''}`;
+
+	// 		console.log('hey corey clarificationString is ', clarificationString);
+	// 		const clarificationMessage = {
+	// 			id: clarificationMessageId,
+	// 			parentId: messages.length !== 0 ? messages.at(-1).id : null,
+	// 			childrenIds: [],
+	// 			role: 'user',
+	// 			user: _user ?? undefined,
+	// 			content: clarificationString,
+	// 			timestamp: Math.floor(Date.now() / 1000)
+	// 		};
+
+	// 		// Add clarification message to history and messages array
+	// 		history.messages[clarificationMessageId] = clarificationMessage;
+	// 		messages = [...messages, clarificationMessage];
+	// 		history.currentId = clarificationMessageId;
+
+	// 		clarificationNeeded = false;
+	// 		originalUserPrompt = '';
+	// 		// Hide the clarification card
+	// 		clarificationVisible = false;
+	// 		console.log('');
+	// 	}
+
+	// 	// const clarifiedPrompt = handleClarificationSubmit(
+	// 	// 	selectedOptionsString,
+	// 	// 	notOptionsString,
+	// 	// 	inputValue
+	// 	// );
+
+	// 	// if (clarifiedPrompt) {
+	// 	// 	userPrompt = clarifiedPrompt;
+	// 	// }
+
+	// 	// Create the clarificationMessage object
+
+	// 	// clarificationNeeded = false;
+	// 	// originalUserPrompt = '';
+	// 	// // Hide the clarification card
+	// 	// clarificationVisible = false;
+
+	// 	// Wait until history/message have been updated
+	// 	await tick();
+
+	// 	// Create new chat if only one message in messages
+	// 	if (messages.length === 1) {
+	// 		if ($settings.saveChatHistory ?? true) {
+	// 			chat = await createNewChat(localStorage.token, {
+	// 				id: $chatId,
+	// 				title: $i18n.t('New Chat'),
+	// 				models: selectedModels,
+	// 				system: $settings.system ?? undefined,
+	// 				options: {
+	// 					...($settings.options ?? {})
+	// 				},
+	// 				messages: messages,
+	// 				history: history,
+	// 				tags: [],
+	// 				timestamp: Date.now()
+	// 			});
+	// 			await chats.set(await getChatList(localStorage.token));
+	// 			await chatId.set(chat.id);
+	// 		} else {
+	// 			await chatId.set('local');
+	// 		}
+	// 		await tick();
+	// 	}
+	// 	scrollToBottom();
+	// 	// Reset chat input textarea
+	// 	document.getElementById('chat-textarea')?.setAttribute('enabled', '');
+	// 	prompt = '';
+	// 	files = [];
+	// 	selectedOption = '';
+	// 	notOptions = [];
+
+	// 	if (Array.isArray(messages) && messages.length > 0) {
+	// 		let content = messages.at(-1).content;
+	// 		console.log('hey Corey content is', content);
+	// 		if (typeof content === 'string') {
+	// 			console.log('corey content is ', content);
+	// 			await sendPrompt(content, messages.at(-1).id);
+	// 		} else {
+	// 			console.error('corey Content is not a string:', typeof content);
+	// 		}
+	// 	} else {
+	// 		console.error('corey Messages is not an array or is empty:', messages);
+	// 		// Handle the case when messages is not an array or is empty
+	// 		// You can show an error message or take appropriate action
+	// 		return; // Early return to prevent further execution
+	// 	}
+	// };
+
+	//////////////////////////
+	// Ollama functions
+	//////////////////////////
+
+	// const sendPrompt = async (prompt: string, parentId: string | null = null) => {
+	// 	const _chatId = JSON.parse(JSON.stringify($chatId));
+
+	// 	await Promise.all(
+	// 		selectedModels.map(async (modelId) => {
+	// 			const model = $models.filter((m) => m.id === modelId).at(0);
+
+	// 			if (model) {
+	// 				// Create response message
+	// 				let responseMessageId = uuidv4();
+	// 				let responseMessage = {
+	// 					parentId: parentId,
+	// 					id: responseMessageId,
+	// 					childrenIds: [],
+	// 					role: 'assistant',
+	// 					content: '',
+	// 					model: model.id,
+	// 					timestamp: Math.floor(Date.now() / 1000) // Unix epoch
+	// 				};
+
+	// 				// Add message to history and Set currentId to messageId
+	// 				history.messages[responseMessageId] = responseMessage;
+	// 				history.currentId = responseMessageId;
+
+	// 				// Append messageId to childrenIds of parent message
+	// 				if (parentId !== null && history.messages[parentId]) {
+	// 					history.messages[parentId].childrenIds = [
+	// 						...(history.messages[parentId].childrenIds || []),
+	// 						responseMessageId
+	// 					];
+	// 				}
+
+	// 				if (model?.external) {
+	// 					await sendPromptOpenAI(model, prompt, responseMessageId, _chatId);
+	// 				} else if (model) {
+	// 					await sendPromptOllama(model, prompt, responseMessageId, _chatId);
+	// 				}
+	// 			} else {
+	// 				toast.error($i18n.t(`Model {{modelId}} not found`, { modelId }));
+	// 			}
+	// 		})
+	// 	);
+
+	// 	await chats.set(await getChatList(localStorage.token));
+	// };
+
+	//////////////////////////
 	// Chat functions
 	//////////////////////////
 
-	const submitPrompt = async (userPrompt, { _raw = false } = {}) => {
-		let _responses = [];
+	const submitPrompt = async (userPrompt: string, { _raw = false } = {}) => {
+		let _responses: string[] = [];
 		console.log('submitPrompt', $chatId);
-
-		selectedModels = selectedModels.map((modelId) =>
-			$models.map((m) => m.id).includes(modelId) ? modelId : ''
-		);
+		if (params && params.proficiency === 0) {
+			userPrompt = `I am a beginner to computer network infrastructure. Given my current knowledge level, respond to the user prompt following these rules:\n<rules>\n\t1. Take the time to explain basic concepts and terms.\n\t2. Avoid using jargon or technical terms without explaining them.\n\t3. Do not change the intent of the user prompt.\n</rules>\n\n${userPrompt}`;
+		}
+		if (params && params.proficiency === 1) {
+			userPrompt = `I am intermediate to computer network infrastructure. Given my current knowledge level, respond to the user prompt following these rules:\n<rules>\n\t1. Assume I have a basic understanding of computer network infrastructure.\n\t2. Use technical terms and jargon, but explain them when necessary.\n\t3. Do not change the intent of the user prompt.\n</rules>\n\n${userPrompt}`;
+		}
+		if (params && params.proficiency === 2) {
+			userPrompt = `I am advanced in computer network infrastructure. Given my current knowledge level, respond to the user prompt following these rules:\n<rules>\n\t1. Assume I have a deep understanding of computer network infrastructure.\n\t2. Use technical terms and jargon without explanation.\n\t3. Do not change the intent of the user prompt.\n</rules>\n\n${userPrompt}`;
+		}
+		console.log('userPrompt from submitPrompt', userPrompt);
+		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
 
 		if (selectedModels.includes('')) {
 			toast.error($i18n.t('Model not selected'));
-		} else if (messages.length != 0 && messages.at(-1).done != true) {
+		} else if (messages.length != 0 && messages.at(-1)?.done != true) {
 			// Response not done
 			console.log('wait');
-		} else if (messages.length != 0 && messages.at(-1).error) {
+		} else if (messages.length != 0 && messages.at(-1)?.error) {
 			// Error in response
-			toast.error(
-				$i18n.t(
-					`Oops! There was an error in the previous response. Please try again or contact admin.`
-				)
-			);
+			toast.error($i18n.t(`Oops! There was an error in the previous response. Please try again or contact admin.`));
+			// File object shape:
+			// -------------------
+			// collection_name: "2a1113258f84e36ba0f4734b33092836936e538c539b2c741218fa9bc7aef13"
+			// error: ""
+			// file: {id: '362ec854-789f-4563-8981-92c0f196cd47', user_id: 'b7ad0b4d-972a-4225-8cbf-b592b4a51a90', filename: '362ec854-789f-4563-8981-92c0f196cd47_auto-surveillance-vlan-catalyst-1200-1300-switches.pdf', meta: {…}, created_at: 1724870348}
+			// id: "362ec854-789f-4563-8981-92c0f196cd47"
+			// name: "auto-surveillance-vlan-catalyst-1200-1300-switches.pdf"
+			// status: "processed"
+			// type: "file"
+			// url: "/api/v1/files/362ec854-789f-4563-8981-92c0f196cd47"
+			// -------------------
 		} else if (
 			files.length > 0 &&
 			files.filter((file) => file.type !== 'image' && file.status !== 'processed').length > 0
@@ -819,35 +1527,36 @@
 			);
 		} else {
 			// Reset chat input textarea
-			const chatTextAreaElement = document.getElementById('chat-textarea');
+			const chatTextAreaElement = document.getElementById('chat-textarea') as unknown as HTMLTextAreaElement;
 
 			if (chatTextAreaElement) {
 				chatTextAreaElement.value = '';
 				chatTextAreaElement.style.height = '';
 			}
 
-			const _files = JSON.parse(JSON.stringify(files));
-			chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type)));
+			const _files: ClientFile[] = JSON.parse(JSON.stringify(files));
+			console.log('[submitPrompt:Chat.svelte] -> _files: ', _files);
+			chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type as string)));
 			chatFiles = chatFiles.filter(
 				// Remove duplicates
-				(item, index, array) =>
-					array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
+				(item, index, array) => array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
 			);
 
+			// Reset files
 			files = [];
-
+			// Reset prompt
 			prompt = '';
 
 			// Create user message
 			let userMessageId = uuidv4();
 			let userMessage = {
 				id: userMessageId,
-				parentId: messages.length !== 0 ? messages.at(-1).id : null,
+				parentId: messages.length !== 0 ? messages.at(-1)!.id : null,
 				childrenIds: [],
 				role: 'user',
 				content: userPrompt,
 				files: _files.length > 0 ? _files : undefined,
-				timestamp: Math.floor(Date.now() / 1000), // Unix epoch
+				timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
 				models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx)
 			};
 
@@ -856,8 +1565,8 @@
 			history.currentId = userMessageId;
 
 			// Append messageId to childrenIds of parent message
-			if (messages.length !== 0) {
-				history.messages[messages.at(-1).id].childrenIds.push(userMessageId);
+			if (messages.length !== 0 && messages.at(-1)) {
+				history.messages[messages.at(-1)!.id].childrenIds!.push(userMessageId);
 			}
 
 			// Wait until history/message have been updated
@@ -868,18 +1577,18 @@
 		return _responses;
 	};
 
-	const sendPrompt = async (prompt, parentId, { modelId = null, newChat = false } = {}) => {
-		let _responses = [];
+	const sendPrompt = async (
+		prompt: string,
+		parentId: string,
+		{ modelId = null, newChat = false }: { modelId?: string | null; newChat?: boolean } = {}
+	) => {
+		let _responses: string[] = [];
 
 		// If modelId is provided, use it, else use selected model
-		let selectedModelIds = modelId
-			? [modelId]
-			: atSelectedModel !== undefined
-			? [atSelectedModel.id]
-			: selectedModels;
+		let selectedModelIds = modelId ? [modelId] : atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
 
 		// Create response messages for each selected model
-		const responseMessageIds = {};
+		const responseMessageIds: { [x: string]: string } = {};
 		for (const modelId of selectedModelIds) {
 			const model = $models.filter((m) => m.id === modelId).at(0);
 
@@ -904,7 +1613,7 @@
 				// Append messageId to childrenIds of parent message
 				if (parentId !== null) {
 					history.messages[parentId].childrenIds = [
-						...history.messages[parentId].childrenIds,
+						...(history.messages[parentId].childrenIds ?? []),
 						responseMessageId
 					];
 				}
@@ -928,15 +1637,15 @@
 					tags: [],
 					timestamp: Date.now()
 				});
-				await chats.set(await getChatList(localStorage.token));
-				await chatId.set(chat.id);
+				chats.set(await getChatList(localStorage.token));
+				chatId.set(chat!.id);
 			} else {
-				await chatId.set('local');
+				chatId.set('local');
 			}
 			await tick();
 		}
 
-		const _chatId = JSON.parse(JSON.stringify($chatId));
+		const _chatId: string = JSON.parse(JSON.stringify($chatId));
 
 		await Promise.all(
 			selectedModelIds.map(async (modelId) => {
@@ -945,9 +1654,7 @@
 
 				if (model) {
 					// If there are image files, check if model is vision capable
-					const hasImages = messages.some((message) =>
-						message.files?.some((file) => file.type === 'image')
-					);
+					const hasImages = messages.some((message) => message.files?.some((file) => file.type === 'image'));
 
 					if (hasImages && !(model.info?.meta?.capabilities?.vision ?? true)) {
 						toast.error(
@@ -971,9 +1678,7 @@
 								if (res.documents[0].length > 0) {
 									userContext = res.documents[0].reduce((acc, doc, index) => {
 										const createdAtTimestamp = res.metadatas[0][index].created_at;
-										const createdAtDate = new Date(createdAtTimestamp * 1000)
-											.toISOString()
-											.split('T')[0];
+										const createdAtDate = new Date(createdAtTimestamp * 1000).toISOString().split('T')[0];
 										return `${acc}${index + 1}. [${createdAtDate}]. ${doc}\n`;
 									}, '');
 								}
@@ -989,13 +1694,15 @@
 						await getWebSearchResults(model.id, parentId, responseMessageId);
 					}
 
-					let _response = null;
+					let _response: string | null | undefined = null;
 					if (model?.owned_by === 'openai') {
+						console.log('Sending via OpenAI Model');
 						_response = await sendPromptOpenAI(model, prompt, responseMessageId, _chatId);
 					} else if (model) {
+						console.log('Sending via Ollama Model');
 						_response = await sendPromptOllama(model, prompt, responseMessageId, _chatId);
 					}
-					_responses.push(_response);
+					_responses.push(_response as string);
 
 					if (chatEventEmitter) clearInterval(chatEventEmitter);
 				} else {
@@ -1004,11 +1711,11 @@
 			})
 		);
 
-		await chats.set(await getChatList(localStorage.token));
+		chats.set(await getChatList(localStorage.token));
 		return _responses;
 	};
 
-	const sendPromptOllama = async (model, userPrompt, responseMessageId, _chatId) => {
+	const sendPromptOllama = async (model: Model, userPrompt: string, responseMessageId: string, _chatId: string) => {
 		let _response = null;
 
 		const responseMessage = history.messages[responseMessageId];
@@ -1019,40 +1726,34 @@
 		// Scroll down
 		scrollToBottom();
 
-		const messagesBody = [
+		const messagesBody: Array<Partial<Message>> = [
 			params?.system || $settings.system || (responseMessage?.userContext ?? null)
-				? {
+				? ({
 						role: 'system',
 						content: `${promptTemplate(
 							params?.system ?? $settings?.system ?? '',
-							$user.name,
-							$settings?.userLocation
-								? await getAndUpdateUserLocation(localStorage.token)
-								: undefined
-						)}${
-							responseMessage?.userContext ?? null
-								? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}`
-								: ''
-						}`
-				  }
+							$user?.name,
+							$settings?.userLocation ? await getAndUpdateUserLocation(localStorage.token) : undefined
+						)}${responseMessage?.userContext ?? null ? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}` : ''}`
+				  } as Partial<Message>)
 				: undefined,
 			...messages
 		]
 			.filter((message) => message?.content?.trim())
 			.map((message, idx, arr) => {
 				// Prepare the base message object
-				const baseMessage = {
-					role: message.role,
-					content: message.content
+				const baseMessage: { role?: string; content?: string; images?: string[] } = {
+					role: message?.role,
+					content: message?.content
 				};
 
 				// Extract and format image URLs if any exist
-				const imageUrls = message.files
+				const imageUrls = message?.files
 					?.filter((file) => file.type === 'image')
-					.map((file) => file.url.slice(file.url.indexOf(',') + 1));
+					.map((file) => file.url!.slice(file.url!.indexOf(',') + 1));
 
 				// Add images array only if it contains elements
-				if (imageUrls && imageUrls.length > 0 && message.role === 'user') {
+				if (imageUrls && imageUrls.length > 0 && message!.role === 'user') {
 					baseMessage.images = imageUrls;
 				}
 				return baseMessage;
@@ -1076,12 +1777,10 @@
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...model.info.meta.knowledge);
+			files.push(...model.info!.meta.knowledge);
 		}
 		if (responseMessage?.files) {
-			files.push(
-				...responseMessage?.files.filter((item) => ['web_search_results'].includes(item.type))
-			);
+			files.push(...responseMessage?.files.filter((item) => ['web_search_results'].includes(item.type as string)));
 		}
 
 		eventTarget.dispatchEvent(
@@ -1094,7 +1793,7 @@
 
 		await tick();
 
-		const [res, controller] = await generateChatCompletion(localStorage.token, {
+		const [res, controller]: [Response | null, AbortController] = await generateChatCompletion(localStorage.token, {
 			stream: true,
 			model: model.id,
 			messages: messagesBody,
@@ -1102,13 +1801,12 @@
 				...(params ?? $settings.params ?? {}),
 				stop:
 					params?.stop ?? $settings?.params?.stop ?? undefined
-						? (params?.stop ?? $settings.params.stop).map((str) =>
+						? (params?.stop ?? $settings.params?.stop).map((str: string) =>
 								decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
 						  )
 						: undefined,
 				num_predict: params?.max_tokens ?? $settings?.params?.max_tokens ?? undefined,
-				repeat_penalty:
-					params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined
+				repeat_penalty: params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined
 			},
 			format: $settings.requestFormat ?? undefined,
 			keep_alive: $settings.keepAlive ?? undefined,
@@ -1120,13 +1818,21 @@
 			id: responseMessageId
 		});
 
+		if (res === null) {
+			toast.error($i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, { provider: 'Ollama' }));
+			responseMessage.error = {
+				content: $i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, {
+					provider: 'Ollama'
+				})
+			};
+		}
+
 		if (res && res.ok) {
 			console.log('controller', controller);
 
-			const reader = res.body
-				.pipeThrough(new TextDecoderStream())
-				.pipeThrough(splitStream('\n'))
-				.getReader();
+			const response = res as { body: ReadableStream<Uint8Array> };
+
+			const reader = response.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			while (true) {
 				const { value, done } = await reader.read();
@@ -1172,10 +1878,7 @@
 									sentences.pop();
 
 									// dispatch only last sentence and make sure it hasn't been dispatched before
-									if (
-										sentences.length > 0 &&
-										sentences[sentences.length - 1] !== responseMessage.lastSentence
-									) {
+									if (sentences.length > 0 && sentences[sentences.length - 1] !== responseMessage.lastSentence) {
 										responseMessage.lastSentence = sentences[sentences.length - 1];
 										eventTarget.dispatchEvent(
 											new CustomEvent('chat', {
@@ -1229,9 +1932,12 @@
 					}
 				} catch (error) {
 					console.log(error);
-					if ('detail' in error) {
+					if (isErrorWithDetail(error)) {
 						toast.error(error.detail);
 					}
+					// if ('detail' in error) {
+					// 	toast.error(error.detail);
+					// }
 					break;
 				}
 
@@ -1249,14 +1955,14 @@
 						params: params,
 						files: chatFiles
 					});
-					await chats.set(await getChatList(localStorage.token));
+					chats.set(await getChatList(localStorage.token));
 				}
 			}
 		} else {
 			if (res !== null) {
 				const error = await res.json();
 				console.log(error);
-				if ('detail' in error) {
+				if (isErrorWithDetail(error)) {
 					toast.error(error.detail);
 					responseMessage.error = { content: error.detail };
 				} else {
@@ -1264,9 +1970,7 @@
 					responseMessage.error = { content: error.error };
 				}
 			} else {
-				toast.error(
-					$i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, { provider: 'Ollama' })
-				);
+				toast.error($i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, { provider: 'Ollama' }));
 				responseMessage.error = {
 					content: $i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, {
 						provider: 'Ollama'
@@ -1301,7 +2005,7 @@
 			scrollToBottom();
 		}
 
-		if (messages.length == 2 && messages.at(1).content !== '' && selectedModels[0] === model.id) {
+		if (messages.length == 2 && messages.at(1)!.content !== '' && selectedModels[0] === model.id) {
 			window.history.replaceState(history.state, '', `/c/${_chatId}`);
 			const _title = await generateChatTitle(userPrompt);
 			await setChatTitle(_chatId, _title);
@@ -1310,18 +2014,16 @@
 		return _response;
 	};
 
-	const sendPromptOpenAI = async (model, userPrompt, responseMessageId, _chatId) => {
+	const sendPromptOpenAI = async (model: Model, userPrompt: string, responseMessageId: string, _chatId: string) => {
 		let _response = null;
 		const responseMessage = history.messages[responseMessageId];
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...model.info.meta.knowledge);
+			files.push(...model.info?.meta.knowledge);
 		}
 		if (responseMessage?.files) {
-			files.push(
-				...responseMessage?.files.filter((item) => ['web_search_results'].includes(item.type))
-			);
+			files.push(...responseMessage?.files.filter((item) => ['web_search_results'].includes(item.type as string)));
 		}
 
 		scrollToBottom();
@@ -1334,6 +2036,49 @@
 			})
 		);
 		await tick();
+		const messagesBody = [
+			params?.system || $settings.system || (responseMessage?.userContext ?? null)
+				? {
+						role: 'system',
+						content: `${promptTemplate(
+							params?.system ?? $settings?.system ?? '',
+							$user?.name,
+							$settings?.userLocation ? await getAndUpdateUserLocation(localStorage.token) : undefined
+						)}${responseMessage?.userContext ?? null ? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}` : ''}`
+				  }
+				: undefined,
+			...messages
+		]
+			.filter((message) => message?.content?.trim())
+			.map((message, idx, arr) => ({
+				role: message!.role,
+				...('files' in message! &&
+				(message?.files?.filter((file) => file.type === 'image')?.length ?? 0 > 0 ?? false) &&
+				message.role === 'user'
+					? {
+							content: [
+								{
+									type: 'text',
+									text: arr.length - 1 !== idx ? message!.content : message?.raContent ?? message!.content
+								},
+								...message!
+									.files!.filter((file) => file.type === 'image')
+									.map((file) => ({
+										type: 'image_url',
+										image_url: {
+											url: file.url
+										}
+									}))
+							]
+					  }
+					: {
+							content:
+								// @ts-ignore
+								arr.length - 1 !== idx ? message?.content : message?.raContent ?? message!.content
+					  })
+			}));
+
+		console.log('messagesBody', messagesBody);
 
 		try {
 			const [res, controller] = await generateOpenAIChatCompletion(
@@ -1347,67 +2092,17 @@
 									include_usage: true
 							  }
 							: undefined,
-					messages: [
-						params?.system || $settings.system || (responseMessage?.userContext ?? null)
-							? {
-									role: 'system',
-									content: `${promptTemplate(
-										params?.system ?? $settings?.system ?? '',
-										$user.name,
-										$settings?.userLocation
-											? await getAndUpdateUserLocation(localStorage.token)
-											: undefined
-									)}${
-										responseMessage?.userContext ?? null
-											? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}`
-											: ''
-									}`
-							  }
-							: undefined,
-						...messages
-					]
-						.filter((message) => message?.content?.trim())
-						.map((message, idx, arr) => ({
-							role: message.role,
-							...((message.files?.filter((file) => file.type === 'image').length > 0 ?? false) &&
-							message.role === 'user'
-								? {
-										content: [
-											{
-												type: 'text',
-												text:
-													arr.length - 1 !== idx
-														? message.content
-														: message?.raContent ?? message.content
-											},
-											...message.files
-												.filter((file) => file.type === 'image')
-												.map((file) => ({
-													type: 'image_url',
-													image_url: {
-														url: file.url
-													}
-												}))
-										]
-								  }
-								: {
-										content:
-											arr.length - 1 !== idx
-												? message.content
-												: message?.raContent ?? message.content
-								  })
-						})),
+					messages: messagesBody,
 					seed: params?.seed ?? $settings?.params?.seed ?? undefined,
 					stop:
 						params?.stop ?? $settings?.params?.stop ?? undefined
-							? (params?.stop ?? $settings.params.stop).map((str) =>
+							? (params?.stop ?? $settings.params?.stop).map((str: string) =>
 									decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
 							  )
 							: undefined,
 					temperature: params?.temperature ?? $settings?.params?.temperature ?? undefined,
 					top_p: params?.top_p ?? $settings?.params?.top_p ?? undefined,
-					frequency_penalty:
-						params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined,
+					frequency_penalty: params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined,
 					max_tokens: params?.max_tokens ?? $settings?.params?.max_tokens ?? undefined,
 					tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
 					files: files.length > 0 ? files : undefined,
@@ -1423,12 +2118,12 @@
 			await tick();
 
 			scrollToBottom();
-
+			console.log('[Chat.svelte] $settings.splitLargeChunks: ', $settings.splitLargeChunks);
 			if (res && res.ok && res.body) {
-				const textStream = await createOpenAITextStream(res.body, $settings.splitLargeChunks);
+				const stream = await createOpenAITextStream(res.body, $settings.splitLargeChunks ?? true);
 				let lastUsage = null;
 
-				for await (const update of textStream) {
+				for await (const update of stream) {
 					const { value, done, citations, error, usage } = update;
 					if (error) {
 						await handleOpenAIError(error, null, model, responseMessage);
@@ -1469,10 +2164,7 @@
 						sentences.pop();
 
 						// dispatch only last sentence and make sure it hasn't been dispatched before
-						if (
-							sentences.length > 0 &&
-							sentences[sentences.length - 1] !== responseMessage.lastSentence
-						) {
+						if (sentences.length > 0 && sentences[sentences.length - 1] !== responseMessage.lastSentence) {
 							responseMessage.lastSentence = sentences[sentences.length - 1];
 							eventTarget.dispatchEvent(
 								new CustomEvent('chat', {
@@ -1519,7 +2211,7 @@
 							params: params,
 							files: chatFiles
 						});
-						await chats.set(await getChatList(localStorage.token));
+						chats.set(await getChatList(localStorage.token));
 					}
 				}
 			} else {
@@ -1565,7 +2257,7 @@
 		return _response;
 	};
 
-	const handleOpenAIError = async (error, res: Response | null, model, responseMessage) => {
+	const handleOpenAIError = async (error: any, res: Response | null, model: Model, responseMessage: Message) => {
 		let errorMessage = '';
 		let innerError;
 
@@ -1609,10 +2301,10 @@
 		console.log('stopResponse');
 	};
 
-	const regenerateResponse = async (message) => {
+	const regenerateResponse = async (message: Message) => {
 		console.log('regenerateResponse');
 
-		if (messages.length != 0) {
+		if (messages.length != 0 && message.parentId) {
 			let userMessage = history.messages[message.parentId];
 			let userPrompt = userMessage.content;
 
@@ -1630,9 +2322,10 @@
 	const continueGeneration = async () => {
 		console.log('continueGeneration');
 		const _chatId = JSON.parse(JSON.stringify($chatId));
+		let modelId;
 
-		if (messages.length != 0 && messages.at(-1).done == true) {
-			const responseMessage = history.messages[history.currentId];
+		if (messages.length != 0 && messages.at(-1)?.done == true) {
+			const responseMessage = history.messages[history.currentId!];
 			responseMessage.done = false;
 			await tick();
 
@@ -1642,14 +2335,14 @@
 				if (model?.owned_by === 'openai') {
 					await sendPromptOpenAI(
 						model,
-						history.messages[responseMessage.parentId].content,
+						history.messages[responseMessage.parentId!].content,
 						responseMessage.id,
 						_chatId
 					);
 				} else
 					await sendPromptOllama(
 						model,
-						history.messages[responseMessage.parentId].content,
+						history.messages[responseMessage.parentId!].content,
 						responseMessage.id,
 						_chatId
 					);
@@ -1659,32 +2352,27 @@
 		}
 	};
 
-	const generateChatTitle = async (userPrompt) => {
+	const generateChatTitle = async (userPrompt: string) => {
 		if ($settings?.title?.auto ?? true) {
-			const title = await generateTitle(
-				localStorage.token,
-				selectedModels[0],
-				userPrompt,
-				$chatId
-			).catch((error) => {
+			const title = await generateTitle(localStorage.token, selectedModels[0], userPrompt, $chatId).catch((error) => {
 				console.error(error);
 				return 'New Chat';
 			});
 
 			return title;
 		} else {
-			return `${userPrompt}`;
+			return `${userPrompt}`.slice(0, 20) + '...';
 		}
 	};
 
-	const setChatTitle = async (_chatId, _title) => {
+	const setChatTitle = async (_chatId: string, _title: string) => {
 		if (_chatId === $chatId) {
 			title = _title;
 		}
 
 		if ($settings.saveChatHistory ?? true) {
 			chat = await updateChatById(localStorage.token, _chatId, { title: _title });
-			await chats.set(await getChatList(localStorage.token));
+			chats.set(await getChatList(localStorage.token));
 		}
 	};
 
@@ -1702,12 +2390,10 @@
 		messages = messages;
 
 		const prompt = userMessage.content;
-		let searchQuery = await generateSearchQuery(localStorage.token, model, messages, prompt).catch(
-			(error) => {
-				console.log(error);
-				return prompt;
-			}
-		);
+		let searchQuery = await generateSearchQuery(localStorage.token, model, messages, prompt).catch((error) => {
+			console.log(error);
+			return prompt;
+		});
 
 		if (!searchQuery) {
 			toast.warning($i18n.t('No search query generated'));
@@ -1748,7 +2434,7 @@
 				responseMessage.files = [];
 			}
 
-			responseMessage.files.push({
+			responseMessage.files?.push({
 				collection_name: results.collection_name,
 				name: searchQuery,
 				type: 'web_search_results',
@@ -1768,17 +2454,21 @@
 	};
 
 	const getTags = async () => {
-		return await getTagsById(localStorage.token, $chatId).catch(async (error) => {
+		try {
+			const tags = await getTagsById(localStorage.token, $chatId);
+			return tags ? tags : [];
+		} catch (error: unknown) {
 			return [];
-		});
+		}
+		// return await getTagsById(localStorage.token, $chatId).catch(async (error) => {
+		// 	return [];
+		// });
 	};
 </script>
 
 <svelte:head>
 	<title>
-		{title
-			? `${title.length > 30 ? `${title.slice(0, 30)}...` : title} | ${$WEBUI_NAME}`
-			: `${$WEBUI_NAME}`}
+		{title ? `${title.length > 30 ? `${title.slice(0, 30)}...` : title} | ${$WEBUI_NAME}` : `${$WEBUI_NAME}`}
 	</title>
 </svelte:head>
 
@@ -1815,9 +2505,7 @@
 
 {#if !chatIdProp || (loaded && chatIdProp)}
 	<div
-		class="h-screen max-h-[100dvh] {$showSidebar
-			? 'md:max-w-[calc(100%-260px)]'
-			: ''} w-full max-w-full flex flex-col"
+		class="h-screen max-h-[100dvh] {$showSidebar ? 'md:max-w-[calc(100%-260px)]' : ''} w-full max-w-full flex flex-col"
 	>
 		{#if $settings?.backgroundImageUrl ?? null}
 			<div
@@ -1840,13 +2528,14 @@
 			shareEnabled={messages.length > 0}
 			{chat}
 			{initNewChat}
+			{initNewChatForSupport}
 		/>
 
 		{#if $banners.length > 0 && messages.length === 0 && !$chatId && selectedModels.length <= 1}
 			<div
-				class="absolute top-[4.25rem] w-full {$showSidebar
-					? 'md:max-w-[calc(100%-260px)]'
-					: ''} {showControls ? 'lg:pr-[24rem]' : ''} z-20"
+				class="absolute top-[4.25rem] w-full {$showSidebar ? 'md:max-w-[calc(100%-260px)]' : ''} {showControls
+					? 'lg:pr-[24rem]'
+					: ''} z-20"
 			>
 				<div class=" flex flex-col gap-1 w-full">
 					{#each $banners.filter( (b) => (b.dismissible ? !JSON.parse(localStorage.getItem('dismissedBannerIds') ?? '[]').includes(b.id) : true) ) as banner}
@@ -1858,10 +2547,9 @@
 								localStorage.setItem(
 									'dismissedBannerIds',
 									JSON.stringify(
-										[
-											bannerId,
-											...JSON.parse(localStorage.getItem('dismissedBannerIds') ?? '[]')
-										].filter((id) => $banners.find((b) => b.id === id))
+										[bannerId, ...JSON.parse(localStorage.getItem('dismissedBannerIds') ?? '[]')].filter((id) =>
+											$banners.find((b) => b.id === id)
+										)
 									)
 								);
 							}}
@@ -1901,7 +2589,16 @@
 					/>
 				</div>
 			</div>
-
+			<!-- <ClarificationCard
+				question={clarificationQuestion}
+				options={clarificationOptions}
+				notOptions={clarificationOptions}
+				onSelect={handleSelect}
+				onSubmit={handleClarificationSubmit}
+				{messages}
+				visible={clarificationVisible}
+				{originalUserPrompt}
+			/> -->
 			<div class={showControls ? 'lg:pr-[24rem]' : ''}>
 				<MessageInput
 					bind:files
@@ -1910,13 +2607,7 @@
 					bind:selectedToolIds
 					bind:webSearchEnabled
 					bind:atSelectedModel
-					availableToolIds={selectedModelIds.reduce((a, e, i, arr) => {
-						const model = $models.find((m) => m.id === e);
-						if (model?.info?.meta?.toolIds ?? false) {
-							return [...new Set([...a, ...model.info.meta.toolIds])];
-						}
-						return a;
-					}, [])}
+					availableToolIds={_availableToolIds}
 					transparentBackground={$settings?.backgroundImageUrl ?? false}
 					{selectedModels}
 					{messages}
@@ -1927,25 +2618,25 @@
 				/>
 			</div>
 		</div>
-		{#if showPromptTemplateGenerator}<PromptTemplateGenerator
+		{#if showPromptTemplateGenerator}
+			<PromptTemplateGenerator
 				bind:showPromptTemplate
 				bind:showPromptIntro
 				bind:isGeneratingPrompt
-				bind:variables={$variablesStore}
 				bind:generatedPrompt={$promptStore}
 				explanation={$explanationStore}
 				{isTextareaTruthy}
 				bind:showPromptTemplateGenerator
 				{fetchAndProcessData}
 				{generatePrompt}
-				{parseReceivedPrompt}
 				{extractVariablesFromPrompt}
 				{originalUserPrompt}
 				{updateTemplate}
 				on:close={handleClosePromptTemplate}
 				on:submit={handleSubmit}
 				on:variableUpdate={handleVariableUpdate}
-			/>{/if}
+			/>
+		{/if}
 
 		<ChatControls
 			models={selectedModelIds.reduce((a, e, i, arr) => {

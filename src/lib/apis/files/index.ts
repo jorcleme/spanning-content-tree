@@ -1,6 +1,19 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 
-export const uploadFile = async (token: string, file: File) => {
+export type _FileMeta = {
+	name: string;
+	content_type: string;
+	size: number;
+	path: string;
+};
+
+export type _FileUploadRes = {
+	id: string;
+	filename: string;
+	meta: _FileMeta;
+};
+
+export const uploadFile = async (token: string, file: File): Promise<_FileUploadRes> => {
 	const data = new FormData();
 	data.append('file', file);
 	let error = null;
@@ -15,7 +28,7 @@ export const uploadFile = async (token: string, file: File) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;

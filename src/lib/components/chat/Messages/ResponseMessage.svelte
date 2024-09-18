@@ -1,4 +1,9 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { Instance } from 'tippy.js';
+	import type { Message } from '$lib/types';
+	import type { MarkedOptions } from 'marked';
 	import { toast } from 'svelte-sonner';
 	import dayjs from 'dayjs';
 	import { marked } from 'marked';
@@ -11,7 +16,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { onMount, tick, getContext } from 'svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 
@@ -39,7 +44,7 @@
 	import WebSearchResults from './ResponseMessage/WebSearchResults.svelte';
 	import Sparkles from '$lib/components/icons/Sparkles.svelte';
 
-	export let message;
+	export let message: Message;
 	export let siblings;
 
 	export let isLastMessage = true;
@@ -63,11 +68,12 @@
 	let edit = false;
 	let editedContent = '';
 	let editTextAreaElement: HTMLTextAreaElement;
-	let tooltipInstance = null;
 
-	let sentencesAudio = {};
-	let speaking = null;
-	let speakingIdx = null;
+	let tooltipInstance: Instance[] | null = null;
+
+	let sentencesAudio: { [key: number]: HTMLAudioElement | null } = {};
+	let speaking: boolean | null = null;
+	let speakingIdx: number | null = null;
 
 	let loadingSpeech = false;
 	let generatingImage = false;
@@ -77,9 +83,7 @@
 
 	let selectedCitation = null;
 
-	$: tokens = marked.lexer(
-		replaceTokens(sanitizeResponseContent(message?.content), model?.name, $user?.name)
-	);
+	$: tokens = marked.lexer(replaceTokens(sanitizeResponseContent(message?.content), model?.name, $user?.name));
 
 	const renderer = new marked.Renderer();
 
@@ -99,69 +103,6 @@
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		extensions: any;
 	};
-
-	$: if (message) {
-		renderStyling();
-	}
-
-	const renderStyling = async () => {
-		await tick();
-
-		if (tooltipInstance) {
-			tooltipInstance[0]?.destroy();
-		}
-
-		renderLatex();
-
-		if (message.info) {
-			let tooltipContent = '';
-			if (message.info.openai) {
-				tooltipContent = `prompt_tokens: ${message.info.prompt_tokens ?? 'N/A'}<br/>
-													completion_tokens: ${message.info.completion_tokens ?? 'N/A'}<br/>
-													total_tokens: ${message.info.total_tokens ?? 'N/A'}`;
-			} else {
-				tooltipContent = `response_token/s: ${
-					`${
-						Math.round(
-							((message.info.eval_count ?? 0) / (message.info.eval_duration / 1000000000)) * 100
-						) / 100
-					} tokens` ?? 'N/A'
-				}<br/>
-					prompt_token/s: ${
-						Math.round(
-							((message.info.prompt_eval_count ?? 0) /
-								(message.info.prompt_eval_duration / 1000000000)) *
-								100
-						) / 100 ?? 'N/A'
-					} tokens<br/>
-                    total_duration: ${
-											Math.round(((message.info.total_duration ?? 0) / 1000000) * 100) / 100 ??
-											'N/A'
-										}ms<br/>
-                    load_duration: ${
-											Math.round(((message.info.load_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
-										}ms<br/>
-                    prompt_eval_count: ${message.info.prompt_eval_count ?? 'N/A'}<br/>
-                    prompt_eval_duration: ${
-											Math.round(((message.info.prompt_eval_duration ?? 0) / 1000000) * 100) /
-												100 ?? 'N/A'
-										}ms<br/>
-                    eval_count: ${message.info.eval_count ?? 'N/A'}<br/>
-                    eval_duration: ${
-											Math.round(((message.info.eval_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
-										}ms<br/>
-                    approximate_total: ${approximateToHumanReadable(message.info.total_duration)}`;
-			}
-			tooltipInstance = tippy(`#info-${message.id}`, {
-				content: `<span class="text-xs" id="tooltip-${message.id}">${tooltipContent}</span>`,
-				allowHTML: true,
-				theme: 'dark',
-				arrow: false,
-				offset: [0, 4]
-			});
-		}
-	};
-
 	const renderLatex = () => {
 		let chatMessageElements = document
 			.getElementById(`message-${message.id}`)
@@ -186,30 +127,156 @@
 		}
 	};
 
-	const playAudio = (idx) => {
+	$: if (message) {
+		renderStyling();
+	}
+
+	const renderStyling = async () => {
+		await tick();
+
+		if (tooltipInstance && tooltipInstance !== null) {
+			tooltipInstance[0]?.destroy();
+		}
+
+		renderLatex();
+
+		if (message.info) {
+			let tooltipContent = '';
+			if (message.info?.openai) {
+				tooltipContent = `prompt_tokens: ${message.info.prompt_tokens ?? 'N/A'}<br/>
+													completion_tokens: ${message.info.completion_tokens ?? 'N/A'}<br/>
+													total_tokens: ${message.info.total_tokens ?? 'N/A'}`;
+			} else {
+				const responseTokens =
+					message.info.eval_duration !== undefined && message.info.eval_duration !== 0
+						? `${
+								Math.round(((message.info.eval_count ?? 0) / (message.info.eval_duration / 1000000000)) * 100) / 100
+						  } tokens`
+						: 'N/A';
+
+				const promptTokens =
+					message.info.prompt_eval_duration !== undefined && message.info.prompt_eval_duration !== 0
+						? `${
+								Math.round(
+									((message.info.prompt_eval_count ?? 0) / (message.info.prompt_eval_duration / 1000000000)) * 100
+								) / 100
+						  } tokens`
+						: 'N/A';
+
+				const totalDuration =
+					message.info.total_duration !== undefined && message.info.total_duration !== 0
+						? `${Math.round(((message.info.total_duration ?? 0) / 1000000) * 100) / 100}ms`
+						: 'N/A';
+
+				const loadDuration =
+					message.info.load_duration !== undefined && message.info.load_duration !== 0
+						? `${Math.round(((message.info.load_duration ?? 0) / 1000000) * 100) / 100}ms`
+						: 'N/A';
+
+				const promptEvalDuration =
+					message.info.prompt_eval_duration !== undefined && message.info.prompt_eval_duration !== 0
+						? `${Math.round(((message.info.prompt_eval_duration ?? 0) / 1000000) * 100) / 100}ms`
+						: 'N/A';
+
+				const evalDuration =
+					message.info.eval_duration !== undefined && message.info.eval_duration !== 0
+						? `${Math.round(((message.info.eval_duration ?? 0) / 1000000) * 100) / 100}ms`
+						: 'N/A';
+
+				tooltipContent = `response_token/s: ${responseTokens}<br/>
+													prompt_token/s: ${promptTokens}<br/>
+													total_duration: ${totalDuration}<br/>
+													load_duration: ${loadDuration}<br/>
+													prompt_eval_count: ${message.info.prompt_eval_count ?? 'N/A'}<br/>
+													prompt_eval_duration: ${promptEvalDuration}<br/>
+													eval_count: ${message.info.eval_count ?? 'N/A'}<br/>
+													eval_duration: ${evalDuration}<br/>
+													approximate_total: ${approximateToHumanReadable(message.info?.total_duration ?? 0)}`;
+				// tooltipContent = `response_token/s: ${
+				// 	`${
+				// 		Math.round(((message.info.eval_count ?? 0) / (message.info.eval_duration / 1000000000)) * 100) / 100
+				// 	} tokens` ?? 'N/A'
+				// }<br/>
+				// 	prompt_token/s: ${
+				// 		Math.round(
+				// 			((message.info.prompt_eval_count ?? 0) / (message.info.prompt_eval_duration / 1000000000)) * 100
+				// 		) / 100 ?? 'N/A'
+				// 	} tokens<br/>
+				//     total_duration: ${
+				// 							Math.round(((message.info.total_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
+				// 						}ms<br/>
+				//     load_duration: ${
+				// 							Math.round(((message.info.load_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
+				// 						}ms<br/>
+				//     prompt_eval_count: ${message.info.prompt_eval_count ?? 'N/A'}<br/>
+				//     prompt_eval_duration: ${
+				// 							Math.round(((message.info.prompt_eval_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
+				// 						}ms<br/>
+				//     eval_count: ${message.info.eval_count ?? 'N/A'}<br/>
+				//     eval_duration: ${
+				// 							Math.round(((message.info.eval_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
+				// 						}ms<br/>
+				//     approximate_total: ${approximateToHumanReadable(message.info?.total_duration)}`;
+			}
+			tooltipInstance = tippy(`#info-${message.id}`, {
+				content: `<span class="text-xs" id="tooltip-${message.id}">${tooltipContent}</span>`,
+				allowHTML: true,
+				theme: 'dark',
+				arrow: false,
+				offset: [0, 4]
+			});
+		}
+	};
+
+	// const renderLatex = () => {
+	// 	let chatMessageElements = document
+	// 		.getElementById(`message-${message.id}`)
+	// 		?.getElementsByClassName('chat-assistant');
+
+	// 	if (chatMessageElements) {
+	// 		for (const element of chatMessageElements) {
+	// 			auto_render(element, {
+	// 				// customised options
+	// 				// • auto-render specific keys, e.g.:
+	// 				delimiters: [
+	// 					{ left: '$$', right: '$$', display: false },
+	// 					{ left: '$ ', right: ' $', display: false },
+	// 					{ left: '\\(', right: '\\)', display: false },
+	// 					{ left: '\\[', right: '\\]', display: false },
+	// 					{ left: '[ ', right: ' ]', display: false }
+	// 				],
+	// 				// • rendering keys, e.g.:
+	// 				throwOnError: false
+	// 			});
+	// 		}
+	// 	}
+	// };
+
+	const playAudio = (idx: number): Promise<Event> => {
 		return new Promise((res) => {
 			speakingIdx = idx;
 			const audio = sentencesAudio[idx];
-			audio.play();
-			audio.onended = async (e) => {
-				await new Promise((r) => setTimeout(r, 300));
+			if (audio) {
+				audio.play();
+				audio.onended = async (e) => {
+					await new Promise((r) => setTimeout(r, 300));
 
-				if (Object.keys(sentencesAudio).length - 1 === idx) {
-					speaking = null;
-				}
+					if (Object.keys(sentencesAudio).length - 1 === idx) {
+						speaking = null;
+					}
 
-				res(e);
-			};
+					res(e);
+				};
+			}
 		});
 	};
 
 	const toggleSpeakMessage = async () => {
-		if (speaking) {
+		if (speaking && speakingIdx) {
 			try {
 				speechSynthesis.cancel();
-
-				sentencesAudio[speakingIdx].pause();
-				sentencesAudio[speakingIdx].currentTime = 0;
+				sentencesAudio[speakingIdx]?.pause();
+				sentencesAudio[speakingIdx]!.currentTime = 0;
 			} catch {}
 
 			speaking = null;
@@ -218,7 +285,7 @@
 			if ((message?.content ?? '').trim() !== '') {
 				speaking = true;
 
-				if ($config.audio.tts.engine === 'openai') {
+				if ($config?.audio?.tts?.engine === 'openai') {
 					loadingSpeech = true;
 
 					const sentences = extractSentences(message.content).reduce((mergedTexts, currentText) => {
@@ -235,17 +302,17 @@
 							mergedTexts.push(currentText);
 						}
 						return mergedTexts;
-					}, []);
+					}, [] as string[]);
 
 					console.log(sentences);
 
 					if (sentences.length > 0) {
-						sentencesAudio = sentences.reduce((a, e, i, arr) => {
+						sentencesAudio = sentences.reduce<{ [key: number]: HTMLAudioElement | null }>((a, e, i, arr) => {
 							a[i] = null;
 							return a;
 						}, {});
 
-						let lastPlayedAudioPromise = Promise.resolve(); // Initialize a promise that resolves immediately
+						let lastPlayedAudioPromise: Promise<Event> = Promise.resolve(new Event('')); // Initialize a promise that resolves immediately
 
 						for (const [idx, sentence] of sentences.entries()) {
 							const res = await synthesizeOpenAISpeech(
@@ -283,10 +350,7 @@
 
 							const voice =
 								voices
-									?.filter(
-										(v) =>
-											v.voiceURI === ($settings?.audio?.tts?.voice ?? $config?.audio?.tts?.voice)
-									)
+									?.filter((v) => v.voiceURI === ($settings?.audio?.tts?.voice ?? $config?.audio?.tts?.voice))
 									?.at(0) ?? undefined;
 
 							console.log(voice);
@@ -347,7 +411,7 @@
 		renderStyling();
 	};
 
-	const generateImage = async (message) => {
+	const generateImage = async (message: Message) => {
 		generatingImage = true;
 		const res = await imageGenerations(localStorage.token, message.content).catch((error) => {
 			toast.error(error);
@@ -355,7 +419,7 @@
 		console.log(res);
 
 		if (res) {
-			message.files = res.map((image) => ({
+			message.files = res.map((image: { url: string }) => ({
 				type: 'image',
 				url: `${image.url}`
 			}));
@@ -390,11 +454,7 @@
 <CitationsModal bind:show={showCitationModal} citation={selectedCitation} />
 
 {#key message.id}
-	<div
-		class=" flex w-full message-{message.id}"
-		id="message-{message.id}"
-		dir={$settings.chatDirection}
-	>
+	<div class=" flex w-full message-{message.id}" id="message-{message.id}" dir={$settings.chatDirection}>
 		<ProfileImage
 			src={model?.info?.meta?.profile_image_url ??
 				($i18n.language === 'dg-DG' ? `/doge.png` : `${WEBUI_BASE_URL}/static/favicon.png`)}
@@ -405,16 +465,13 @@
 				{model?.name ?? message.model}
 
 				{#if message.timestamp}
-					<span
-						class=" self-center invisible group-hover:visible text-gray-400 text-xs font-medium uppercase"
-					>
+					<span class=" self-center invisible group-hover:visible text-gray-400 text-xs font-medium uppercase">
 						{dayjs(message.timestamp * 1000).format($i18n.t('h:mm a'))}
 					</span>
 				{/if}
 			</Name>
-
-			{#if (message?.files ?? []).filter((f) => f.type === 'image').length > 0}
-				<div class="my-2.5 w-full flex overflow-x-auto gap-2 flex-wrap">
+			{#if message.files}
+				{#if (message.files ?? []).filter((f) => f.type === 'image').length > 0}
 					{#each message.files as file}
 						<div>
 							{#if file.type === 'image'}
@@ -422,7 +479,7 @@
 							{/if}
 						</div>
 					{/each}
-				</div>
+				{/if}
 			{/if}
 
 			<div
@@ -430,17 +487,15 @@
 			>
 				<div>
 					{#if (message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]).length > 0}
-						{@const status = (
-							message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]
-						).at(-1)}
+						{@const status = (message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]).at(-1)}
 						<div class="flex items-center gap-2 pt-1 pb-1">
-							{#if status.done === false}
+							{#if status?.done === false}
 								<div class="">
 									<Spinner className="size-4" />
 								</div>
 							{/if}
 
-							{#if status?.action === 'web_search' && status?.urls}
+							{#if status && status?.action === 'web_search' && status?.urls}
 								<WebSearchResults {status}>
 									<div class="flex flex-col justify-center -space-y-0.5">
 										<div class="text-base line-clamp-1 text-wrap">
@@ -608,9 +663,7 @@
 							{/if}
 
 							{#if message.done || siblings.length > 1}
-								<div
-									class=" flex justify-start overflow-x-auto buttons text-gray-600 dark:text-gray-500"
-								>
+								<div class=" flex justify-start overflow-x-auto buttons text-gray-600 dark:text-gray-500">
 									{#if siblings.length > 1}
 										<div class="flex self-center min-w-fit" dir="ltr">
 											<button
@@ -627,17 +680,11 @@
 													stroke-width="2.5"
 													class="size-3.5"
 												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														d="M15.75 19.5 8.25 12l7.5-7.5"
-													/>
+													<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
 												</svg>
 											</button>
 
-											<div
-												class="text-sm tracking-widest font-semibold self-center dark:text-gray-100 min-w-fit"
-											>
+											<div class="text-sm tracking-widest font-semibold self-center dark:text-gray-100 min-w-fit">
 												{siblings.indexOf(message.id) + 1}/{siblings.length}
 											</div>
 
@@ -655,11 +702,7 @@
 													stroke-width="2.5"
 													class="size-3.5"
 												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														d="m8.25 4.5 7.5 7.5-7.5 7.5"
-													/>
+													<path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
 												</svg>
 											</button>
 										</div>
@@ -760,12 +803,7 @@
 															cx="12"
 															cy="12"
 															r="3"
-														/><circle
-															class="spinner_S1WN spinner_JApP"
-															cx="20"
-															cy="12"
-															r="3"
-														/></svg
+														/><circle class="spinner_S1WN spinner_JApP" cx="20" cy="12" r="3" /></svg
 													>
 												{:else if speaking}
 													<svg
@@ -841,12 +879,7 @@
 																cx="12"
 																cy="12"
 																r="3"
-															/><circle
-																class="spinner_S1WN spinner_JApP"
-																cx="20"
-																cy="12"
-																r="3"
-															/></svg
+															/><circle class="spinner_S1WN spinner_JApP" cx="20" cy="12" r="3" /></svg
 														>
 													{:else}
 														<svg
@@ -911,9 +944,7 @@
 														showRateComment = true;
 
 														window.setTimeout(() => {
-															document
-																.getElementById(`message-feedback-${message.id}`)
-																?.scrollIntoView();
+															document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
 														}, 0);
 													}}
 												>
@@ -945,9 +976,7 @@
 														rateMessage(message.id, -1);
 														showRateComment = true;
 														window.setTimeout(() => {
-															document
-																.getElementById(`message-feedback-${message.id}`)
-																?.scrollIntoView();
+															document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
 														}, 0);
 													}}
 												>
@@ -1042,9 +1071,7 @@
 															{#if action.icon_url}
 																<img
 																	src={action.icon_url}
-																	class="w-4 h-4 {action.icon_url.includes('svg')
-																		? 'dark:invert-[80%]'
-																		: ''}"
+																	class="w-4 h-4 {action.icon_url.includes('svg') ? 'dark:invert-[80%]' : ''}"
 																	style="fill: currentColor;"
 																	alt={action.name}
 																/>

@@ -6,15 +6,8 @@
 	import { sanitizeResponseContent } from '$lib/utils';
 	import { debounce } from 'lodash';
 
-	export let submitPrompt: (prompt: string) => void;
 	export let showPromptTemplateGenerator: boolean;
 	import { explanationStore, promptStore, variablesStore } from '$lib/stores';
-	export let onSubmit: (data: {
-		customizedPrompt: string;
-		promptTemplate: string;
-		explanation: string;
-	}) => void;
-	export let sendPrompt: (prompt: string) => void;
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import {
 		X,
@@ -39,11 +32,7 @@
 	export let isTextareaTruthy: boolean;
 	export let fetchAndProcessData: (template: string) => Promise<any>;
 	export let generatePrompt: (existingText: string) => Promise<void>;
-	export let parseReceivedPrompt: (rawPrompt: string) => {
-		prompt: string;
-		explanation: string;
-		variables: Record<string, string>;
-	};
+
 	let varName;
 	export let extractVariablesFromPrompt: (prompt: string) => Record<string, string>;
 	import _ from 'lodash';
@@ -55,7 +44,7 @@
 	export let generatedPrompt = '';
 	export let headerText = 'Loading';
 	export let originalUserPrompt;
-	export let isGeneratingPrompt;
+	export let isGeneratingPrompt: boolean;
 	let lastCaretPosition = { node: null, offset: 0 };
 
 	let editablePrompt = '';
@@ -63,7 +52,7 @@
 	let formattedEditablePrompt = '';
 	let updateTimeout;
 	let variableUpdateTimeouts = {};
-	let observer;
+	let observer: MutationObserver;
 
 	const dispatch = createEventDispatcher();
 
@@ -152,7 +141,7 @@
 		}
 	}
 
-	function extractVariables(text) {
+	function extractVariables(text: string) {
 		const regex = /\[\[(.*?)\]\]/g;
 		const matches = [...text.matchAll(regex)];
 		return [...new Set(matches.map((match) => match[1].trim()))];
@@ -188,7 +177,7 @@
 	}, 300);
 	function preserveCaretPosition(element) {
 		const selection = window.getSelection();
-		if (selection.rangeCount > 0) {
+		if (selection && selection.rangeCount > 0) {
 			const range = selection.getRangeAt(0);
 			const startOffset = Math.min(range.startOffset, element.textContent.length);
 			const endOffset = Math.min(range.endOffset, element.textContent.length);
@@ -254,7 +243,7 @@
 	}
 
 	function handleClose() {
-		dispatch('close');
+		dispatch('close', { state: false });
 	}
 
 	function handleCreateCustomizedPrompt() {
@@ -277,8 +266,8 @@
 		}
 	}
 
-	function renderTemplate(template, variables) {
-		return template.replace(/\[\[(.*?)\]\]/g, (match, varName) => {
+	function renderTemplate(template: string, variables: { [key: string]: string }) {
+		return template.replace(/\[\[(.*?)\]\]/g, (match, varName: string) => {
 			const varValue = variables[varName.trim()];
 			return varValue ? `[${varName.trim()}: ${varValue}]` : match;
 		});
@@ -342,6 +331,7 @@
 	];
 	export let updateTemplate: (newTemplate: string) => void;
 
+	// Select the theme
 	function handleThemeSelect(theme: string) {
 		showPromptIntro = false;
 		showPromptTemplate = true;
@@ -358,14 +348,11 @@
 	}
 </script>
 
-<div class="relative overflow-hidden h-full p-4" style="background:whitesmoke;">
+<div class="relative overflow-x-scroll h-full p-4" style="background:whitesmoke;">
 	<div>
 		<div class="flex h-full">
 			{#if showPromptIntro}
-				<div
-					class="text-black p-10 max-w-5xl w-full"
-					transition:slide={{ duration: 500, easing: cubicOut }}
-				>
+				<div class="text-black p-10 max-w-5xl w-full" transition:slide={{ duration: 500, easing: cubicOut }}>
 					<div class="flex justify-between items-center mb-8">
 						<h2 class="text-3xl font-semibold">Describe your learning goal</h2>
 						<button class="text-gray-400 hover:text-white" on:click={handleClose}>
@@ -373,7 +360,7 @@
 						</button>
 					</div>
 
-					<div class="relative overflow-hidden h-full">
+					<div class="relative overflow-scroll h-full">
 						<div transition:slide={{ duration: 500, easing: cubicOut }}>
 							<p class="text-gray-400 text-lg mb-8">
 								Choose from a starter prompt below or generate a new one further below.
@@ -408,17 +395,11 @@
 			{/if}
 
 			{#if isGeneratingPrompt}
-				<div
-					class="flex items-center justify-center p-10 w-full"
-					transition:fade={{ delay: 500, duration: 500 }}
-				>
+				<div class="flex items-center justify-center p-10 w-full" transition:fade={{ delay: 500, duration: 500 }}>
 					<AssistantAnimationHero />
 				</div>
 			{:else if showPromptTemplate}
-				<div
-					class="flex w-full p-4 overflow-y-auto"
-					transition:fade={{ delay: 500, duration: 500 }}
-				>
+				<div class="flex w-full p-4 overflow-y-auto" transition:fade={{ delay: 500, duration: 500 }}>
 					<div class="w-1/2 pr-8">
 						<h3 class="text-2xl font-semibold mb-6">Prompt Variables</h3>
 						<div class="space-y-6 mb-8 p-4">

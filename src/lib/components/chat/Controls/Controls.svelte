@@ -1,18 +1,74 @@
-<script>
+<script lang="ts">
 	import { createEventDispatcher, getContext } from 'svelte';
+	import type { Writable } from 'svelte/store';
+	import { type i18n as i18nType } from 'i18next';
+	import type { Model, ChatParams } from '$lib/stores';
+	import type { ChatFile } from '$lib/types';
+	// @ts-ignore
+	import { interpolateLab } from 'd3-interpolate';
+
 	const dispatch = createEventDispatcher();
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	import XMark from '$lib/components/icons/XMark.svelte';
 	import AdvancedParams from '../Settings/Advanced/AdvancedParams.svelte';
 	import Valves from '$lib/components/common/Valves.svelte';
 	import FileItem from '$lib/components/common/FileItem.svelte';
+	import { tweened } from 'svelte/motion';
 
-	export let models = [];
+	export let models: Model[] = [];
 
-	export let chatFiles = [];
+	export let chatFiles: ChatFile[] = [];
 	export let valves = {};
-	export let params = {};
+	export let params: ChatParams = {
+		system: null,
+		seed: null,
+		stop: null,
+		temperature: null,
+		max_tokens: null,
+		mirostat: null,
+		mirostat_eta: null,
+		mirostat_tau: null,
+		use_mlock: null,
+		use_mmap: null,
+		num_batch: null,
+		num_ctx: null,
+		num_keep: null,
+		num_thread: null,
+		repeat_last_n: null,
+		tfs_z: null,
+		top_k: null,
+		top_p: null,
+		template: null,
+		frequency_penalty: null,
+		proficiency: 0
+	};
+
+	let proficiency = 0;
+	const labels = ['Beginner', 'Intermediate', 'Advanced'];
+	// const colors = ['bg-green-500', 'bg-yellow-500', 'bg-red-500'];
+	// let color = 'rgb(25, 144, 250)';
+	const colors = ['rgb(25, 144, 250)', 'rgb(15, 90, 210)', 'rgb(9, 70, 200)'];
+	const color = tweened(colors[0], {
+		duration: 800,
+		interpolate: interpolateLab
+	});
+
+	function getProficiencyColor(proficiency: number) {
+		return colors[proficiency];
+	}
+
+	const handleProficiencyChange = async (
+		e: Event & { currentTarget: EventTarget & HTMLInputElement }
+	) => {
+		const value = Number((e.target as HTMLInputElement).value);
+		params.proficiency = value;
+		await color.set(colors[value]);
+	};
+
+	// {getProficiencyColor(
+	// 					proficiency
+	// 				)}
 </script>
 
 <div class=" dark:text-white">
@@ -66,6 +122,29 @@
 
 			<hr class="my-2 border-gray-100 dark:border-gray-800" />
 		{/if}
+		<div class="mb-4">
+			<label for="proficiency-slider" class="block text-md font-medium dark:text-gray-200 mb-2">
+				Network Proficiency Level
+			</label>
+			<div class="flex items-center space-x-4 justify-evenly">
+				<span class="text-sm dark:text-gray-300">Beginner</span>
+				<input
+					id="proficiency-slider"
+					type="range"
+					min="0"
+					max="2"
+					step="1"
+					bind:value={proficiency}
+					class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 max-w-fit"
+					style:background-color={$color}
+					on:change={handleProficiencyChange}
+				/>
+				<span class="text-sm dark:text-gray-300">Advanced</span>
+			</div>
+			<div class="text-center mt-2 text-sm font-medium dark:text-gray-400" id="proficiency-label">
+				{labels[proficiency]}
+			</div>
+		</div>
 
 		<div>
 			<div class="mb-1.5 font-medium">{$i18n.t('System Prompt')}</div>

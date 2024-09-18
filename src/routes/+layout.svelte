@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { io } from 'socket.io-client';
 	import { spring } from 'svelte/motion';
 
@@ -7,16 +7,7 @@
 	});
 
 	import { onMount, tick, setContext } from 'svelte';
-	import {
-		config,
-		user,
-		theme,
-		WEBUI_NAME,
-		mobile,
-		socket,
-		activeUserCount,
-		USAGE_POOL
-	} from '$lib/stores';
+	import { config, user, theme, WEBUI_NAME, mobile, socket, activeUserCount, USAGE_POOL } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Toaster, toast } from 'svelte-sonner';
@@ -38,7 +29,7 @@
 	let loaded = false;
 	const BREAKPOINT = 768;
 
-	let wakeLock = null;
+	let wakeLock: WakeLockSentinel | null = null;
 
 	onMount(async () => {
 		theme.set(localStorage.theme);
@@ -161,10 +152,7 @@
 
 		await tick();
 
-		if (
-			document.documentElement.classList.contains('her') &&
-			document.getElementById('progress-bar')
-		) {
+		if (document.documentElement.classList.contains('her') && document.getElementById('progress-bar')) {
 			loadingProgress.subscribe((value) => {
 				const progressBar = document.getElementById('progress-bar');
 

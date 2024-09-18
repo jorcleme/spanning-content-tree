@@ -1,6 +1,25 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
+import type { Tool } from '$lib/types';
 
-export const createNewTool = async (token: string, tool: object) => {
+interface CreateToolForm {
+	id: string;
+	name: string;
+	meta: {
+		description: string;
+		manifest: {
+			title: string;
+			author: string;
+			version: string;
+			license: string;
+			description: string;
+			GitHub: string;
+			Notes: string;
+		};
+	};
+	content: string;
+}
+
+export const createNewTool = async (token: string, tool: CreateToolForm): Promise<Tool> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/create`, {
@@ -16,7 +35,7 @@ export const createNewTool = async (token: string, tool: object) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -31,7 +50,7 @@ export const createNewTool = async (token: string, tool: object) => {
 	return res;
 };
 
-export const getTools = async (token: string = '') => {
+export const getTools = async (token: string = ''): Promise<Tool[]> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/`, {
@@ -93,7 +112,7 @@ export const exportTools = async (token: string = '') => {
 	return res;
 };
 
-export const getToolById = async (token: string, id: string) => {
+export const getToolById = async (token: string, id: string): Promise<Tool> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/id/${id}`, {
@@ -160,7 +179,7 @@ export const updateToolById = async (token: string, id: string, tool: object) =>
 	return res;
 };
 
-export const deleteToolById = async (token: string, id: string) => {
+export const deleteToolById = async (token: string, id: string): Promise<boolean> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/id/${id}/delete`, {

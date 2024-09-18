@@ -918,6 +918,12 @@ async def update_embedding_function(request: Request, call_next):
     return response
 
 
+##################################
+#
+# App Mounts
+#
+##################################
+
 app.mount("/ws", socket_app)
 
 app.mount("/ollama", ollama_app)
@@ -1109,6 +1115,7 @@ async def generate_chat_completions(form_data: dict, user=Depends(get_verified_u
         print("generate_ollama_chat_completion")
         return await generate_ollama_chat_completion(form_data, user=user)
     else:
+        print("generate_openai_chat_completion")
         return await generate_openai_chat_completion(form_data, user=user)
 
 
@@ -1279,7 +1286,7 @@ async def chat_completed(form_data: dict, user=Depends(get_verified_user)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": str(e)},
             )
-
+    log.info(f"chat_completed: {data}")
     return data
 
 

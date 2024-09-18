@@ -14,8 +14,11 @@
 	import { copyToClipboard, findWordIndices } from '$lib/utils';
 	import CompareMessages from './Messages/CompareMessages.svelte';
 	import { stringify } from 'postcss';
+	import type { Message, MessageHistory, EditedMessage } from '$lib/types';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let chatId = '';
 	export let readOnly = false;
@@ -28,9 +31,9 @@
 	export let prompt;
 	export let processing = '';
 	export let bottomPadding = false;
-	export let autoScroll;
-	export let history = {};
-	export let messages = [];
+	export let autoScroll: boolean;
+	export let history: MessageHistory = {};
+	export let messages: Message[] = [];
 
 	export let selectedModels;
 
@@ -42,11 +45,11 @@
 	}
 
 	const scrollToBottom = () => {
-		const element = document.getElementById('messages-container');
+		const element = document.getElementById('messages-container') as HTMLElement;
 		element.scrollTop = element.scrollHeight;
 	};
 
-	const copyToClipboardWithToast = async (text) => {
+	const copyToClipboardWithToast = async (text: string) => {
 		const res = await copyToClipboard(text);
 		if (res) {
 			toast.success($i18n.t('Copying to clipboard was successful!'));
@@ -57,7 +60,7 @@
 		let userPrompt = content;
 		let userMessageId = uuidv4();
 
-		let userMessage = {
+		let userMessage: EditedMessage = {
 			id: userMessageId,
 			parentId: history.messages[messageId].parentId,
 			childrenIds: [],
@@ -69,9 +72,9 @@
 
 		let messageParentId = history.messages[messageId].parentId;
 
-		if (messageParentId !== null) {
+		if (messageParentId !== null && typeof messageParentId !== 'undefined') {
 			history.messages[messageParentId].childrenIds = [
-				...history.messages[messageParentId].childrenIds,
+				...(history.messages[messageParentId].childrenIds ?? []),
 				userMessageId
 			];
 		}
@@ -93,7 +96,7 @@
 		await chats.set(await getChatList(localStorage.token));
 	};
 
-	const confirmEditResponseMessage = async (messageId, content) => {
+	const confirmEditResponseMessage = async (messageId: string, content: string) => {
 		history.messages[messageId].originalContent = history.messages[messageId].content;
 		history.messages[messageId].content = content;
 
@@ -178,8 +181,7 @@
 			let childrenIds = Object.values(history.messages)
 				.filter((message) => message.parentId === null)
 				.map((message) => message.id);
-			let messageId =
-				childrenIds[Math.min(childrenIds.indexOf(message.id) + 1, childrenIds.length - 1)];
+			let messageId = childrenIds[Math.min(childrenIds.indexOf(message.id) + 1, childrenIds.length - 1)];
 
 			if (message.id !== messageId) {
 				let messageChildrenIds = history.messages[messageId].childrenIds;
@@ -209,17 +211,15 @@
 		const parentMessageId = messageToDelete.parentId;
 		const childMessageIds = messageToDelete.childrenIds ?? [];
 
-		const hasDescendantMessages = childMessageIds.some(
-			(childId) => history.messages[childId]?.childrenIds?.length > 0
-		);
+		const hasDescendantMessages = childMessageIds.some((childId) => history.messages[childId]?.childrenIds?.length > 0);
 
 		history.currentId = parentMessageId;
 		await tick();
 
 		// Remove the message itself from the parent message's children array
-		history.messages[parentMessageId].childrenIds = history.messages[
-			parentMessageId
-		].childrenIds.filter((id) => id !== messageId);
+		history.messages[parentMessageId].childrenIds = history.messages[parentMessageId].childrenIds.filter(
+			(id) => id !== messageId
+		);
 
 		await tick();
 
@@ -241,9 +241,9 @@
 			}
 
 			// Remove child message id from the parent message's children array
-			history.messages[parentMessageId].childrenIds = history.messages[
-				parentMessageId
-			].childrenIds.filter((id) => id !== childId);
+			history.messages[parentMessageId].childrenIds = history.messages[parentMessageId].childrenIds.filter(
+				(id) => id !== childId
+			);
 		});
 
 		await tick();
@@ -374,8 +374,7 @@
 
 											if (autoScroll) {
 												const element = document.getElementById('messages-container');
-												autoScroll =
-													element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
+												autoScroll = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
 												setTimeout(() => {
 													scrollToBottom();
 												}, 100);

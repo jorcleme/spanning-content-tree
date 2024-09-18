@@ -20,7 +20,7 @@
 	export let boilerplate = '';
 	export let value = '';
 
-	let codeEditor;
+	let codeEditor: EditorView;
 
 	let isDarkMode = false;
 	let editorTheme = new Compartment();
@@ -75,7 +75,7 @@
 				doc: value,
 				extensions: extensions
 			}),
-			parent: document.getElementById('code-textarea')
+			parent: document.getElementById('code-textarea') as Element
 		});
 
 		if (isDarkMode) {

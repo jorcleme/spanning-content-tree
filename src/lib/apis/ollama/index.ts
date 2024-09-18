@@ -316,7 +316,6 @@ export const generateEmbeddings = async (token: string = '', model: string, text
 
 	return res;
 };
-
 export const generateTextCompletion = async (token: string = '', model: string, text: string) => {
 	let error = null;
 
@@ -344,8 +343,11 @@ export const generateTextCompletion = async (token: string = '', model: string, 
 	return res;
 };
 
-export const generateChatCompletion = async (token: string = '', body: object) => {
-	let controller = new AbortController();
+export const generateChatCompletion = async (
+	token: string = '',
+	body: object
+): Promise<[Response | null, AbortController]> => {
+	const controller = new AbortController();
 	let error = null;
 
 	const res = await fetch(`${OLLAMA_API_BASE_URL}/api/chat`, {
@@ -446,7 +448,11 @@ export const deleteModel = async (token: string, tagName: string, urlIdx: string
 	return res;
 };
 
-export const pullModel = async (token: string, tagName: string, urlIdx: string | null = null) => {
+export const pullModel = async (
+	token: string,
+	tagName: string,
+	urlIdx: string | null = null
+): Promise<[Response | null, AbortController]> => {
 	let error = null;
 	const controller = new AbortController();
 

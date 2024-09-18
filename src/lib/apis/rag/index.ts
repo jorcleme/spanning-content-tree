@@ -186,7 +186,7 @@ export const processDocToVectorDB = async (token: string, file_id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;

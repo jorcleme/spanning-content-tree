@@ -1,7 +1,15 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 import { getUserPosition } from '$lib/utils';
+import type { SessionUser, PersistentConfigSettings } from '$lib/stores';
+import type { Nullable } from '$lib/types';
 
-export const getUserPermissions = async (token: string) => {
+type UserPermissions = {
+	chat: {
+		deletion: boolean;
+	};
+};
+
+export const getUserPermissions = async (token: string): Promise<UserPermissions> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/permissions/user`, {
@@ -13,7 +21,7 @@ export const getUserPermissions = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -28,7 +36,10 @@ export const getUserPermissions = async (token: string) => {
 	return res;
 };
 
-export const updateUserPermissions = async (token: string, permissions: object) => {
+export const updateUserPermissions = async (
+	token: string,
+	permissions: object
+): Promise<Nullable<UserPermissions>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/permissions/user`, {
@@ -43,7 +54,7 @@ export const updateUserPermissions = async (token: string, permissions: object) 
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -58,7 +69,11 @@ export const updateUserPermissions = async (token: string, permissions: object) 
 	return res;
 };
 
-export const updateUserRole = async (token: string, id: string, role: string) => {
+export const updateUserRole = async (
+	token: string,
+	id: string,
+	role: string
+): Promise<Nullable<SessionUser>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/update/role`, {
@@ -74,7 +89,7 @@ export const updateUserRole = async (token: string, id: string, role: string) =>
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -89,7 +104,7 @@ export const updateUserRole = async (token: string, id: string, role: string) =>
 	return res;
 };
 
-export const getUsers = async (token: string) => {
+export const getUsers = async (token: string): Promise<Nullable<SessionUser[]>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/`, {
@@ -101,7 +116,7 @@ export const getUsers = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -116,18 +131,23 @@ export const getUsers = async (token: string) => {
 	return res ? res : [];
 };
 
-export const getUserSettings = async (token: string) => {
+export const getUserSettings = async (
+	token: string
+): Promise<Nullable<PersistentConfigSettings>> => {
 	let error = null;
-	const res = await fetch(`${WEBUI_API_BASE_URL}/users/user/settings`, {
-		method: 'GET',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${token}`
+	const res: PersistentConfigSettings | null = await fetch(
+		`${WEBUI_API_BASE_URL}/users/user/settings`,
+		{
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${token}`
+			}
 		}
-	})
+	)
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -142,7 +162,10 @@ export const getUserSettings = async (token: string) => {
 	return res;
 };
 
-export const updateUserSettings = async (token: string, settings: object) => {
+export const updateUserSettings = async (
+	token: string,
+	settings: PersistentConfigSettings
+): Promise<Nullable<PersistentConfigSettings>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/user/settings/update`, {
@@ -157,7 +180,7 @@ export const updateUserSettings = async (token: string, settings: object) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -172,7 +195,10 @@ export const updateUserSettings = async (token: string, settings: object) => {
 	return res;
 };
 
-export const getUserById = async (token: string, userId: string) => {
+export const getUserById = async (
+	token: string,
+	userId: string
+): Promise<Nullable<Pick<SessionUser, 'name' | 'profile_image_url'>>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/${userId}`, {
@@ -184,7 +210,7 @@ export const getUserById = async (token: string, userId: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -199,7 +225,7 @@ export const getUserById = async (token: string, userId: string) => {
 	return res;
 };
 
-export const getUserInfo = async (token: string) => {
+export const getUserInfo = async (token: string): Promise<Nullable<Pick<SessionUser, 'info'>>> => {
 	let error = null;
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/user/info`, {
 		method: 'GET',
@@ -210,7 +236,7 @@ export const getUserInfo = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -240,7 +266,7 @@ export const updateUserInfo = async (token: string, info: object) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -268,7 +294,7 @@ export const getAndUpdateUserLocation = async (token: string) => {
 	}
 };
 
-export const deleteUserById = async (token: string, userId: string) => {
+export const deleteUserById = async (token: string, userId: string): Promise<Nullable<boolean>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/${userId}`, {
@@ -280,7 +306,7 @@ export const deleteUserById = async (token: string, userId: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -302,7 +328,11 @@ type UserUpdateForm = {
 	password: string;
 };
 
-export const updateUserById = async (token: string, userId: string, user: UserUpdateForm) => {
+export const updateUserById = async (
+	token: string,
+	userId: string,
+	user: UserUpdateForm
+): Promise<Nullable<SessionUser>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/${userId}/update`, {
@@ -320,7 +350,7 @@ export const updateUserById = async (token: string, userId: string, user: UserUp
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);

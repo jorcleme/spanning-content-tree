@@ -1,18 +1,21 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { marked } from 'marked';
+	import type { Instance, SingleTarget } from 'tippy.js';
 
 	import tippy from 'tippy.js';
 	import { roundArrow } from 'tippy.js';
 
-	export let placement = 'top';
+	import type { Placement } from 'tippy.js';
+
+	export let placement: Placement = 'top';
 	export let content = `I'm a tooltip!`;
 	export let touch = true;
 	export let className = 'flex';
 	export let theme = '';
 
-	let tooltipElement;
-	let tooltipInstance;
+	let tooltipElement: SingleTarget;
+	let tooltipInstance: Instance;
 
 	$: if (tooltipElement && content) {
 		if (tooltipInstance) {

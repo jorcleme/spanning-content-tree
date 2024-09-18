@@ -33,8 +33,12 @@ from config import (
     CATALYST_1300_CLI_GUIDE_COLLECTION_NAME,
     CBS_250_ADMIN_GUIDE_COLLECTION_NAME,
     CBS_250_CLI_GUIDE_COLLECTION_NAME,
+    CBS_220_ADMIN_GUIDE_COLLECTION_NAME,
+    CBS_220_CLI_GUIDE_COLLECTION_NAME,
+    MONGODB_URI,
+    MONGODB_USER,
+    MONGODB_PASS,
 )
-
 from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain.storage.in_memory import InMemoryStore
 from langchain.schema import Document
@@ -57,7 +61,6 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores.chroma import Chroma
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint import MemorySaver
-from config import MONGODB_URI, MONGODB_USER, MONGODB_PASS
 import pymongo
 from pymongo import MongoClient
 import sys
@@ -283,7 +286,7 @@ def init_parent_document_retriever(collection_name: str, vectordb: Chroma):
         docstore=store,
         id_key="doc_id",
         child_splitter=get_text_splitter(),
-        search_kwargs={"k": 4},
+        search_kwargs={"k": 2},
         search_type=SearchType.similarity,
     )
     formatted_documents = convert_to_documents(docs)
@@ -292,13 +295,13 @@ def init_parent_document_retriever(collection_name: str, vectordb: Chroma):
     # Smoketest to check large and small chunks
     # Retriever should return the large chunks
     # Vectorstore should return the small chunks
-    # large_chunks = retriever.invoke("Configure Bluetooth on Catalyst 1300")
-    # logger.info(f"Large Chunks: {len(large_chunks)}")
+    large_chunks = retriever.invoke("Configure Bluetooth on Catalyst 1300")
+    logger.info(f"Large Chunks: {len(large_chunks)}")
 
-    # small_chunks = retriever.vectorstore.similarity_search(
-    #     "Configure Bluetooth on Catalyst 1300"
-    # )
-    # logger.info(f"Small Chunks: {len(small_chunks[0].page_content)}")
+    small_chunks = retriever.vectorstore.similarity_search(
+        "Configure Bluetooth on Catalyst 1300"
+    )
+    logger.info(f"Small Chunks: {len(small_chunks[0].page_content)}")
     return retriever
 
 
@@ -476,16 +479,16 @@ def retrieve(state: GraphState) -> GraphState:
     datasource = state_dict["datasource"]
 
     if datasource == "ADMIN_GUIDE":
-        vectordb = init_langchain_vectordb(CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME)
+        vectordb = init_langchain_vectordb(CBS_220_ADMIN_GUIDE_COLLECTION_NAME)
         retriever = init_parent_document_retriever(
-            CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME, vectordb
+            CBS_220_ADMIN_GUIDE_COLLECTION_NAME, vectordb
         )
     else:
-        vectordb = init_langchain_vectordb(CATALYST_1300_CLI_GUIDE_COLLECTION_NAME)
+        vectordb = init_langchain_vectordb(CBS_220_CLI_GUIDE_COLLECTION_NAME)
         llm = ChatOpenAI(temperature=0, model="gpt-4o")
         document_contents = "Command Line Interface commands, guidelines, syntax, description, parameters, and examples"
         retriever = init_self_query_retriever(
-            llm, vectordb, document_contents, CATALYST_1300_CLI_GUIDE_COLLECTION_NAME
+            llm, vectordb, document_contents, CBS_220_CLI_GUIDE_COLLECTION_NAME
         )
 
     documents = decompose_question(question, retriever)
@@ -573,27 +576,20 @@ def select_db_examples(state: GraphState):
 def generate_article_title(state: GraphState):
     state_dict = state["keys"]
     question = state_dict["question"]
-    article_examples = state_dict["db_articles"]
-    article_title = article_examples[0]["title"]
+    template = """You are a world class article title generator. Formulate an Article title for the given the question.
 
-    template = """You are a world class article title generator. Using the example below to guide you, formulate a title for the article given the question.
-
-                Ensure the title is concise, clear, and accurately reflects the content of the article.
+    Ensure the title is concise, clear, and accurately summarizes the desired configuration denoted within the question.
                 
-                Return only the title as a string and nothing else.
+    Return only the title as a string and nothing else.
                 
-                <example>
-                    {example}
-                </example>
-                
-                <question>
-                    {question}
-                </question>    
-                """
+    <question>
+        {question}
+    </question>    
+    """
     model = get_llm()
     prompt = ChatPromptTemplate.from_template(template)
     chain = prompt | model | StrOutputParser()
-    title = chain.invoke({"example": article_title, "question": question})
+    title = chain.invoke({"question": question})
     if "article_pieces" not in state["keys"]:
         state["keys"]["article_pieces"] = {}
     state["keys"]["article_pieces"].update({"title": title})
@@ -606,26 +602,23 @@ def generate_article_objective(state: GraphState):
     article_examples = state_dict["db_articles"]
     article_objective = article_examples[0]["objective"]
 
-    template = """You are a world class article objective writer. Using the example below to guide you, formulate a concise objective for the article given the question. Follow the rules strictly.
+    template = """You are a world class writer specializing in network and network design. Write a concise objective for the article given the question. Follow the rules strictly.
     
-                <rules>
-                    1. State the objective using 1-2 sentences.
-                    2. The objective must be clear, concise, and accurately reflect the content of the article.
-                    3. Return only the objective as a string and nothing else.
-                </rules>
+    <rules>
+        1. State the objective using 1-2 sentences.
+        2. The objective must be clear, concise, and accurately reflect the content of the article.
+        3. Return only the objective as a string and nothing else.
+    </rules>
 
-                <example>
-                    {example}
-                </example>
-                
-                <question>
-                    {question}
-                </question>    
-                """
+
+    <question>
+        {question}
+    </question>    
+    """
     model = get_llm()
     prompt = ChatPromptTemplate.from_template(template)
     chain = prompt | model | StrOutputParser()
-    objective = chain.invoke({"example": article_objective, "question": question})
+    objective = chain.invoke({"question": question})
     state["keys"]["article_pieces"]["objective"] = objective
     return state
 
@@ -633,37 +626,30 @@ def generate_article_objective(state: GraphState):
 def generate_article_intro(state: GraphState):
     state_dict = state["keys"]
     question = state_dict["question"]
-    article_examples = state_dict["db_articles"]
-    article_intro = article_examples[0]["intro"]
 
     documents = state_dict["documents"]
-    template = """You are a world class article introduction writer. Using the example and context below to guide you, formulate an introduction for the article given the question. Follow the rules strictly.
+    template = """You are Cisco Support Agent whose an expert in language and communication. You know everything there is to know about network and network design. Write an introduction for the article given the question. Follow the rules strictly.
     
-                <rules>
-                    1. Write a 3-10 sentence introduction explaining the configuration, its features, and its importance.
-                    2. The introduction must be clear, concise, and accurately reflect the content of the article.
-                    3. If some information is better presented as a list, number them and separate them by new lines.
-                    4. Return only the introduction as a string and nothing else.
-                </rules>
-
-                <example>
-                    {example}
-                </example>
-                
-                <question>
-                    {question}
-                </question>
-                
-                <context>
-                    {context}
-                </context>    
-                """
+    <rules>
+        1. Write a 3-10 sentence introduction explaining the configuration, its features, and the benefits.
+        2. The introduction must be clear, concise, and accurately reflect the content of the article.
+        3. If some information is better presented as a list, number them and separate them by new lines.
+        4. Return only the introduction as a string and nothing else.
+    </rules>
+    
+    <question>
+        {question}
+    </question>
+    
+    <context>
+        {context}
+    </context>    
+    """
     model = get_llm()
     prompt = ChatPromptTemplate.from_template(template)
     chain = prompt | model | StrOutputParser()
     intro = chain.invoke(
         {
-            "example": article_intro,
             "question": question,
             "context": format_docs(documents),
         }
@@ -853,103 +839,7 @@ class InMemoryHistory(BaseChatMessageHistory, BaseModel):
         return self.messages
 
 
-def generate_a_step(state: GraphState):
-    from langchain_core.runnables.history import RunnableWithMessageHistory
-    from langchain_community.chat_message_histories import SQLChatMessageHistory
-    from langchain_community.chat_message_histories import ChatMessageHistory
-
-    store = {}
-
-    def get_session(session_id: str):
-        if session_id not in store:
-            store[session_id] = InMemoryHistory()
-        return store[session_id]
-
-    state_dict = state["keys"]
-    documents = state_dict["documents"]
-    question = state_dict["question"]
-    datasource = state_dict["datasource"]
-    session_id = str(uuid.uuid4())
-    template = select_article_steps_template(datasource)
-    test_template = """
-    You're a technical writer for Cisco Systems. You write articles that help small business owners configure their home and business networks. The article must be a step by step guide and flow in order. Use the chat history to continue to build upon your steps. Ensure to follow the format of the list of steps and the rules strictly. The first step should always begin with:
-    
-    <first_step>
-        - section: Configure Static IP Address
-          step_number: 1
-          text: Log in to the web user interface (UI) of your switch.
-          note: The default username and password for the device is cisco/cisco.
-    </first_step>
-    
-    <rules>
-        1. The first step should always be "Log in to the web user interface (UI) of your switch".
-        1. Follow the example-steps to gain an understanding in how sub-steps are logically grouped into sections.
-        2. Customize the article to apply to the specific device(s) or product(s) involved. If the question is not applicable to the device, simply state that the configuration is not supported.
-        3. Use section header of each step to group steps logically. Think of 'section' as a <h4> tag in HTML to separate the step tasks. For example, 'section' is only displayed to a user when a step_number is 1. However, ensure you include the value of 'section' in each step.
-        4. If the section header changes, the steps start back at step_number 1.
-        5. Optionally use the 'note' key in each step to provide additional context about the step. Examples of notes: 'Configuring the SSH Settings for SCP is only applicable if the chosen downloaded protocols involves SCP.', 'The default username and password for the device is cisco/cisco.', 'In this example, Catalyst 1300 Switch is used.'
-        6. Do not refer to the user or customer within the article.      
-    </rules>
-    
-    Write a step-by-step article that helps the user configure the feature mentioned in the question.
-    
-    <question>
-        {question}
-    </question>
-    """
-    tools = [Steps]
-    human_template = """Using only the context below, generate a step-by-step guide for configuring the feature mentioned in the question.
-    
-
-    <context>
-        {context}
-    </context>
-    
-    """
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", test_template),
-            # MessagesPlaceholder(variable_name="chat_history"),
-            ("human", human_template),
-        ]
-    )
-    # prompt = ChatPromptTemplate.from_template(template)
-    model = get_llm().bind_tools(
-        tools=tools, tool_choice={"type": "function", "function": {"name": "Steps"}}
-    )
-    chain = prompt | model | PydanticToolsParser(tools=tools)
-    chain_with_history = RunnableWithMessageHistory(
-        chain,
-        get_session_history=get_session,
-        input_messages_key="context",
-        history_messages_key="chat_history",
-    )
-    context = (
-        format_docs(documents) + "\n\n" + format_other_sources(state_dict["db_videos"])
-    )
-
-    # steps = chain_with_history.invoke(
-    #     {"question": question, "context": context},
-    #     config={"configurable": {"session_id": "foo"}},
-    # )
-    print(store)
-    steps = chain.invoke(
-        {
-            "question": question,
-            "context": context,
-        }
-    )
-    state["keys"]["article_pieces"]["steps"] = steps
-    return state
-
-
 def generate_article_steps(state: GraphState):
-    from langchain_core.runnables import (
-        RunnableConfig,
-        RunnableLambda,
-        RunnablePassthrough,
-    )
-
     state_dict = state["keys"]
     datasource = state_dict["datasource"]
     question = state_dict["question"]
@@ -976,58 +866,23 @@ def generate_article_steps(state: GraphState):
 
 def generate_article(state: GraphState):
     state_dict = state["keys"]
-    documents = state_dict["documents"]
-    video_examples = format_other_sources(state_dict["db_videos"])
     title = state_dict["article_pieces"]["title"]
     objective = state_dict["article_pieces"]["objective"]
     intro = state_dict["article_pieces"]["intro"]
-    steps = state_dict["article_pieces"]["steps"][0].dict()
+    steps = state_dict["article_pieces"]["steps"][0]
+    logger.info(f"Steps: {steps}")
+    logger.info(f"{type(steps)}")
+    steps_dict = {"steps": steps.steps}
+    steps = Steps.parse_obj(steps_dict)
+    article = {
+        "title": title,
+        "objective": objective,
+        "introduction": intro,
+        "steps": steps.steps,
+    }
+    article = CreatedArticle.parse_obj(article)
 
-    template = """You are a Cisco TAC Engineer with extensive technical knowledge about network switches, routers, access points, phones, and network management tools.
-    
-    Task: Given the title, objective, introduction, and steps below, create an article that provides a step-by-step guide for configuring a specific feature on a Cisco device.
-    Evaluate each component to ensure it is clear, concise, and accurately reflects the content of the article.
-    
-    You may use the context as a database to improve the quality of the article.
-    
-    <title>
-        {title}
-    </title>
-    
-    <objective>
-        {objective}
-    </objective>
-    
-    <intro>
-        {intro}
-    </intro>
-    
-    <steps>
-        {steps}
-    </steps>
-    
-    <context>
-        {context}
-    </context>
-    """
-    formatted_sources = f"{format_docs(documents)}\n\n{video_examples}"
-    tools = [CreatedArticle]
-    model = get_llm().bind_tools(
-        tools=tools,
-        tool_choice={"type": "function", "function": {"name": "CreatedArticle"}},
-    )
-    prompt = ChatPromptTemplate.from_template(template)
-    chain = prompt | model | PydanticToolsParser(tools=tools)
-    article = chain.invoke(
-        {
-            "title": title,
-            "objective": objective,
-            "intro": intro,
-            "steps": steps,
-            "context": formatted_sources,
-        }
-    )
-    state["keys"].update({"article": article})
+    state["keys"].update({"article": [article]})
     return state
 
 
@@ -1037,30 +892,25 @@ def refine_article_steps(state: GraphState):
 
     template = """
     You are an AI copy editor with a keen eye for detail and a deep understanding of language, style, and grammar.
-    Your task is to refine and reorganize the steps in the provided JSON List of Steps for an article. Steps with the same section value represent a task that must be executed in order to complete the article objective.
-    Follow the guidelines and use the examples provided.
+    Your task is to refine and reorganize the section values in the provided JSON List of Steps for an article. Steps with the same section value represent a sub-task that must be executed in order to complete the article objective.
+    
+    Follow the guidelines and use the example provided to understand how to group steps into sections.
 
     <guidelines>
         1. Carefully review the entire JSON List of Steps, focusing on both the 'section' and 'text' of each step.
 
-        2. Create logical groupings of steps and assign appropriate section headers. Develop new, concise section values that accurately describe each group of related steps.
+        2. Create logical groupings of steps and assign appropriate section headers. Develop new, concise section values that accurately describe a group of related steps.
            Steps within the same logical group should share the same section value.
            When the step content no longer fits the current section, create a new section header for the next group of steps.
 
         3. Adjust step numbering. When a new section begins, reset the step_number to 1.
            Increment the step_number within each section until a new section starts.
 
-        4. Handle login steps. Do not create a separate section for logging into a web-based utility or CLI. The initial step is the first step towards completing the objective. Under no circumstances should the Log-In step have it's own section. Ensure you make this step the first step in completing the sub-objective and give it the proper section title.
+        4. Do not allow a separate section for logging into a web-based utility or CLI. The initial step is the first step towards completing the objective. 
 
-           Example: For "Configure DHCP Auto Update," make logging in the first step of this section.
+           Follow the example provided in <examples> to understand how to group steps into sections and reorganize the steps.
 
         5. Maintain the original order of steps. Do not change the sequence of steps provided in the JSON List. Only re-organize them by sub-objectives.
-
-        6. Use context from the entire Article JSON. While your primary focus is on refining the steps, use other information in the Article JSON to inform your decisions about logically grouping a set of related steps.
-
-        7. As a guide, an article typically only has 2-4 sub-objectives. There are special cases, however.
-
-        8. Ensure clarity and coherence. Each step should clearly contribute to the overall objective of the article. Section titles should provide a clear overview of the steps they encompass.
     </guidelines>
 
     <examples>
@@ -1390,10 +1240,10 @@ graph.add_edge("build_html_for_admin_guide_sources", END)
 graph.add_edge("build_html_for_cli_guide_sources", END)
 
 ARTICLE_BUILDER = graph.compile()
-question = "Configure RADIUS and Duo Authentication on Catalyst 1200 Series Switches"
+question = "Auto Surveillance VLAN in Catalyst 1200 and 1300 Switches"
 
 
-# This function will be used as the export function for the agent. Import to FastAPI and use it as a route.
+# This function will be used as the export function for the agent. Import to FastAPI and use it in a route.
 def build_article(question: str):
     inputs: dict[str, GraphState] = {"keys": {"question": question}}
     article = None

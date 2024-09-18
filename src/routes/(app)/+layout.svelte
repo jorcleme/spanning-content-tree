@@ -1,9 +1,12 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { toast } from 'svelte-sonner';
 	import { onMount, tick, getContext } from 'svelte';
 	import { openDB, deleteDB } from 'idb';
 	import fileSaver from 'file-saver';
 	const { saveAs } = fileSaver;
+	import type { IDBPDatabase } from 'idb';
 
 	import { goto } from '$app/navigation';
 
@@ -39,11 +42,11 @@
 	import AccountPending from '$lib/components/layout/Overlay/AccountPending.svelte';
 	import { getFunctions } from '$lib/apis/functions';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	let loaded = false;
-	let DB = null;
-	let localDBChats = [];
+	let DB: IDBPDatabase<unknown> | null = null;
+	let localDBChats: any[] = [];
 
 	const getModels = async () => {
 		return _getModels(localStorage.token);
@@ -55,7 +58,7 @@
 		} else if (['user', 'admin'].includes($user.role)) {
 			try {
 				// Check if IndexedDB exists
-				DB = await openDB('Chats', 1);
+				DB = (await openDB('Chats', 1)) as IDBPDatabase<unknown>;
 
 				if (DB) {
 					const chats = await DB.getAllFromIndex('chats', 'timestamp');
@@ -129,7 +132,7 @@
 				if (isCtrlPressed && isShiftPressed && event.key === ';') {
 					event.preventDefault();
 					console.log('copyLastCodeBlock');
-					const button = [...document.getElementsByClassName('copy-code-button')]?.at(-1);
+					const button = [...document.getElementsByClassName('copy-code-button')]?.at(-1) as HTMLButtonElement;
 					button?.click();
 				}
 
@@ -137,7 +140,7 @@
 				if (isCtrlPressed && isShiftPressed && event.key.toLowerCase() === 'c') {
 					event.preventDefault();
 					console.log('copyLastResponse');
-					const button = [...document.getElementsByClassName('copy-response-button')]?.at(-1);
+					const button = [...document.getElementsByClassName('copy-response-button')]?.at(-1) as HTMLButtonElement;
 					console.log(button);
 					button?.click();
 				}
@@ -172,7 +175,7 @@
 			});
 
 			if ($user.role === 'admin') {
-				showChangelog.set(localStorage.version !== $config.version);
+				showChangelog.set(localStorage.version !== $config?.version);
 			}
 
 			await tick();
@@ -190,13 +193,11 @@
 		class=" text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-900 h-screen max-h-[100dvh] overflow-auto flex flex-row"
 	>
 		{#if loaded}
-			{#if !['user', 'admin'].includes($user.role)}
+			{#if !['user', 'admin'].includes($user?.role ?? '')}
 				<AccountPending />
 			{:else if localDBChats.length > 0}
 				<div class="fixed w-full h-full flex z-50">
-					<div
-						class="absolute w-full h-full backdrop-blur-md bg-white/20 dark:bg-gray-900/50 flex justify-center"
-					>
+					<div class="absolute w-full h-full backdrop-blur-md bg-white/20 dark:bg-gray-900/50 flex justify-center">
 						<div class="m-auto pb-44 flex flex-col justify-center">
 							<div class="max-w-md">
 								<div class="text-center dark:text-white text-2xl font-medium z-50">
@@ -222,12 +223,13 @@
 												type: 'application/json'
 											});
 											saveAs(blob, `chat-export-${Date.now()}.json`);
+											if (DB) {
+												const tx = DB.transaction('chats', 'readwrite');
+												await Promise.all([tx.store.clear(), tx.done]);
+												await deleteDB('Chats');
 
-											const tx = DB.transaction('chats', 'readwrite');
-											await Promise.all([tx.store.clear(), tx.done]);
-											await deleteDB('Chats');
-
-											localDBChats = [];
+												localDBChats = [];
+											}
 										}}
 									>
 										Download & Delete

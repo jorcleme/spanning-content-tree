@@ -66,7 +66,13 @@ def register_connection(db_url):
         # Enable autoconnect for SQLite databases, managed by Peewee
         db.autoconnect = True
         db.reuse_if_open = True
-        log.info("Connected to SQLite database")
+        db.foreign_keys = (
+            True  # Enables foreign key tracking within Peewee's database context
+        )
+        db.execute_sql(
+            "PRAGMA foreign_keys = ON;"
+        )  # Enables foreign key tracking within SQLite
+        log.info("Connected to SQLite database with foreign key support enabled")
     else:
         raise ValueError("Unsupported database connection")
     return db

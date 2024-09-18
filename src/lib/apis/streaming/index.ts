@@ -25,7 +25,7 @@ type ResponseUsage = {
 export async function createOpenAITextStream(
 	responseBody: ReadableStream<Uint8Array>,
 	splitLargeDeltas: boolean
-): Promise<AsyncGenerator<TextStreamUpdate>> {
+): Promise<AsyncGenerator<TextStreamUpdate, void, unknown>> {
 	const eventStream = responseBody
 		.pipeThrough(new TextDecoderStream())
 		.pipeThrough(new EventSourceParserStream())
@@ -39,7 +39,7 @@ export async function createOpenAITextStream(
 
 async function* openAIStreamToIterator(
 	reader: ReadableStreamDefaultReader<ParsedEvent>
-): AsyncGenerator<TextStreamUpdate> {
+): AsyncGenerator<TextStreamUpdate, void, unknown> {
 	while (true) {
 		const { value, done } = await reader.read();
 		if (done) {

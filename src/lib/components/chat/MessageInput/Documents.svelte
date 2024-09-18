@@ -1,4 +1,7 @@
 <script lang="ts">
+	import type { Document } from '$lib/stores';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { createEventDispatcher } from 'svelte';
 
 	import { documents } from '$lib/stores';
@@ -6,7 +9,7 @@
 	import { tick, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let prompt = '';
 
@@ -30,9 +33,9 @@
 			  ]
 			: []),
 		...$documents
-			.reduce((a, e, i, arr) => {
+			.reduce((a: string[], e, i: number, arr) => {
 				return [...new Set([...a, ...(e?.content?.tags ?? []).map((tag) => tag.name)])];
-			}, [])
+			}, [] as string[])
 			.map((tag) => ({
 				name: tag,
 				type: 'collection',
@@ -42,13 +45,35 @@
 			}))
 	];
 
+	// $: collections = [
+	// 	...($documents.length > 0
+	// 		? [
+	// 				{
+	// 					name: 'All Documents',
+	// 					type: 'collection',
+	// 					title: $i18n.t('All Documents'),
+	// 					collection_names: $documents.map((doc) => doc.collection_name)
+	// 				}
+	// 		  ]
+	// 		: []),
+	// 	...$documents
+	// 		.reduce((a: Document[], e, i: number, arr) => {
+	// 			return [...new Set([...a, ...(e?.content?.tags ?? []).map((tag) => tag.name)])];
+	// 		}, [] as Document[])
+	// 		.map((tag) => ({
+	// 			name: tag,
+	// 			type: 'collection',
+	// 			collection_names: $documents
+	// 				.filter((doc) => (doc?.content?.tags ?? []).map((tag) => tag.name).includes(tag))
+	// 				.map((doc) => doc.collection_name)
+	// 		}))
+	// ];
+
 	$: filteredCollections = collections
 		.filter((collection) => findByName(collection, prompt))
 		.sort((a, b) => a.name.localeCompare(b.name));
 
-	$: filteredDocs = $documents
-		.filter((doc) => findByName(doc, prompt))
-		.sort((a, b) => a.title.localeCompare(b.title));
+	$: filteredDocs = $documents.filter((doc) => findByName(doc, prompt)).sort((a, b) => a.title.localeCompare(b.title));
 
 	$: filteredItems = [...filteredCollections, ...filteredDocs];
 
@@ -116,9 +141,7 @@
 				<div class=" text-lg font-semibold mt-2">#</div>
 			</div>
 
-			<div
-				class="max-h-60 flex flex-col w-full rounded-r-xl bg-white dark:bg-gray-900 dark:text-gray-100"
-			>
+			<div class="max-h-60 flex flex-col w-full rounded-r-xl bg-white dark:bg-gray-900 dark:text-gray-100">
 				<div class="m-1 overflow-y-auto p-1 rounded-r-xl space-y-0.5 scrollbar-hidden">
 					{#each filteredItems as doc, docIdx}
 						<button
@@ -169,11 +192,7 @@
 								if (isValidHttpUrl(url)) {
 									confirmSelectYoutube(url);
 								} else {
-									toast.error(
-										$i18n.t(
-											'Oops! Looks like the URL is invalid. Please double-check and try again.'
-										)
-									);
+									toast.error($i18n.t('Oops! Looks like the URL is invalid. Please double-check and try again.'));
 								}
 							}}
 						>
@@ -192,11 +211,7 @@
 								if (isValidHttpUrl(url)) {
 									confirmSelectWeb(url);
 								} else {
-									toast.error(
-										$i18n.t(
-											'Oops! Looks like the URL is invalid. Please double-check and try again.'
-										)
-									);
+									toast.error($i18n.t('Oops! Looks like the URL is invalid. Please double-check and try again.'));
 								}
 							}}
 						>

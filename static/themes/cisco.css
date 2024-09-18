@@ -15,7 +15,7 @@
 	--font-weight-500: 500;
 	--font-weight-400: 400;
 	--font-weight-350: 350;
-	--font-family-cisco-sans: CiscoSans;
+	--font-family-cisco-sans: "CiscoSans";
 
 	/* Grid Settings */
 	--grid-columns-max: 12;
@@ -233,6 +233,7 @@
 	color: var(--color-blue-90);
 	/* fill: white; */
 	/* stroke: var(--color-blue-80); */
+	font-family: var(--font-family-cisco-sans);
 }
 
 .cisco .app > * {

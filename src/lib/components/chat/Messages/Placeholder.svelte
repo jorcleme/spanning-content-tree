@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { WEBUI_BASE_URL } from '$lib/constants';
+	import type { i18n as i18nType } from 'i18next';
 	import { marked } from 'marked';
 
 	import { config, user, models as _models } from '$lib/stores';
 	import { onMount, getContext } from 'svelte';
+	import type { Writable } from 'svelte/store';
 
 	import { blur, fade } from 'svelte/transition';
 
@@ -11,9 +13,9 @@
 	import { sanitizeResponseContent } from '$lib/utils';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
-	export let modelIds = [];
+	export let modelIds: string[] = [];
 	export let models = [];
 
 	export let submitPrompt;
@@ -48,7 +50,18 @@
 								sanitizeResponseContent(models[selectedModelIdx]?.info?.meta?.description ?? '')
 							)}
 							placement="right"
-						/>
+						>
+							<!-- <img
+								crossorigin="anonymous"
+								src={model?.info?.meta?.profile_image_url ??
+									($i18n.language === 'dg-DG'
+										? `/doge.png`
+										: `${WEBUI_BASE_URL}/static/favicon.png`)}
+								class=" size-[2.7rem] rounded-full border-[1px] border-gray-200 dark:border-none"
+								alt="logo"
+								draggable="false"
+							/> -->
+						</Tooltip>
 					</button>
 				{/each}
 			</div>
@@ -62,7 +75,7 @@
 					{#if models[selectedModelIdx]?.info}
 						{models[selectedModelIdx]?.info?.name}
 					{:else}
-						{$i18n.t('Hello, {{name}}', { name: $user.name })}
+						{$i18n.t('Hello, {{name}}', { name: $user?.name })}
 					{/if}
 				</div>
 
@@ -72,22 +85,29 @@
 							class="mt-0.5 text-base font-normal text-gray-500 dark:text-gray-400 line-clamp-3 markdown"
 						>
 							{@html marked.parse(
-								sanitizeResponseContent(models[selectedModelIdx]?.info?.meta?.description)
+								sanitizeResponseContent(models[selectedModelIdx]?.info?.meta.description ?? '')
 							)}
 						</div>
 						{#if models[selectedModelIdx]?.info?.meta?.user}
 							<div class="mt-0.5 text-sm font-normal text-gray-400 dark:text-gray-500">
 								By
-								{#if models[selectedModelIdx]?.info?.meta?.user.community}
+								{#if models[selectedModelIdx]?.info?.meta?.user?.community ?? null}
 									<a
 										href="https://openwebui.com/m/{models[selectedModelIdx]?.info?.meta?.user
+											?.name}"
+										>{models[selectedModelIdx]?.info?.meta?.user?.name
+											? models[selectedModelIdx]?.info?.meta.user?.name
+											: models[selectedModelIdx]?.info?.meta?.user?.username}</a
+									>
+									<!-- <a
+										href="https://openwebui.com/m/{models[selectedModelIdx]?.info?.meta?.user?
 											.username}"
 										>{models[selectedModelIdx]?.info?.meta?.user.name
 											? models[selectedModelIdx]?.info?.meta?.user.name
 											: `@${models[selectedModelIdx]?.info?.meta?.user.username}`}</a
-									>
+									> -->
 								{:else}
-									{models[selectedModelIdx]?.info?.meta?.user.name}
+									{models[selectedModelIdx]?.info?.meta?.user?.name}
 								{/if}
 							</div>
 						{/if}
@@ -103,7 +123,7 @@
 		<div class=" w-full font-primary" in:fade={{ duration: 200, delay: 300 }}>
 			<Suggestions
 				suggestionPrompts={models[selectedModelIdx]?.info?.meta?.suggestion_prompts ??
-					$config.default_prompt_suggestions}
+					$config?.default_prompt_suggestions}
 				{submitPrompt}
 			/>
 		</div>

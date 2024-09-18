@@ -1,15 +1,19 @@
 <script lang="ts">
 	import Switch from '$lib/components/common/Switch.svelte';
 	import { getContext, createEventDispatcher } from 'svelte';
+	import type { ChatParams } from '$lib/stores';
+	import type { Writable } from 'svelte/store';
+	import { type i18n as i18nType } from 'i18next';
+	import { settings } from '$lib/stores';
 
 	const dispatch = createEventDispatcher();
-
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let admin = false;
 
-	export let params = {
+	export let params: ChatParams = {
 		// Advanced
+		system: null,
 		seed: null,
 		stop: null,
 		temperature: null,
@@ -28,7 +32,8 @@
 		use_mmap: null,
 		use_mlock: null,
 		num_thread: null,
-		template: null
+		template: null,
+		proficiency: 0
 	};
 
 	let customFieldName = '';
@@ -37,6 +42,8 @@
 	$: if (params) {
 		dispatch('change', params);
 	}
+
+	$: console.log('params: ', params);
 </script>
 
 <div class=" space-y-1 text-xs">

@@ -1,6 +1,133 @@
-from langchain.pydantic_v1 import BaseModel, Field
+# from langchain.pydantic_v1 import BaseModel, Field
 from langchain.schema import Document
 from typing import Optional, List, TypedDict, Literal, Any, Dict
+from pydantic import BaseModel, Field, ConfigDict, HttpUrl
+from sqlalchemy import String, Column, Text, Enum, ForeignKey, BigInteger, Table, text
+from sqlalchemy.orm import relationship
+from enum import Enum as PyEnum
+import uuid
+import logging
+import time
+from apps.webui.internal.db import Base, get_db, JSONField
+from config import SRC_LOG_LEVELS
+
+log = logging.getLogger(__name__)
+log.setLevel(SRC_LOG_LEVELS["MODELS"])
+
+####################
+# Enum for Categories
+####################
+
+
+class ArticleCategory(str, PyEnum):
+    CONFIGURATION = "Configuration"
+    MAINTAIN_OPERATE = "Maintain & Operate"
+    TROUBLESHOOTING = "Troubleshooting"
+    DESIGN = "Design"
+    INSTALL_UPGRADE = "Install & Upgrade"
+
+
+####################
+# DB MODEL - Association Table
+####################
+
+ARTICLE_ON_SERIES = Table(
+    "article_on_series",
+    Base.metadata,
+    Column(
+        "article_id", ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column("series_id", ForeignKey("series.id", ondelete="CASCADE"), primary_key=True),
+)
+
+####################
+# DB MODEL - Article
+####################
+
+
+class Article(Base):
+    __tablename__ = "articles"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String, nullable=False)
+    document_id = Column(String, nullable=False, unique=True)
+    objective = Column(Text, nullable=True)
+    category = Column(Enum(ArticleCategory), nullable=False)
+    url = Column(Text, nullable=False, unique=True)
+    applicable_devices = Column(JSONField, nullable=True)
+    introduction = Column(Text, nullable=True)
+    steps = Column(JSONField, nullable=True)
+
+    created_at = Column(BigInteger, nullable=False)
+    updated_at = Column(BigInteger, nullable=False)
+
+    series = relationship(
+        "Series", secondary=ARTICLE_ON_SERIES, back_populates="articles"
+    )
+
+    # series_id = Column(String, ForeignKey("series.id", ondelete="CASCADE"))
+    # series = relationship("Series", back_populates="articles")
+
+
+####################
+# Pydantic Models
+####################
+
+
+class ArticleModel(BaseModel):
+
+    id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="The unique identifier for the article.",
+    )
+    title: str
+    document_id: str
+    objective: Optional[str] = None
+    category: ArticleCategory
+    url: Optional[str] = None
+    applicable_devices: Optional[List[Any]] = (
+        None  # JSON-encoded list of strings (JSONField)
+    )
+    introduction: Optional[str] = None
+    steps: Optional[List[Dict[str, Any]]] = (
+        None  # JSON-encoded list of dictionaries (JSONField)
+    )
+    created_at: int
+    updated_at: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ArticleResponse(BaseModel):
+    id: str
+    title: str
+    document_id: str
+    objective: Optional[str]
+    category: ArticleCategory
+    url: Optional[str]
+    applicable_devices: Optional[List[Any]]
+    introduction: Optional[str]
+    steps: Optional[List[Dict[str, Any]]]
+    series: List[str]
+    # series_id: str
+    created_at: int
+    updated_at: int
+
+
+class InsertNewArticleForm(BaseModel):
+    title: str
+    document_id: str
+    objective: Optional[str]
+    category: str
+    url: str
+    applicable_devices: Optional[List[Dict[str, Any]]]
+    introduction: Optional[str]
+    steps: Optional[List[Dict[str, Any]]]
+    series_id: str
+
+
+class BulkInsertNewArticleForm(BaseModel):
+    articles: List[InsertNewArticleForm]
 
 
 class Search(BaseModel):
@@ -51,25 +178,6 @@ class Steps(BaseModel):
     )
 
 
-class Article(BaseModel):
-    """
-    Article model.
-    """
-
-    title: str = Field(
-        description="Create a title for the article based on the question and context provided."
-    )
-    objective: str = Field(
-        description="Start with 'The objective of this article is to...' and provide a concise objective in 1-2 sentences."
-    )
-    introduction: str = Field(
-        description="Write a 3-10 sentence introduction explaining the configuration, its features and its importance."
-    )
-    steps: List[Step] = Field(
-        description="The steps to guide the user through the configuration."
-    )
-
-
 class CreatedArticle(BaseModel):
     """
     Generate an article from a flow of question(s).
@@ -113,3 +221,175 @@ class GraphState(TypedDict):
 
 class CreateArticleForm(BaseModel):
     question: str
+
+
+class ArticlesTable:
+    def insert_new_article(
+        self,
+        *,
+        title: str,
+        document_id: str,
+        objective: str,
+        category: ArticleCategory,
+        url: str,
+        series_id: str,
+        introduction: Optional[str] = None,
+        applicable_devices: Optional[List[str]] = None,
+        steps: Optional[List[Dict[str, Any]]] = None,
+    ) -> Optional[ArticleModel]:
+        from apps.webui.models.series import Series
+
+        with get_db() as db:
+            # Check if the article already exists
+            article = db.query(Article).filter_by(document_id=document_id).first()
+            if article:
+                # Update the article.series if the series is not already associated.
+                series = db.query(Series).filter_by(id=series_id).first()
+                log.info(f"Series: {series}")
+                if series not in article.series:
+                    article.series.append(series)
+                    db.commit()
+
+                # Create a new article model, attach only the series id to the model
+                article_model = ArticleModel(
+                    **{
+                        "title": article.title,
+                        "document_id": article.document_id,
+                        "objective": article.objective,
+                        "category": article.category,
+                        "url": article.url,
+                        "introduction": article.introduction,
+                        "applicable_devices": article.applicable_devices,
+                        "steps": article.steps,
+                        "series": [series.id],
+                        "created_at": article.created_at,
+                        "updated_at": article.updated_at,
+                    }
+                )
+                return ArticleModel.model_validate(article_model)
+
+            # Fetch the series to associate with the article
+            series = db.query(Series).filter_by(id=series_id).first()
+            if not series:
+                raise ValueError(f"Series with id {series_id} not found")
+
+            # Insert the new article into the database
+            result = Article(
+                title=title,
+                document_id=document_id,
+                objective=objective,
+                category=category,
+                url=url,
+                introduction=introduction,
+                applicable_devices=applicable_devices or [],
+                steps=steps or [],
+                created_at=int(time.time()),
+                updated_at=int(time.time()),
+                series=[series],
+            )
+            db.add(result)
+            db.commit()
+            db.refresh(result)
+
+            # Associate the new article with the series
+            result.series.append(series)
+            db.commit()
+
+            # Return the newly created article
+            return ArticleModel.model_validate(result)
+
+    def get_article_by_id(self, id: str) -> Optional[ArticleModel]:
+        from apps.webui.models.series import SeriesModel
+
+        try:
+            with get_db() as db:
+                article = db.query(Article).filter_by(id=id).first()
+                series_models = [
+                    SeriesModel.model_validate(series) for series in article.series
+                ]
+                article_data = article.__dict__
+                article_data["series"] = series_models
+                return ArticleModel.model_validate(article_data)
+        except Exception as e:
+            return None
+
+    def get_article_by_document_id(self, document_id: str) -> Optional[ArticleModel]:
+        try:
+            with get_db() as db:
+                article = db.query(Article).filter_by(document_id=document_id).first()
+                return ArticleModel.model_validate(article)
+        except Exception as e:
+            return None
+
+    def get_article_by_url(self, url: str) -> Optional[ArticleModel]:
+        try:
+            with get_db() as db:
+                article = db.query(Article).filter_by(url=url).first()
+                return ArticleModel.model_validate(article)
+        except Exception as e:
+            return None
+
+    def get_articles(self, skip: int = 0, limit: int = 50) -> List[ArticleModel]:
+        from apps.webui.models.series import SeriesModel
+
+        with get_db() as db:
+            articles = db.query(Article).offset(skip).limit(limit).all()
+            log.info(f"Articles: {articles}")
+            article_models = []
+            for article in articles:
+                series_ids = [series.id for series in article.series]
+                log.info(f"Series: {series_ids}")
+                data = {
+                    "title": article.title,
+                    "document_id": article.document_id,
+                    "objective": article.objective,
+                    "category": article.category,
+                    "url": article.url,
+                    "introduction": article.introduction,
+                    "applicable_devices": article.applicable_devices,
+                    "steps": article.steps,
+                    "series": series_ids,
+                    "created_at": article.created_at,
+                    "updated_at": article.updated_at,
+                }
+                article_models.append(ArticleModel.model_validate(data))
+            return article_models
+
+    def get_articles_by_series_id(self, series_id: str) -> List[ArticleModel]:
+        with get_db() as db:
+            articles = (
+                db.query(Article)
+                .join(ARTICLE_ON_SERIES, ARTICLE_ON_SERIES.c.article_id == Article.id)
+                .filter(ARTICLE_ON_SERIES.c.series_id == series_id)
+                .all()
+            )
+            log.info(f"Articles: {articles}")
+
+            return [ArticleModel.model_validate(article) for article in articles]
+
+    def update_article_by_id(self, id: str, updated: dict) -> Optional[ArticleModel]:
+        try:
+            with get_db() as db:
+                db.query(Article).filter_by(id=id).update(**updated)
+                db.commit()
+                article = db.query(Article).filter_by(id=id).first()
+                return ArticleModel.model_validate(article)
+        except Exception as e:
+            return None
+
+    def view_article_on_series(self) -> List[Dict[str, str]]:
+        with get_db() as db:
+            # Execute the raw SQL query
+            result = db.execute(
+                text("SELECT article_id, series_id FROM article_on_series")
+            ).fetchall()
+
+            # Format the results as a list of dictionaries using tuple indices
+            article_series_relations = [
+                {"article_id": row[0], "series_id": row[1]} for row in result
+            ]
+
+            return article_series_relations
+
+
+Article_Table = ArticlesTable()

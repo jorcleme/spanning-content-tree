@@ -26,6 +26,10 @@ class ERROR_MESSAGES(str, Enum):
     DELETE_USER_ERROR = "Oops! Something went wrong. We encountered an issue while trying to delete the user. Please give it another shot."
     EMAIL_MISMATCH = "Uh-oh! This email does not match the email your provider is registered with. Please check your email and try again."
     EMAIL_TAKEN = "Uh-oh! This email is already registered. Sign in with your existing account or choose another email to start anew."
+    SERIES_NOT_FOUND = "Oops! It looks like this series doesn't exist. Please check the series id or name and try again."
+    ARTICLE_ID_NOT_FOUND = "Oops! It looks like this article doesn't exist. Please check the article id and try again."
+    ARTICLE_URL_NOT_FOUND = "Oops! It looks like this article doesn't exist. Please check the article URL and try again."
+    ARTICLE_DOC_ID_NOT_FOUND = "Oops! It looks like this article doesn't exist. Please check the article document id and try again."
     USERNAME_TAKEN = (
         "Uh-oh! This username is already registered. Please choose another username."
     )

@@ -1,4 +1,7 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+
 	import { DropdownMenu } from 'bits-ui';
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { getContext } from 'svelte';
@@ -11,14 +14,14 @@
 	import { config } from '$lib/stores';
 	import WrenchSolid from '$lib/components/icons/WrenchSolid.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let uploadFilesHandler: Function;
 
 	export let selectedToolIds: string[] = [];
 	export let webSearchEnabled: boolean;
 
-	export let tools = {};
+	export let tools: { [id: string]: any } = {};
 	export let onClose: Function;
 
 	$: tools = Object.fromEntries(
@@ -58,9 +61,7 @@
 			{#if Object.keys(tools).length > 0}
 				<div class="  max-h-28 overflow-y-auto scrollbar-hidden">
 					{#each Object.keys(tools) as toolId}
-						<div
-							class="flex gap-2 items-center px-3 py-2 text-sm font-medium cursor-pointer rounded-xl"
-						>
+						<div class="flex gap-2 items-center px-3 py-2 text-sm font-medium cursor-pointer rounded-xl">
 							<div class="flex-1 flex items-center gap-2">
 								<WrenchSolid />
 								<Tooltip content={tools[toolId]?.description ?? ''} className="flex-1">
@@ -84,9 +85,7 @@
 			{/if}
 
 			{#if $config?.features?.enable_web_search}
-				<div
-					class="flex gap-2 items-center px-3 py-2 text-sm font-medium cursor-pointer rounded-xl"
-				>
+				<div class="flex gap-2 items-center px-3 py-2 text-sm font-medium cursor-pointer rounded-xl">
 					<div class="flex-1 flex items-center gap-2">
 						<GlobeAltSolid />
 						<div class=" line-clamp-1">{$i18n.t('Web Search')}</div>

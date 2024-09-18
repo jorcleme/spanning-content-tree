@@ -57,15 +57,37 @@ def handle_peewee_migration(DATABASE_URL):
     try:
         # Replace the postgresql:// with postgres:// and %40 with @ in the DATABASE_URL
         db = register_connection(
-            DATABASE_URL.replace(
-                "postgresql://", "postgres://").replace("%40", "@")
+            DATABASE_URL.replace("postgresql://", "postgres://").replace("%40", "@")
         )
         migrate_dir = BACKEND_DIR / "apps" / "webui" / "internal" / "migrations"
         router = Router(db, logger=log, migrate_dir=migrate_dir)
+        # @Corey, Team: I added this line to handle secondary runs of backend/start.sh script.
+        # Shutting down the app and running again throws migration errors because the migrations have alread been applied.
+        # if os.path.exists(DATA_DIR / "webui.db"):
+        #     log.info("Database has already been migrated. Skipping the migration.")
+        #     db.close()
+        # else:
+        #     router.run()
+        #     db.close()
+
         if os.path.exists(DATA_DIR / "webui.db"):
-            log.info("Database has already been migrated. Skipping the migration.")
-            db.close()
+            pending_migrations = router.diff
+            all_migrations = router.done
+
+            log.info(f"All migrations: {all_migrations}")
+            log.info(f"Pending migrations: {pending_migrations}")
+
+            if not pending_migrations or len(pending_migrations) == 0:
+                log.info("Database has executed all migrations. Skipping...")
+                db.close()
+            else:
+                log.info(
+                    f"{len(pending_migrations)} migration(s) pending. Running the migration(s)..."
+                )
+                router.run()
+                db.close()
         else:
+            # First time database setup, run all migrations
             router.run()
             db.close()
 

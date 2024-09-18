@@ -1,9 +1,11 @@
-import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+import { WEBUI_BASE_URL } from '$lib/constants';
+import type { Message } from '$lib/types';
+import type { Model, SessionUser } from '$lib/stores';
 
-export const getModels = async (token: string = '') => {
+export const getModels = async (token: string = ''): Promise<Model[]> => {
 	let error = null;
 
-	const res = await fetch(`${WEBUI_BASE_URL}/api/models`, {
+	const res: { data: Model[] } = await fetch(`${WEBUI_BASE_URL}/api/models`, {
 		method: 'GET',
 		headers: {
 			Accept: 'application/json',
@@ -13,7 +15,7 @@ export const getModels = async (token: string = '') => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -37,7 +39,7 @@ export const getModels = async (token: string = '') => {
 
 			// If both a and b have the position property
 			if (aHasPosition && bHasPosition) {
-				return a.info.meta.position - b.info.meta.position;
+				return a.info!.meta!.position! - b.info!.meta!.position!;
 			}
 
 			// If only a has the position property, it should come first
@@ -67,8 +69,10 @@ export const getModels = async (token: string = '') => {
 
 type ChatCompletedForm = {
 	model: string;
-	messages: string[];
+	messages: Partial<Message>[];
 	chat_id: string;
+	session_id?: string;
+	id?: string;
 };
 
 export const chatCompleted = async (token: string, body: ChatCompletedForm) => {
@@ -106,8 +110,10 @@ export const chatCompleted = async (token: string, body: ChatCompletedForm) => {
 
 type ChatActionForm = {
 	model: string;
-	messages: string[];
+	messages: Partial<Message>[];
 	chat_id: string;
+	session_id?: string;
+	id: string;
 };
 
 export const chatAction = async (token: string, action_id: string, body: ChatActionForm) => {
@@ -204,12 +210,7 @@ export const updateTaskConfig = async (token: string, config: object) => {
 	return res;
 };
 
-export const generateTitle = async (
-	token: string = '',
-	model: string,
-	prompt: string,
-	chat_id?: string
-) => {
+export const generateTitle = async (token: string = '', model: string, prompt: string, chat_id?: string) => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_BASE_URL}/api/task/title/completions`, {
@@ -244,12 +245,7 @@ export const generateTitle = async (
 	return res?.choices[0]?.message?.content.replace(/["']/g, '') ?? 'New Chat';
 };
 
-export const generateEmoji = async (
-	token: string = '',
-	model: string,
-	prompt: string,
-	chat_id?: string
-) => {
+export const generateEmoji = async (token: string = '', model: string, prompt: string, chat_id?: string) => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_BASE_URL}/api/task/emoji/completions`, {
@@ -292,12 +288,7 @@ export const generateEmoji = async (
 	return null;
 };
 
-export const generateSearchQuery = async (
-	token: string = '',
-	model: string,
-	messages: object[],
-	prompt: string
-) => {
+export const generateSearchQuery = async (token: string = '', model: string, messages: object[], prompt: string) => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_BASE_URL}/api/task/query/completions`, {
@@ -315,7 +306,9 @@ export const generateSearchQuery = async (
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			const data = await res.json();
+			console.log('Generated search query: ', data);
+			return data;
 		})
 		.catch((err) => {
 			console.log(err);
@@ -357,7 +350,7 @@ export const getPipelinesList = async (token: string = '') => {
 		throw error;
 	}
 
-	let pipelines = res?.data ?? [];
+	const pipelines = res?.data ?? [];
 	return pipelines;
 };
 
@@ -500,7 +493,7 @@ export const getPipelines = async (token: string, urlIdx?: string) => {
 		throw error;
 	}
 
-	let pipelines = res?.data ?? [];
+	const pipelines = res?.data ?? [];
 	return pipelines;
 };
 
@@ -512,17 +505,14 @@ export const getPipelineValves = async (token: string, pipeline_id: string, urlI
 		searchParams.append('urlIdx', urlIdx);
 	}
 
-	const res = await fetch(
-		`${WEBUI_BASE_URL}/api/pipelines/${pipeline_id}/valves?${searchParams.toString()}`,
-		{
-			method: 'GET',
-			headers: {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-				...(token && { authorization: `Bearer ${token}` })
-			}
+	const res = await fetch(`${WEBUI_BASE_URL}/api/pipelines/${pipeline_id}/valves?${searchParams.toString()}`, {
+		method: 'GET',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			...(token && { authorization: `Bearer ${token}` })
 		}
-	)
+	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
@@ -548,17 +538,14 @@ export const getPipelineValvesSpec = async (token: string, pipeline_id: string, 
 		searchParams.append('urlIdx', urlIdx);
 	}
 
-	const res = await fetch(
-		`${WEBUI_BASE_URL}/api/pipelines/${pipeline_id}/valves/spec?${searchParams.toString()}`,
-		{
-			method: 'GET',
-			headers: {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-				...(token && { authorization: `Bearer ${token}` })
-			}
+	const res = await fetch(`${WEBUI_BASE_URL}/api/pipelines/${pipeline_id}/valves/spec?${searchParams.toString()}`, {
+		method: 'GET',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			...(token && { authorization: `Bearer ${token}` })
 		}
-	)
+	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
@@ -576,12 +563,7 @@ export const getPipelineValvesSpec = async (token: string, pipeline_id: string, 
 	return res;
 };
 
-export const updatePipelineValves = async (
-	token: string = '',
-	pipeline_id: string,
-	valves: object,
-	urlIdx: string
-) => {
+export const updatePipelineValves = async (token: string = '', pipeline_id: string, valves: object, urlIdx: string) => {
 	let error = null;
 
 	const searchParams = new URLSearchParams();
@@ -589,18 +571,15 @@ export const updatePipelineValves = async (
 		searchParams.append('urlIdx', urlIdx);
 	}
 
-	const res = await fetch(
-		`${WEBUI_BASE_URL}/api/pipelines/${pipeline_id}/valves/update?${searchParams.toString()}`,
-		{
-			method: 'POST',
-			headers: {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-				...(token && { authorization: `Bearer ${token}` })
-			},
-			body: JSON.stringify(valves)
-		}
-	)
+	const res = await fetch(`${WEBUI_BASE_URL}/api/pipelines/${pipeline_id}/valves/update?${searchParams.toString()}`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			...(token && { authorization: `Bearer ${token}` })
+		},
+		body: JSON.stringify(valves)
+	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
@@ -728,11 +707,7 @@ export const getModelFilterConfig = async (token: string) => {
 	return res;
 };
 
-export const updateModelFilterConfig = async (
-	token: string,
-	enabled: boolean,
-	models: string[]
-) => {
+export const updateModelFilterConfig = async (token: string, enabled: boolean, models: string[]) => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_BASE_URL}/api/config/model/filter`, {
@@ -886,7 +861,7 @@ export const getModelConfig = async (token: string): Promise<GlobalModelConfig> 
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -909,9 +884,21 @@ export interface ModelConfig {
 	params: ModelParams;
 }
 
+interface ModelMetaCapabilities {
+	vision?: boolean;
+	[capability: string]: any;
+}
 export interface ModelMeta {
 	description?: string;
-	capabilities?: object;
+	capabilities?: ModelMetaCapabilities;
+	knowledge?: any;
+	tags: any[];
+	hidden?: boolean;
+	position?: number;
+	suggestion_prompts?: any[];
+	user?: SessionUser;
+	toolIds?: string[];
+	profile_image_url?: string;
 }
 
 export interface ModelParams {}

@@ -1,21 +1,25 @@
 <script lang="ts">
 	import Bolt from '$lib/components/icons/Bolt.svelte';
 	import { onMount, getContext } from 'svelte';
+	import type { i18n as i18nType } from 'i18next';
+	import type { Writable } from 'svelte/store';
+	import type { PromptSuggestion } from '$lib/stores';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let submitPrompt: Function;
-	export let suggestionPrompts = [];
+	export let suggestionPrompts: PromptSuggestion[] = [];
 
-	let prompts = [];
+	let prompts: PromptSuggestion[] = [];
 
 	$: prompts = suggestionPrompts
-		.reduce((acc, current) => [...acc, ...[current]], [])
+		.reduce<PromptSuggestion[]>((acc, current) => [...acc, ...[current]], [])
 		.sort(() => Math.random() - 0.5);
 	// suggestionPrompts.length <= 4
 	// 	? suggestionPrompts
 	// 	: suggestionPrompts.sort(() => Math.random() - 0.5).slice(0, 4);
 
+	$: console.log('Prompts [Suggestions.svelte]: ', prompts);
 	onMount(() => {
 		const containerElement = document.getElementById('suggestions-container');
 
