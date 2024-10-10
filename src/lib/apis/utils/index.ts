@@ -1,8 +1,6 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 
 export const getGravatarUrl = async (email: string) => {
-	let error = null;
-
 	const res = await fetch(`${WEBUI_API_BASE_URL}/utils/gravatar?email=${email}`, {
 		method: 'GET',
 		headers: {
@@ -15,12 +13,9 @@ export const getGravatarUrl = async (email: string) => {
 		})
 		.catch((err) => {
 			console.log(err);
-			error = err;
 			return null;
 		});
-	// if (error) {
-	// throw error;
-	//}
+
 	return res;
 };
 
@@ -57,7 +52,7 @@ export const formatPythonCode = async (code: string) => {
 	return res;
 };
 
-export const downloadChatAsPDF = async (chat: object) => {
+export const downloadChatAsPDF = async (chat: { title: string; messages: any[] }) => {
 	let error = null;
 
 	const blob = await fetch(`${WEBUI_API_BASE_URL}/utils/pdf`, {
@@ -79,6 +74,10 @@ export const downloadChatAsPDF = async (chat: object) => {
 			error = err;
 			return null;
 		});
+
+	if (error) {
+		throw error;
+	}
 
 	return blob;
 };
@@ -105,13 +104,17 @@ export const getHTMLFromMarkdown = async (md: string) => {
 			return null;
 		});
 
+	if (error) {
+		throw error;
+	}
+
 	return res.html;
 };
 
 export const downloadDatabase = async (token: string) => {
 	let error = null;
 
-	const res = await fetch(`${WEBUI_API_BASE_URL}/utils/db/download`, {
+	await fetch(`${WEBUI_API_BASE_URL}/utils/db/download`, {
 		method: 'GET',
 		headers: {
 			'Content-Type': 'application/json',
@@ -136,7 +139,6 @@ export const downloadDatabase = async (token: string) => {
 		.catch((err) => {
 			console.log(err);
 			error = err.detail;
-			return null;
 		});
 
 	if (error) {
@@ -168,6 +170,7 @@ export const downloadLiteLLMConfig = async (token: string) => {
 			document.body.appendChild(a);
 			a.click();
 			window.URL.revokeObjectURL(url);
+			return true;
 		})
 		.catch((err) => {
 			console.log(err);
@@ -178,4 +181,5 @@ export const downloadLiteLLMConfig = async (token: string) => {
 	if (error) {
 		throw error;
 	}
+	return res;
 };

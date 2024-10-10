@@ -7,10 +7,10 @@
 	export let show = true;
 	export let size = 'md';
 
-	let modalElement = null;
+	let modalElement: HTMLElement | null = null;
 	let mounted = false;
 
-	const sizeToWidth = (size) => {
+	const sizeToWidth = (size: string) => {
 		if (size === 'xs') {
 			return 'w-[16rem]';
 		} else if (size === 'sm') {

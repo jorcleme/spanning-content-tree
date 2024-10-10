@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import fileSaver from 'file-saver';
 	const { saveAs } = fileSaver;
 
@@ -8,7 +10,7 @@
 	import { toast } from 'svelte-sonner';
 	import { getAllUserChats } from '$lib/apis/chats';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let saveHandler: Function;
 
@@ -41,21 +43,16 @@
 					<button
 						class=" flex rounded-md py-1.5 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
 						type="button"
-						on:click={() => {
+						on:click={async () => {
 							// exportAllUserChats();
 
-							downloadDatabase(localStorage.token).catch((error) => {
+							await downloadDatabase(localStorage.token).catch((error) => {
 								toast.error(error);
 							});
 						}}
 					>
 						<div class=" self-center mr-3">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 16 16"
-								fill="currentColor"
-								class="w-4 h-4"
-							>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 								<path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" />
 								<path
 									fill-rule="evenodd"
@@ -75,12 +72,7 @@
 					}}
 				>
 					<div class=" self-center mr-3">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 							<path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" />
 							<path
 								fill-rule="evenodd"
@@ -110,12 +102,7 @@
 					}}
 				>
 					<div class=" self-center mr-3">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							class="size-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4">
 							<path
 								fill-rule="evenodd"
 								d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875Zm5.845 17.03a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V12a.75.75 0 0 0-1.5 0v4.19l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3Z"

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { v4 as uuidv4 } from 'uuid';
-	import { chats, config, settings, user as _user, mobile } from '$lib/stores';
+	import { chats, config, settings, user as _user, mobile, type SessionUser } from '$lib/stores';
 	import { tick, getContext, onMount } from 'svelte';
 
 	import { toast } from 'svelte-sonner';
@@ -24,15 +24,15 @@
 	export let readOnly = false;
 	export let sendPrompt: Function;
 	export let continueGeneration: Function;
-	export let regenerateResponse: Function;
+	export let regenerateResponse: (message: Message) => Promise<void>;
 	export let chatActionHandler: Function;
 
-	export let user = $_user;
+	export let user = $_user as SessionUser;
 	export let prompt;
 	export let processing = '';
 	export let bottomPadding = false;
 	export let autoScroll: boolean;
-	export let history: MessageHistory = {};
+	export let history: MessageHistory;
 	export let messages: Message[] = [];
 
 	export let selectedModels;
@@ -56,7 +56,7 @@
 		}
 	};
 
-	const confirmEditMessage = async (messageId, content) => {
+	const confirmEditMessage = async (messageId: string, content: string) => {
 		let userPrompt = content;
 		let userMessageId = uuidv4();
 
@@ -67,7 +67,7 @@
 			role: 'user',
 			content: userPrompt,
 			...(history.messages[messageId].files && { files: history.messages[messageId].files }),
-			models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx)
+			models: selectedModels.filter((m: string, mIdx: number) => selectedModels.indexOf(m) === mIdx)
 		};
 
 		let messageParentId = history.messages[messageId].parentId;
@@ -103,7 +103,7 @@
 		await updateChatMessages();
 	};
 
-	const rateMessage = async (messageId, rating) => {
+	const rateMessage = async (messageId: string, rating: number) => {
 		history.messages[messageId].annotation = {
 			...history.messages[messageId].annotation,
 			rating: rating
@@ -112,18 +112,17 @@
 		await updateChatMessages();
 	};
 
-	const showPreviousMessage = async (message) => {
+	const showPreviousMessage = async (message: Message) => {
 		if (message.parentId !== null) {
-			let messageId =
-				history.messages[message.parentId].childrenIds[
-					Math.max(history.messages[message.parentId].childrenIds.indexOf(message.id) - 1, 0)
-				];
+			let messageId = (history?.messages[message.parentId!]?.childrenIds ?? [])[
+				Math.max((history.messages[message.parentId]?.childrenIds ?? []).indexOf(message.id) - 1, 0)
+			];
 
 			if (message.id !== messageId) {
 				let messageChildrenIds = history.messages[messageId].childrenIds;
 
-				while (messageChildrenIds.length !== 0) {
-					messageId = messageChildrenIds.at(-1);
+				while (messageChildrenIds?.length !== 0) {
+					messageId = messageChildrenIds?.at(-1) as string;
 					messageChildrenIds = history.messages[messageId].childrenIds;
 				}
 
@@ -138,8 +137,8 @@
 			if (message.id !== messageId) {
 				let messageChildrenIds = history.messages[messageId].childrenIds;
 
-				while (messageChildrenIds.length !== 0) {
-					messageId = messageChildrenIds.at(-1);
+				while (messageChildrenIds?.length !== 0) {
+					messageId = messageChildrenIds?.at(-1) as string;
 					messageChildrenIds = history.messages[messageId].childrenIds;
 				}
 
@@ -149,7 +148,7 @@
 
 		await tick();
 
-		const element = document.getElementById('messages-container');
+		const element = document.getElementById('messages-container') as HTMLElement;
 		autoScroll = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
 
 		setTimeout(() => {
@@ -157,21 +156,20 @@
 		}, 100);
 	};
 
-	const showNextMessage = async (message) => {
+	const showNextMessage = async (message: Message) => {
 		if (message.parentId !== null) {
-			let messageId =
-				history.messages[message.parentId].childrenIds[
-					Math.min(
-						history.messages[message.parentId].childrenIds.indexOf(message.id) + 1,
-						history.messages[message.parentId].childrenIds.length - 1
-					)
-				];
+			let messageId = (history.messages[message.parentId]?.childrenIds ?? [])[
+				Math.min(
+					(history.messages[message.parentId]?.childrenIds ?? []).indexOf(message.id) + 1,
+					(history.messages[message.parentId]?.childrenIds ?? []).length - 1
+				)
+			];
 
 			if (message.id !== messageId) {
 				let messageChildrenIds = history.messages[messageId].childrenIds;
 
-				while (messageChildrenIds.length !== 0) {
-					messageId = messageChildrenIds.at(-1);
+				while (messageChildrenIds?.length !== 0) {
+					messageId = messageChildrenIds?.at(-1) as string;
 					messageChildrenIds = history.messages[messageId].childrenIds;
 				}
 
@@ -186,8 +184,8 @@
 			if (message.id !== messageId) {
 				let messageChildrenIds = history.messages[messageId].childrenIds;
 
-				while (messageChildrenIds.length !== 0) {
-					messageId = messageChildrenIds.at(-1);
+				while (messageChildrenIds?.length !== 0) {
+					messageId = messageChildrenIds?.at(-1) as string;
 					messageChildrenIds = history.messages[messageId].childrenIds;
 				}
 
@@ -197,7 +195,7 @@
 
 		await tick();
 
-		const element = document.getElementById('messages-container');
+		const element = document.getElementById('messages-container') as HTMLElement;
 		autoScroll = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
 
 		setTimeout(() => {
@@ -205,19 +203,21 @@
 		}, 100);
 	};
 
-	const deleteMessageHandler = async (messageId) => {
+	const deleteMessageHandler = async (messageId: string) => {
 		const messageToDelete = history.messages[messageId];
 
-		const parentMessageId = messageToDelete.parentId;
+		const parentMessageId = messageToDelete.parentId!;
 		const childMessageIds = messageToDelete.childrenIds ?? [];
 
-		const hasDescendantMessages = childMessageIds.some((childId) => history.messages[childId]?.childrenIds?.length > 0);
+		const hasDescendantMessages = childMessageIds.some(
+			(childId) => (history.messages[childId]?.childrenIds ?? []).length > 0
+		);
 
 		history.currentId = parentMessageId;
 		await tick();
 
 		// Remove the message itself from the parent message's children array
-		history.messages[parentMessageId].childrenIds = history.messages[parentMessageId].childrenIds.filter(
+		history.messages[parentMessageId].childrenIds = history.messages[parentMessageId].childrenIds?.filter(
 			(id) => id !== messageId
 		);
 
@@ -234,14 +234,14 @@
 					childMessage.childrenIds.forEach((grandChildId) => {
 						if (history.messages[grandChildId]) {
 							history.messages[grandChildId].parentId = parentMessageId;
-							history.messages[parentMessageId].childrenIds.push(grandChildId);
+							history.messages[parentMessageId].childrenIds?.push(grandChildId);
 						}
 					});
 				}
 			}
 
 			// Remove child message id from the parent message's children array
-			history.messages[parentMessageId].childrenIds = history.messages[parentMessageId].childrenIds.filter(
+			history.messages[parentMessageId].childrenIds = history.messages[parentMessageId].childrenIds?.filter(
 				(id) => id !== childId
 			);
 		});
@@ -252,6 +252,61 @@
 			messages: messages,
 			history: history
 		});
+	};
+
+	const onSubmitPrompt = async (prompt: string) => {
+		let text = prompt;
+
+		if (prompt.includes('{{CLIPBOARD}}')) {
+			const clipboardText = await navigator.clipboard.readText().catch((err) => {
+				toast.error($i18n.t('Failed to read clipboard contents'));
+				return '{{CLIPBOARD}}';
+			});
+
+			text = prompt.replaceAll('{{CLIPBOARD}}', clipboardText);
+		}
+		prompt = text;
+
+		await tick();
+
+		const chatInputElement = document.getElementById('chat-textarea') as HTMLInputElement;
+		if (chatInputElement) {
+			prompt = prompt;
+
+			chatInputElement.style.height = '';
+			chatInputElement.style.height = Math.min(chatInputElement.scrollHeight, 200) + 'px';
+			chatInputElement.focus();
+
+			const words = findWordIndices(prompt);
+
+			if (words.length > 0) {
+				const word = words[0];
+				chatInputElement.setSelectionRange(word.startIndex, word.endIndex + 1);
+			}
+		}
+
+		await tick();
+	};
+
+	const pickParentMessage = (parentId: string | null = null) => {
+		if (parentId && history.messages[parentId]) {
+			return history.messages[parentId];
+		}
+	};
+
+	const handleCompareMessageChange = async () => {
+		await updateChatById(localStorage.token, chatId, {
+			messages: messages,
+			history: history
+		});
+
+		if (autoScroll) {
+			const element = document.getElementById('messages-container') as HTMLElement;
+			autoScroll = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
+			setTimeout(() => {
+				scrollToBottom();
+			}, 100);
+		}
 	};
 </script>
 
@@ -321,11 +376,11 @@
 									{showNextMessage}
 									copyToClipboard={copyToClipboardWithToast}
 								/>
-							{:else if $mobile || (history.messages[message.parentId]?.models?.length ?? 1) === 1}
+							{:else if $mobile || ((message.parentId && history.messages[message.parentId]?.models?.length) ?? 1) === 1}
 								{#key message.id && history.currentId}
 									<ResponseMessage
 										{message}
-										siblings={history.messages[message.parentId]?.childrenIds ?? []}
+										siblings={message.parentId ? history.messages[message.parentId]?.childrenIds : []}
 										isLastMessage={messageIdx + 1 === messages.length}
 										{readOnly}
 										{updateChatMessages}
@@ -358,7 +413,7 @@
 										{messages}
 										{readOnly}
 										{chatId}
-										parentMessage={history.messages[message.parentId]}
+										parentMessage={pickParentMessage(message.parentId)}
 										{messageIdx}
 										{updateChatMessages}
 										{confirmEditResponseMessage}
@@ -367,18 +422,7 @@
 										{continueGeneration}
 										{regenerateResponse}
 										on:change={async () => {
-											await updateChatById(localStorage.token, chatId, {
-												messages: messages,
-												history: history
-											});
-
-											if (autoScroll) {
-												const element = document.getElementById('messages-container');
-												autoScroll = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
-												setTimeout(() => {
-													scrollToBottom();
-												}, 100);
-											}
+											await handleCompareMessageChange();
 										}}
 									/>
 								{/key}

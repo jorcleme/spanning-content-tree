@@ -351,6 +351,8 @@ async def get_models(url_idx: Optional[int] = None, user=Depends(get_verified_us
 
 from langsmith import traceable
 from langsmith import trace
+import openai
+from pydantic import Field
 
 
 async def concatenate_streaming_response(outputs):
@@ -358,6 +360,195 @@ async def concatenate_streaming_response(outputs):
     async for chunk in outputs.body_iterator:
         r += await chunk.decode("utf-8")
     return r
+
+
+# class QuestionAnswersForm(BaseModel):
+#     stream: bool
+#     model: str
+#     messages: List[dict] = []
+#     temperature: int = Field(default=0, le=1, ge=0)
+#     session_id: Optional[str] = None
+#     max_tokens: Optional[int] = None
+
+
+@app.post("/chat/questions/completions")
+async def generate_questions_chat_completion(
+    form_data: dict, user=Depends(get_verified_user)
+):
+    idx = 0
+    payload = {**form_data}
+    model_id = form_data.get("model")
+    model_info = Models.get_model_by_id(model_id)
+
+    if model_info:
+        if model_info.base_model_id:
+            payload["model"] = model_info.base_model_id
+
+    else:
+        pass
+
+    model = app.state.MODELS[payload.get("model")]
+    idx = model["urlIdx"]
+
+    # Check if the model is "gpt-4-vision-preview" and set "max_tokens" to 4000
+    # This is a workaround until OpenAI fixes the issue with this model
+    if payload.get("model") == "gpt-4-vision-preview":
+        if "max_tokens" not in payload:
+            payload["max_tokens"] = 4000
+        log.debug("Modified payload:", payload)
+
+    # Convert the modified body back to JSON
+    payload = json.dumps(payload)
+
+    log.debug(payload)
+
+    url: str = app.state.config.OPENAI_API_BASE_URLS[idx]
+    key: str = app.state.config.OPENAI_API_KEYS[idx]
+
+    headers = {}
+    headers["Authorization"] = f"Bearer {key}"
+    headers["Content-Type"] = "application/json"
+
+    log.debug(f"Headers: {headers}")
+
+    r = None
+    session = None
+    streaming = False
+
+    try:
+        session = aiohttp.ClientSession(
+            trust_env=True, timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT)
+        )
+        r = await session.request(
+            method="POST",
+            url=f"{url}/chat/completions",
+            data=payload,
+            headers=headers,
+        )
+
+        r.raise_for_status()
+
+        # Check if response is SSE
+        if "text/event-stream" in r.headers.get("Content-Type", ""):
+            streaming = True
+
+            return StreamingResponse(
+                r.content,
+                status_code=r.status,
+                headers=dict(r.headers),
+                background=BackgroundTask(
+                    cleanup_response, response=r, session=session
+                ),
+            )
+        else:
+            response_data = await r.json()
+            return response_data
+    except Exception as e:
+        log.exception(e)
+        error_detail = "Open WebUI: Server Connection Error"
+        if r is not None:
+            try:
+                res = await r.json()
+                print(res)
+                if "error" in res:
+                    error_detail = f"External: {res['error']['message'] if 'message' in res['error'] else res['error']}"
+            except:
+                error_detail = f"External: {e}"
+        raise HTTPException(status_code=r.status if r else 500, detail=error_detail)
+    finally:
+        if not streaming and session:
+            if r:
+                r.close()
+            await session.close()
+
+
+@app.post("/chat/answers/completions")
+async def generate_answers_chat_completions(
+    form_data: dict, user=Depends(get_verified_user)
+):
+    idx = 0
+    payload = {**form_data}
+    model_id = form_data.get("model")
+    model_info = Models.get_model_by_id(model_id)
+
+    if model_info:
+        if model_info.base_model_id:
+            payload["model"] = model_info.base_model_id
+
+    else:
+        pass
+
+    model = app.state.MODELS[payload.get("model")]
+    idx = model["urlIdx"]
+
+    # Check if the model is "gpt-4-vision-preview" and set "max_tokens" to 4000
+    # This is a workaround until OpenAI fixes the issue with this model
+    if payload.get("model") == "gpt-4-vision-preview":
+        if "max_tokens" not in payload:
+            payload["max_tokens"] = 4000
+        log.debug("Modified payload:", payload)
+
+    # Convert the modified body back to JSON
+    payload = json.dumps(payload)
+
+    log.debug(payload)
+
+    url: str = app.state.config.OPENAI_API_BASE_URLS[idx]
+    key: str = app.state.config.OPENAI_API_KEYS[idx]
+
+    headers = {}
+    headers["Authorization"] = f"Bearer {key}"
+    headers["Content-Type"] = "application/json"
+
+    r = None
+    session = None
+    streaming = False
+
+    try:
+        session = aiohttp.ClientSession(
+            trust_env=True, timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT)
+        )
+        r = await session.request(
+            method="POST",
+            url=f"{url}/chat/completions",
+            data=payload,
+            headers=headers,
+        )
+
+        r.raise_for_status()
+
+        # Check if response is SSE
+        if "text/event-stream" in r.headers.get("Content-Type", ""):
+            streaming = True
+
+            return StreamingResponse(
+                r.content,
+                status_code=r.status,
+                headers=dict(r.headers),
+                background=BackgroundTask(
+                    cleanup_response, response=r, session=session
+                ),
+            )
+        else:
+            response_data = await r.json()
+            return response_data
+    except Exception as e:
+        log.exception(e)
+        error_detail = "Open WebUI: Server Connection Error"
+        if r is not None:
+            try:
+                res = await r.json()
+                print(res)
+                if "error" in res:
+                    error_detail = f"External: {res['error']['message'] if 'message' in res['error'] else res['error']}"
+            except:
+                error_detail = f"External: {e}"
+        raise HTTPException(status_code=r.status if r else 500, detail=error_detail)
+    finally:
+        if not streaming and session:
+            if r:
+                r.close()
+            await session.close()
 
 
 @app.post("/chat/completions")

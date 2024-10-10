@@ -80,9 +80,9 @@
 			});
 
 			if (userSettings) {
-				await settings.set(userSettings.ui);
+				settings.set(userSettings.ui);
 			} else {
-				await settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
+				settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
 			}
 
 			await Promise.all([

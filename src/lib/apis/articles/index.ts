@@ -113,3 +113,124 @@ export const getArticleByUrl = async (token: string, url: string): Promise<Nulla
 
 	return res;
 };
+
+export const getArticleByDocumentId = async (token: string, documentId: string): Promise<Nullable<Article>> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/document/${documentId}`, {
+		method: 'GET',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		}
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			console.error(err);
+			error = err.detail;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const generateArticleSupportQuestions = async (token: string, context: string) => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/openai/generate_questions`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Accept: 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ context })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			console.log(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const updateArticle = async (token: string, articleId: string, update: Partial<Article>) => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/${articleId}`, {
+		method: 'PUT',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify(update)
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			console.log(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+interface UpdateArticleStepForm {
+	step: Article['steps'][number];
+	step_index: number;
+}
+
+export const updateArticleStep = async (
+	token: string,
+	articleId: string,
+	update: UpdateArticleStepForm
+): Promise<Nullable<Article>> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/${articleId}/steps`, {
+		method: 'PUT',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify(update)
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			console.log(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};

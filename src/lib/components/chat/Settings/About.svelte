@@ -1,18 +1,19 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { getVersionUpdates } from '$lib/apis';
 	import { getOllamaVersion } from '$lib/apis/ollama';
 	import { WEBUI_BUILD_HASH, WEBUI_VERSION } from '$lib/constants';
 	import { WEBUI_NAME, config, showChangelog } from '$lib/stores';
 	import { compareVersion } from '$lib/utils';
 	import { onMount, getContext } from 'svelte';
-
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
-	let ollamaVersion = '';
+	let ollamaVersion: string | boolean = '';
+	let updateAvailable: boolean | null = null;
 
-	let updateAvailable = null;
 	let version = {
 		current: '',
 		latest: ''
@@ -58,10 +59,7 @@
 							v{WEBUI_VERSION}
 						</Tooltip>
 
-						<a
-							href="https://github.com/open-webui/open-webui/releases/tag/v{version.latest}"
-							target="_blank"
-						>
+						<a href="https://github.com/open-webui/open-webui/releases/tag/v{version.latest}" target="_blank">
 							{updateAvailable === null
 								? $i18n.t('Checking for updates...')
 								: updateAvailable
@@ -108,17 +106,11 @@
 
 		<div class="flex space-x-1">
 			<a href="https://discord.gg/5rJgQTnV4s" target="_blank">
-				<img
-					alt="Discord"
-					src="https://img.shields.io/badge/Discord-Open_WebUI-blue?logo=discord&logoColor=white"
-				/>
+				<img alt="Discord" src="https://img.shields.io/badge/Discord-Open_WebUI-blue?logo=discord&logoColor=white" />
 			</a>
 
 			<a href="https://twitter.com/OpenWebUI" target="_blank">
-				<img
-					alt="X (formerly Twitter) Follow"
-					src="https://img.shields.io/twitter/follow/OpenWebUI"
-				/>
+				<img alt="X (formerly Twitter) Follow" src="https://img.shields.io/twitter/follow/OpenWebUI" />
 			</a>
 
 			<a href="https://github.com/open-webui/open-webui" target="_blank">
@@ -134,10 +126,8 @@
 				<span class=" text-gray-500 dark:text-gray-300 font-medium">{$WEBUI_NAME}</span> -
 			{/if}
 			{$i18n.t('Created by')}
-			<a
-				class=" text-gray-500 dark:text-gray-300 font-medium"
-				href="https://github.com/tjbck"
-				target="_blank">Timothy J. Baek</a
+			<a class=" text-gray-500 dark:text-gray-300 font-medium" href="https://github.com/tjbck" target="_blank"
+				>Timothy J. Baek</a
 			>
 		</div>
 	</div>

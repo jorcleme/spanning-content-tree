@@ -1,10 +1,12 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import NodeRollupPolyfills from 'rollup-plugin-node-polyfills';
+import packageJson from './package.json';
 
 import { execSync } from 'child_process';
 
 const buildHash = execSync('git rev-parse --short HEAD').toString().trim();
+const fallbackVersion = packageJson.version;
 
 // /** @type {import('vite').Plugin} */
 // const viteServerConfig = {
@@ -23,7 +25,7 @@ const buildHash = execSync('git rev-parse --short HEAD').toString().trim();
 export default defineConfig({
 	plugins: [sveltekit()],
 	define: {
-		APP_VERSION: JSON.stringify(process.env.npm_package_version),
+		APP_VERSION: JSON.stringify(process.env.npm_package_version) || JSON.stringify(fallbackVersion),
 		APP_BUILD_HASH: JSON.stringify(process.env.APP_BUILD_HASH || 'dev-build'),
 		BUILD_HASH: JSON.stringify(buildHash)
 	},

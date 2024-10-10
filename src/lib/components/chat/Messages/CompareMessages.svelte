@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Message } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
 
 	import { updateChatById } from '$lib/apis/chats';
@@ -8,10 +9,10 @@
 	export let chatId;
 
 	export let history;
-	export let messages = [];
+	export let messages: any[] = [];
 	export let messageIdx;
 
-	export let parentMessage;
+	export let parentMessage: Message | undefined;
 
 	export let readOnly = false;
 
@@ -21,27 +22,39 @@
 
 	export let copyToClipboard: Function;
 	export let continueGeneration: Function;
-	export let regenerateResponse: Function;
+	export let regenerateResponse: (message: Message) => Promise<void>;
 
 	const dispatch = createEventDispatcher();
 
-	let currentMessageId;
+	let currentMessageId: string;
 
-	let groupedMessagesIdx = {};
-	let groupedMessages = {};
+	let groupedMessagesIdx: { [key: string]: any } = {};
+	let groupedMessages: { [key: string]: { messages: any[] } } = {};
 
-	$: groupedMessages = parentMessage?.models.reduce((a, model) => {
-		const modelMessages = parentMessage?.childrenIds
-			.map((id) => history.messages[id])
-			.filter((m) => m.model === model);
+	$: if (parentMessage) {
+		groupedMessages = parentMessage.models!.reduce((a, model) => {
+			const modelMessages = (parentMessage.childrenIds ?? [])
+				.map((id) => history.messages[id])
+				.filter((m) => m.model === model);
 
-		return {
-			...a,
-			[model]: { messages: modelMessages }
-		};
-	}, {});
+			return {
+				...a,
+				[model]: { messages: modelMessages }
+			};
+		}, {});
+	}
+	// $: groupedMessages = parentMessage?.models!.reduce((a, model) => {
+	// 	const modelMessages = (parentMessage?.childrenIds ?? [])
+	// 		.map((id) => history.messages[id])
+	// 		.filter((m) => m.model === model);
 
-	const showPreviousMessage = (model) => {
+	// 	return {
+	// 		...a,
+	// 		[model]: { messages: modelMessages }
+	// 	};
+	// }, {});
+
+	const showPreviousMessage = (model: string) => {
 		groupedMessagesIdx[model] = Math.max(0, groupedMessagesIdx[model] - 1);
 		let messageId = groupedMessages[model].messages[groupedMessagesIdx[model]].id;
 
@@ -58,11 +71,8 @@
 		dispatch('change');
 	};
 
-	const showNextMessage = (model) => {
-		groupedMessagesIdx[model] = Math.min(
-			groupedMessages[model].messages.length - 1,
-			groupedMessagesIdx[model] + 1
-		);
+	const showNextMessage = (model: string) => {
+		groupedMessagesIdx[model] = Math.min(groupedMessages[model].messages.length - 1, groupedMessagesIdx[model] + 1);
 
 		let messageId = groupedMessages[model].messages[groupedMessagesIdx[model]].id;
 		console.log(messageId);
@@ -83,8 +93,8 @@
 		await tick();
 		currentMessageId = messages[messageIdx].id;
 
-		for (const model of parentMessage?.models) {
-			const idx = groupedMessages[model].messages.findIndex((m) => m.id === currentMessageId);
+		for (const model of parentMessage?.models ?? []) {
+			const idx = groupedMessages[model].messages.findIndex((m: Message) => m.id === currentMessageId);
 
 			if (idx !== -1) {
 				groupedMessagesIdx[model] = idx;
@@ -96,10 +106,7 @@
 </script>
 
 <div>
-	<div
-		class="flex snap-x snap-mandatory overflow-x-auto scrollbar-hidden"
-		id="responses-container-{parentMessage.id}"
-	>
+	<div class="flex snap-x snap-mandatory overflow-x-auto scrollbar-hidden" id="responses-container-{parentMessage?.id}">
 		{#key currentMessageId}
 			{#each Object.keys(groupedMessages) as model}
 				{#if groupedMessagesIdx[model] !== undefined && groupedMessages[model].messages.length > 0}
@@ -108,9 +115,8 @@
 					{@const message = groupedMessages[model].messages[groupedMessagesIdx[model]]}
 
 					<div
-						class=" snap-center min-w-80 w-full max-w-full m-1 border {history.messages[
-							currentMessageId
-						].model === model
+						class=" snap-center min-w-80 w-full max-w-full m-1 border {history.messages[currentMessageId].model ===
+						model
 							? 'border-gray-100 dark:border-gray-800 border-[1.5px]'
 							: 'border-gray-50 dark:border-gray-850 '} transition p-5 rounded-3xl"
 						on:click={() => {

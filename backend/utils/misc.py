@@ -58,7 +58,7 @@ def add_or_update_system_message(content: str, messages: List[dict]):
     Adds a new system message at the beginning of the messages list
     or updates the existing system message at the beginning.
 
-    :param msg: The message to be added or appended.
+    :param content: The message to be added or appended.
     :param messages: The list of message dictionaries.
     :return: The updated list of message dictionaries.
     """

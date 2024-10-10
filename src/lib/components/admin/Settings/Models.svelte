@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { toast } from 'svelte-sonner';
 	import { onMount, getContext } from 'svelte';
 
@@ -22,7 +24,7 @@
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import ModelDeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	const getModels = async () => {
 		return await _getModels(localStorage.token);
@@ -34,9 +36,9 @@
 
 	// Models
 
-	let ollamaEnabled = null;
+	let ollamaEnabled: boolean | null = null;
 
-	let OLLAMA_URLS = [];
+	let OLLAMA_URLS: string[] = [];
 	let selectedOllamaUrlIdx: string | null = null;
 
 	let updateModelId = null;
@@ -44,7 +46,7 @@
 
 	let showExperimentalOllama = false;
 
-	let ollamaVersion = null;
+	let ollamaVersion: string | boolean | null = null;
 	const MAX_PARALLEL_DOWNLOADS = 3;
 
 	let modelTransferring = false;
@@ -75,27 +77,18 @@
 			(m) =>
 				!(m?.preset ?? false) &&
 				m.owned_by === 'ollama' &&
-				(selectedOllamaUrlIdx === null
-					? true
-					: (m?.ollama?.urls ?? []).includes(selectedOllamaUrlIdx))
+				(selectedOllamaUrlIdx === null ? true : (m?.ollama?.urls ?? []).includes(selectedOllamaUrlIdx))
 		)) {
 			console.log(model);
 
 			updateModelId = model.id;
-			const [res, controller] = await pullModel(
-				localStorage.token,
-				model.id,
-				selectedOllamaUrlIdx
-			).catch((error) => {
+			const [res, controller] = await pullModel(localStorage.token, model.id, selectedOllamaUrlIdx).catch((error) => {
 				toast.error(error);
 				return null;
 			});
 
 			if (res) {
-				const reader = res.body
-					.pipeThrough(new TextDecoderStream())
-					.pipeThrough(splitStream('\n'))
-					.getReader();
+				const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 				while (true) {
 					try {
@@ -152,26 +145,19 @@
 			return;
 		}
 		if (Object.keys($MODEL_DOWNLOAD_POOL).length === MAX_PARALLEL_DOWNLOADS) {
-			toast.error(
-				$i18n.t('Maximum of 3 models can be downloaded simultaneously. Please try again later.')
-			);
+			toast.error($i18n.t('Maximum of 3 models can be downloaded simultaneously. Please try again later.'));
 			return;
 		}
 
-		const [res, controller] = await pullModel(
-			localStorage.token,
-			sanitizedModelTag,
-			selectedOllamaUrlIdx
-		).catch((error) => {
-			toast.error(error);
-			return null;
-		});
+		const [res, controller] = await pullModel(localStorage.token, sanitizedModelTag, selectedOllamaUrlIdx).catch(
+			(error) => {
+				toast.error(error);
+				return null;
+			}
+		);
 
 		if (res) {
-			const reader = res.body
-				.pipeThrough(new TextDecoderStream())
-				.pipeThrough(splitStream('\n'))
-				.getReader();
+			const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			MODEL_DOWNLOAD_POOL.set({
 				...$MODEL_DOWNLOAD_POOL,
@@ -281,30 +267,21 @@
 			if (file) {
 				uploadMessage = 'Uploading...';
 
-				fileResponse = await uploadModel(localStorage.token, file, selectedOllamaUrlIdx).catch(
-					(error) => {
-						toast.error(error);
-						return null;
-					}
-				);
+				fileResponse = await uploadModel(localStorage.token, file, selectedOllamaUrlIdx).catch((error) => {
+					toast.error(error);
+					return null;
+				});
 			}
 		} else {
 			uploadProgress = 0;
-			fileResponse = await downloadModel(
-				localStorage.token,
-				modelFileUrl,
-				selectedOllamaUrlIdx
-			).catch((error) => {
+			fileResponse = await downloadModel(localStorage.token, modelFileUrl, selectedOllamaUrlIdx).catch((error) => {
 				toast.error(error);
 				return null;
 			});
 		}
 
 		if (fileResponse && fileResponse.ok) {
-			const reader = fileResponse.body
-				.pipeThrough(new TextDecoderStream())
-				.pipeThrough(splitStream('\n'))
-				.getReader();
+			const reader = fileResponse.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			while (true) {
 				const { value, done } = await reader.read();
@@ -352,10 +329,7 @@
 			);
 
 			if (res && res.ok) {
-				const reader = res.body
-					.pipeThrough(new TextDecoderStream())
-					.pipeThrough(splitStream('\n'))
-					.getReader();
+				const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 				while (true) {
 					const { value, done } = await reader.read();
@@ -378,11 +352,7 @@
 								}
 
 								if (data.status) {
-									if (
-										!data.digest &&
-										!data.status.includes('writing') &&
-										!data.status.includes('sha256')
-									) {
+									if (!data.digest && !data.status.includes('writing') && !data.status.includes('sha256')) {
 										toast.success(data.status);
 									} else {
 										if (data.digest) {
@@ -419,11 +389,9 @@
 	};
 
 	const deleteModelHandler = async () => {
-		const res = await deleteModel(localStorage.token, deleteModelTag, selectedOllamaUrlIdx).catch(
-			(error) => {
-				toast.error(error);
-			}
-		);
+		const res = await deleteModel(localStorage.token, deleteModelTag, selectedOllamaUrlIdx).catch((error) => {
+			toast.error(error);
+		});
 
 		if (res) {
 			toast.success($i18n.t(`Deleted {{deleteModelTag}}`, { deleteModelTag }));
@@ -451,21 +419,15 @@
 
 	const createModelHandler = async () => {
 		createModelLoading = true;
-		const res = await createModel(
-			localStorage.token,
-			createModelTag,
-			createModelContent,
-			selectedOllamaUrlIdx
-		).catch((error) => {
-			toast.error(error);
-			return null;
-		});
+		const res = await createModel(localStorage.token, createModelTag, createModelContent, selectedOllamaUrlIdx).catch(
+			(error) => {
+				toast.error(error);
+				return null;
+			}
+		);
 
 		if (res && res.ok) {
-			const reader = res.body
-				.pipeThrough(new TextDecoderStream())
-				.pipeThrough(splitStream('\n'))
-				.getReader();
+			const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			while (true) {
 				const { value, done } = await reader.read();
@@ -488,19 +450,14 @@
 							}
 
 							if (data.status) {
-								if (
-									!data.digest &&
-									!data.status.includes('writing') &&
-									!data.status.includes('sha256')
-								) {
+								if (!data.digest && !data.status.includes('writing') && !data.status.includes('sha256')) {
 									toast.success(data.status);
 								} else {
 									if (data.digest) {
 										createModelDigest = data.digest;
 
 										if (data.completed) {
-											createModelPullProgress =
-												Math.round((data.completed / data.total) * 1000) / 10;
+											createModelPullProgress = Math.round((data.completed / data.total) * 1000) / 10;
 										} else {
 											createModelPullProgress = 100;
 										}
@@ -529,7 +486,7 @@
 	onMount(async () => {
 		const ollamaConfig = await getOllamaConfig(localStorage.token);
 
-		if (ollamaConfig.ENABLE_OLLAMA_API) {
+		if (ollamaConfig?.ENABLE_OLLAMA_API) {
 			ollamaEnabled = true;
 
 			await Promise.all([
@@ -540,7 +497,7 @@
 					});
 
 					if (OLLAMA_URLS.length > 0) {
-						selectedOllamaUrlIdx = 0;
+						selectedOllamaUrlIdx = '0';
 					}
 				})(),
 				(async () => {
@@ -591,12 +548,7 @@
 												updateModelsHandler();
 											}}
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 16 16"
-												fill="currentColor"
-												class="w-4 h-4"
-											>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 												<path
 													d="M7 1a.75.75 0 0 1 .75.75V6h-1.5V1.75A.75.75 0 0 1 7 1ZM6.25 6v2.94L5.03 7.72a.75.75 0 0 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.06 0l2.5-2.5a.75.75 0 1 0-1.06-1.06L7.75 8.94V6H10a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2.25Z"
 												/>
@@ -637,12 +589,7 @@
 								>
 									{#if modelTransferring}
 										<div class="self-center">
-											<svg
-												class=" w-4 h-4"
-												viewBox="0 0 24 24"
-												fill="currentColor"
-												xmlns="http://www.w3.org/2000/svg"
-											>
+											<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
 												<style>
 													.spinner_ajPY {
 														transform-origin: center;
@@ -666,12 +613,7 @@
 											</svg>
 										</div>
 									{:else}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 16 16"
-											fill="currentColor"
-											class="w-4 h-4"
-										>
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 											<path
 												d="M8.75 2.75a.75.75 0 0 0-1.5 0v5.69L5.03 6.22a.75.75 0 0 0-1.06 1.06l3.5 3.5a.75.75 0 0 0 1.06 0l3.5-3.5a.75.75 0 0 0-1.06-1.06L8.75 8.44V2.75Z"
 											/>
@@ -702,10 +644,7 @@
 													<div class=" flex-1">
 														<div
 															class="dark:bg-gray-600 bg-gray-500 text-xs font-medium text-gray-100 text-center p-0.5 leading-none rounded-full"
-															style="width: {Math.max(
-																15,
-																$MODEL_DOWNLOAD_POOL[model].pullProgress ?? 0
-															)}%"
+															style="width: {Math.max(15, $MODEL_DOWNLOAD_POOL[model].pullProgress ?? 0)}%"
 														>
 															{$MODEL_DOWNLOAD_POOL[model].pullProgress ?? 0}%
 														</div>
@@ -764,10 +703,7 @@
 										{/if}
 										{#each $models.filter((m) => !(m?.preset ?? false) && m.owned_by === 'ollama' && (selectedOllamaUrlIdx === null ? true : (m?.ollama?.urls ?? []).includes(selectedOllamaUrlIdx))) as model}
 											<option value={model.name} class="bg-gray-50 dark:bg-gray-700"
-												>{model.name +
-													' (' +
-													(model.ollama.size / 1024 ** 3).toFixed(1) +
-													' GB)'}</option
+												>{model.name + ' (' + (model.ollama.size / 1024 ** 3).toFixed(1) + ' GB)'}</option
 											>
 										{/each}
 									</select>
@@ -778,12 +714,7 @@
 										showModelDeleteConfirm = true;
 									}}
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										viewBox="0 0 16 16"
-										fill="currentColor"
-										class="w-4 h-4"
-									>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 										<path
 											fill-rule="evenodd"
 											d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z"
@@ -824,12 +755,7 @@
 										}}
 										disabled={createModelLoading}
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 16 16"
-											fill="currentColor"
-											class="size-4"
-										>
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
 											<path
 												d="M7.25 10.25a.75.75 0 0 0 1.5 0V4.56l2.22 2.22a.75.75 0 1 0 1.06-1.06l-3.5-3.5a.75.75 0 0 0-1.06 0l-3.5 3.5a.75.75 0 0 0 1.06 1.06l2.22-2.22v5.69Z"
 											/>
@@ -909,9 +835,7 @@
 								<div class="flex w-full mb-1.5">
 									<div class="flex flex-col w-full">
 										{#if modelUploadMode === 'file'}
-											<div
-												class="flex-1 {modelInputFile && modelInputFile.length > 0 ? 'mr-2' : ''}"
-											>
+											<div class="flex-1 {modelInputFile && modelInputFile.length > 0 ? 'mr-2' : ''}">
 												<input
 													id="model-upload-input"
 													bind:this={modelUploadInputElement}
@@ -992,12 +916,7 @@
 													</svg>
 												</div>
 											{:else}
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 													<path
 														d="M7.25 10.25a.75.75 0 0 0 1.5 0V4.56l2.22 2.22a.75.75 0 1 0 1.06-1.06l-3.5-3.5a.75.75 0 0 0-1.06 0l-3.5 3.5a.75.75 0 0 0 1.06 1.06l2.22-2.22v5.69Z"
 													/>

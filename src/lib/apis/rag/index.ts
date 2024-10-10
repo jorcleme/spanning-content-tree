@@ -296,12 +296,18 @@ export const uploadYoutubeTranscriptionToVectorDB = async (token: string, url: s
 	return res;
 };
 
+type _DocumentsResponse = {
+	distances: number[][];
+	documents: string[][];
+	metadatas: Record<string, any>[][];
+};
+
 export const queryDoc = async (
 	token: string,
 	collection_name: string,
 	query: string,
 	k: number | null = null
-) => {
+): Promise<_DocumentsResponse> => {
 	let error = null;
 
 	const res = await fetch(`${RAG_API_BASE_URL}/query/doc`, {
@@ -319,7 +325,7 @@ export const queryDoc = async (
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -335,10 +341,10 @@ export const queryDoc = async (
 
 export const queryCollection = async (
 	token: string,
-	collection_names: string,
+	collection_names: string[],
 	query: string,
 	k: number | null = null
-) => {
+): Promise<_DocumentsResponse> => {
 	let error = null;
 
 	const res = await fetch(`${RAG_API_BASE_URL}/query/collection`, {
@@ -356,7 +362,7 @@ export const queryCollection = async (
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -382,7 +388,7 @@ export const scanDocs = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -476,8 +482,8 @@ export const getEmbeddingConfig = async (token: string) => {
 };
 
 type OpenAIConfigForm = {
-	key: string;
 	url: string;
+	key: string;
 	batch_size: number;
 };
 

@@ -1,3 +1,5 @@
+import type { _FileUploadRes } from '$lib/apis/files';
+
 // Shared Utility
 export type Nullable<T> = T | null;
 export type Or<T, U> = T | U;
@@ -6,12 +8,12 @@ interface BaseEntity {
 	id: string;
 }
 
-interface TimestampEntity extends BaseEntity {
+interface TimestampEntity {
 	created_at: number; // epoch time in seconds
 	updated_at: number; // epoch time in seconds
 }
 
-interface UserEntity extends BaseEntity {
+interface UserEntity {
 	user_id: string;
 }
 
@@ -40,51 +42,29 @@ interface MessageInfo {
 	total_tokens?: number;
 }
 
-// type MessageInfo = {
-// 	total_duration?: number;
-// 	load_duration?: number;
-// 	prompt_eval_count?: number;
-// 	prompt_eval_duration?: number;
-// 	eval_count?: number;
-// 	eval_duration?: number;
-// 	sample_count?: number;
-// 	sample_duration?: number;
-// 	openai?: boolean;
-// 	ollama?: boolean;
-// 	prompt_tokens?: number;
-// 	completion_tokens?: number;
-// 	total_tokens?: number;
-// };
-
-type StatusHistory = {
+interface StatusHistory {
 	done?: boolean;
 	error?: boolean;
 	action?: string;
 	description?: string;
 	query?: any;
 	urls?: string[];
-};
+}
 
-// type FileHistory = {
-// 	collection_name?: string;
-// 	name?: string;
-// 	type?: string;
-// 	urls?: string[];
-// 	url?: string;
-// };
-
-export type BaseMessage = {
+export interface BaseMessage {
 	role: string;
 	content: string;
 };
 
-export type EditedMessage = Partial<Message>;
+export interface EditedMessage extends Message {}
 
-export type Message = BaseMessage & {
+// export type EditedMessage = Partial<Message>;
+
+export interface Message extends BaseMessage {
 	id: string;
 	parentId: string | null;
 	childrenIds?: string[];
-	timestamp: number; // epoch time in seconds
+	timestamp?: number; // epoch time in seconds
 	models?: string[];
 	model?: string;
 	modelName?: string;
@@ -101,7 +81,12 @@ export type Message = BaseMessage & {
 	raContent?: string;
 	originalContent?: string;
 	status?: StatusHistory;
-};
+	annotation?: {
+		rating?: number;
+		reason?: string;
+		comment?: string;
+	};
+}
 
 // File object shape:
 // -------------------
@@ -115,7 +100,7 @@ export type Message = BaseMessage & {
 // url: "/api/v1/files/362ec854-789f-4563-8981-92c0f196cd47"
 // -------------------
 
-import type { _FileUploadRes } from '$lib/apis/files';
+
 
 export interface ClientFile {
 	collection_name?: string;
@@ -128,10 +113,9 @@ export interface ClientFile {
 	url?: string;
 	urls?: string[];
 }
+export interface ChatFile extends Pick<ClientFile, 'name' | 'url' | 'type'> {}
 
-export type ChatFile = Pick<ClientFile, 'name' | 'url' | 'type'>;
-
-export type MessageHistory = {
+export interface MessageHistory {
 	messages: {
 		[id: string]: Message;
 	};
@@ -139,7 +123,7 @@ export type MessageHistory = {
 	state?: any;
 };
 
-export interface Chat extends TimestampEntity {
+export interface Chat extends BaseEntity, TimestampEntity {
 	title: string;
 	models: string[];
 	params: Record<string, any>;
@@ -148,19 +132,20 @@ export interface Chat extends TimestampEntity {
 	tags: string[];
 	timestamp: number; // epoch time in seconds
 	files: ClientFile[];
+	mapping?: Record<string, any>;
 }
 
-interface TagByUser extends UserEntity {
+interface TagByUser extends BaseEntity, UserEntity {
 	name: string;
 	data?: string | null;
 }
 
-interface ChatTag extends UserEntity {
+interface ChatTag extends BaseEntity, UserEntity {
 	name: string;
 	data?: any;
 }
 
-export interface ChatResponse extends UserEntity, TimestampEntity {
+export interface ChatResponse extends BaseEntity, UserEntity, TimestampEntity {
 	title: string;
 	chat: Chat;
 	share_id?: Nullable<string>;
@@ -183,22 +168,18 @@ export interface UserMemoryQuery {
 	included?: string[];
 }
 
-export interface Memory extends UserEntity, TimestampEntity {
-	id: string;
-	user_id: string;
+export interface Memory extends BaseEntity, UserEntity, TimestampEntity {
 	content: string;
-	updated_at: number;
-	created_at: number;
 }
 
-type ApplicableDevice = {
+interface ApplicableDevice {
 	device?: string;
 	software?: string;
 	datasheet_link?: string;
-	software_link?: string;
+	software_link?: string | null;
 };
 
-type ArticleStep = {
+export interface ArticleStep {
 	section: string;
 	step_number: number;
 	text: string;
@@ -207,6 +188,20 @@ type ArticleStep = {
 	note: string | null;
 	emphasized_text: string[];
 	emphasized_tags: string[];
+	qna_pairs?: Array<{
+		id: string;
+		question: string;
+		answer: string | null;
+		sources?: Record<string, any>[];
+		original_answer?: string;
+		rating?: number;
+		annotation?: {
+			rating?: number;
+			reasons?: string[];
+			comment?: string;
+		};
+		model?: string;
+	}>;
 };
 
 export interface Article {

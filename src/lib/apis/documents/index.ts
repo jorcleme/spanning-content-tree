@@ -196,7 +196,7 @@ export const tagDocByName = async (token: string, name: string, form: TagDocForm
 	return res;
 };
 
-export const deleteDocByName = async (token: string, name: string) => {
+export const deleteDocByName = async (token: string, name: string): Promise<boolean> => {
 	let error = null;
 
 	const searchParams = new URLSearchParams();
@@ -212,7 +212,7 @@ export const deleteDocByName = async (token: string, name: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.then((json) => {
 			return json;

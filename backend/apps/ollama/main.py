@@ -709,8 +709,220 @@ class GenerateChatCompletionForm(BaseModel):
     format: Optional[str] = None
     options: Optional[dict] = None
     template: Optional[str] = None
-    stream: Optional[bool] = None
+    stream: Optional[bool] = True
     keep_alive: Optional[Union[int, str]] = None
+
+
+@app.post("/api/chat/questions")
+async def generate_chat_completion_questions(
+    form_data: GenerateChatCompletionForm,
+    url_idx: Optional[int] = None,
+    user=Depends(get_verified_user),
+):
+    log.debug(
+        "form_data.model_dump_json(exclude_none=True).encode(): {0} ".format(
+            form_data.model_dump_json(exclude_none=True).encode()
+        )
+    )
+
+    payload = {**form_data.model_dump(exclude_none=True, exclude=["metadata"])}
+    if "metadata" in payload:
+        del payload["metadata"]
+
+    model_id = form_data.model
+    model_info = Models.get_model_by_id(model_id)
+
+    if model_info:
+        if model_info.base_model_id:
+            payload["model"] = model_info.base_model_id
+
+        model_info.params = model_info.params.model_dump()
+
+        if model_info.params:
+            if payload.get("options") is None:
+                payload["options"] = {}
+
+            if (
+                model_info.params.get("mirostat", None)
+                and payload["options"].get("mirostat") is None
+            ):
+                payload["options"]["mirostat"] = model_info.params.get("mirostat", None)
+
+            if (
+                model_info.params.get("mirostat_eta", None)
+                and payload["options"].get("mirostat_eta") is None
+            ):
+                payload["options"]["mirostat_eta"] = model_info.params.get(
+                    "mirostat_eta", None
+                )
+
+            if (
+                model_info.params.get("mirostat_tau", None)
+                and payload["options"].get("mirostat_tau") is None
+            ):
+                payload["options"]["mirostat_tau"] = model_info.params.get(
+                    "mirostat_tau", None
+                )
+
+            if (
+                model_info.params.get("num_ctx", None)
+                and payload["options"].get("num_ctx") is None
+            ):
+                payload["options"]["num_ctx"] = model_info.params.get("num_ctx", None)
+
+            if (
+                model_info.params.get("num_batch", None)
+                and payload["options"].get("num_batch") is None
+            ):
+                payload["options"]["num_batch"] = model_info.params.get(
+                    "num_batch", None
+                )
+
+            if (
+                model_info.params.get("num_keep", None)
+                and payload["options"].get("num_keep") is None
+            ):
+                payload["options"]["num_keep"] = model_info.params.get("num_keep", None)
+
+            if (
+                model_info.params.get("repeat_last_n", None)
+                and payload["options"].get("repeat_last_n") is None
+            ):
+                payload["options"]["repeat_last_n"] = model_info.params.get(
+                    "repeat_last_n", None
+                )
+
+            if (
+                model_info.params.get("frequency_penalty", None)
+                and payload["options"].get("frequency_penalty") is None
+            ):
+                payload["options"]["repeat_penalty"] = model_info.params.get(
+                    "frequency_penalty", None
+                )
+
+            if (
+                model_info.params.get("temperature", None)
+                and payload["options"].get("temperature") is None
+            ):
+                payload["options"]["temperature"] = model_info.params.get(
+                    "temperature", None
+                )
+
+            if (
+                model_info.params.get("seed", None)
+                and payload["options"].get("seed") is None
+            ):
+                payload["options"]["seed"] = model_info.params.get("seed", None)
+
+            if (
+                model_info.params.get("stop", None)
+                and payload["options"].get("stop") is None
+            ):
+                payload["options"]["stop"] = (
+                    [
+                        bytes(stop, "utf-8").decode("unicode_escape")
+                        for stop in model_info.params["stop"]
+                    ]
+                    if model_info.params.get("stop", None)
+                    else None
+                )
+
+            if (
+                model_info.params.get("tfs_z", None)
+                and payload["options"].get("tfs_z") is None
+            ):
+                payload["options"]["tfs_z"] = model_info.params.get("tfs_z", None)
+
+            if (
+                model_info.params.get("max_tokens", None)
+                and payload["options"].get("max_tokens") is None
+            ):
+                payload["options"]["num_predict"] = model_info.params.get(
+                    "max_tokens", None
+                )
+
+            if (
+                model_info.params.get("top_k", None)
+                and payload["options"].get("top_k") is None
+            ):
+                payload["options"]["top_k"] = model_info.params.get("top_k", None)
+
+            if (
+                model_info.params.get("top_p", None)
+                and payload["options"].get("top_p") is None
+            ):
+                payload["options"]["top_p"] = model_info.params.get("top_p", None)
+
+            if (
+                model_info.params.get("use_mmap", None)
+                and payload["options"].get("use_mmap") is None
+            ):
+                payload["options"]["use_mmap"] = model_info.params.get("use_mmap", None)
+
+            if (
+                model_info.params.get("use_mlock", None)
+                and payload["options"].get("use_mlock") is None
+            ):
+                payload["options"]["use_mlock"] = model_info.params.get(
+                    "use_mlock", None
+                )
+
+            if (
+                model_info.params.get("num_thread", None)
+                and payload["options"].get("num_thread") is None
+            ):
+                payload["options"]["num_thread"] = model_info.params.get(
+                    "num_thread", None
+                )
+
+            if (
+                model_info.params.get("proficiency", None)
+                and payload["options"].get("proficiency") is None
+            ):
+                payload["options"]["proficiency"] = model_info.params.get(
+                    "proficiency", None
+                )
+
+        system = model_info.params.get("system", None)
+        if system:
+            system = prompt_template(
+                system,
+                **(
+                    {
+                        "user_name": user.name,
+                        "user_location": (
+                            user.info.get("location") if user.info else None
+                        ),
+                    }
+                    if user
+                    else {}
+                ),
+            )
+
+            if payload.get("messages"):
+                payload["messages"] = add_or_update_system_message(
+                    system, payload["messages"]
+                )
+
+    if url_idx == None:
+        if ":" not in payload["model"]:
+            payload["model"] = f"{payload['model']}:latest"
+
+        if payload["model"] in app.state.MODELS:
+            url_idx = random.choice(app.state.MODELS[payload["model"]]["urls"])
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=ERROR_MESSAGES.MODEL_NOT_FOUND(form_data.model),
+            )
+
+    url = app.state.config.OLLAMA_BASE_URLS[url_idx]
+    log.info(f"url: {url}")
+    log.debug(payload)
+
+    return await post_streaming_url(
+        f"{url}/api/chat", json.dumps(payload), stream=False
+    )
 
 
 @app.post("/api/chat")

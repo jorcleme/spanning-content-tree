@@ -59,8 +59,8 @@
 
 	export let copyToClipboard: Function;
 	export let continueGeneration: Function;
-	export let regenerateResponse: Function;
-	export let chatActionHandler: Function;
+	export let regenerateResponse: (message: Message) => Promise<void>;
+	// export let chatActionHandler: Function;
 
 	let model = null;
 	$: model = $models.find((m) => m.id === message.model);
@@ -312,7 +312,7 @@
 							return a;
 						}, {});
 
-						let lastPlayedAudioPromise: Promise<Event> = Promise.resolve(new Event('')); // Initialize a promise that resolves immediately
+						let lastPlayedAudioPromise = Promise.resolve(new Event('')); // Initialize a promise that resolves immediately
 
 						for (const [idx, sentence] of sentences.entries()) {
 							const res = await synthesizeOpenAISpeech(
@@ -521,8 +521,8 @@
 								class=" bg-transparent outline-none w-full resize-none"
 								bind:value={editedContent}
 								on:input={(e) => {
-									e.target.style.height = '';
-									e.target.style.height = `${e.target.scrollHeight}px`;
+									e.currentTarget.style.height = '';
+									e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
 								}}
 								on:keydown={(e) => {
 									if (e.key === 'Escape') {
@@ -771,7 +771,7 @@
 													: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
 												on:click={() => {
 													if (!loadingSpeech) {
-														toggleSpeakMessage(message);
+														toggleSpeakMessage();
 													}
 												}}
 											>

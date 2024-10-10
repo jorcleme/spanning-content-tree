@@ -28,12 +28,11 @@
 	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let initNewChat: Function;
-	export let initNewChatForSupport: () => void;
 	export const title: string = $WEBUI_NAME;
 	export let shareEnabled: boolean = false;
 
 	export let chat;
-	export let selectedModels;
+	export let selectedModels: string[];
 
 	export let showModelSelector = true;
 	export let showControls = false;
@@ -143,9 +142,6 @@
 						</div>
 					</button>
 				</Tooltip>
-				<button class="hidden" id="new-article-support-button" on:click={() => initNewChatForSupport()}>
-					Article Support
-				</button>
 
 				{#if $user !== undefined}
 					<UserMenu

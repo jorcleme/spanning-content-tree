@@ -46,21 +46,13 @@
 
 	let proficiency = 0;
 	const labels = ['Beginner', 'Intermediate', 'Advanced'];
-	// const colors = ['bg-green-500', 'bg-yellow-500', 'bg-red-500'];
-	// let color = 'rgb(25, 144, 250)';
 	const colors = ['rgb(25, 144, 250)', 'rgb(15, 90, 210)', 'rgb(9, 70, 200)'];
-	const color = tweened(colors[0], {
+	const color = tweened(colors.at(0), {
 		duration: 800,
 		interpolate: interpolateLab
 	});
 
-	function getProficiencyColor(proficiency: number) {
-		return colors[proficiency];
-	}
-
-	const handleProficiencyChange = async (
-		e: Event & { currentTarget: EventTarget & HTMLInputElement }
-	) => {
+	const handleProficiencyChange = async (e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
 		const value = Number((e.target as HTMLInputElement).value);
 		params.proficiency = value;
 		await color.set(colors[value]);

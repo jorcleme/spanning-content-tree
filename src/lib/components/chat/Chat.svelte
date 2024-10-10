@@ -55,13 +55,11 @@
 	import Messages from '$lib/components/chat/Messages.svelte';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import CallOverlay from './MessageInput/CallOverlay.svelte';
-	import { error } from '@sveltejs/kit';
 	import ChatControls from './ChatControls.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import ClarificationCard from './Messages/ClarificationCard.svelte';
-	import type { ChatResponse, Message, MessageHistory, ClientFile, ChatTagListResponse } from '$lib/types';
+	import type { ChatResponse, Message, MessageHistory, ClientFile, ChatTagListResponse, Article } from '$lib/types';
 	import { isErrorWithDetail } from '$lib/utils';
-	import PromptContainer from '../Cisco/components/PromptContainer.svelte';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
 
@@ -80,7 +78,7 @@
 	let eventConfirmationMessage = '';
 	let eventConfirmationInput = false;
 	let eventConfirmationInputPlaceholder = '';
-	let eventCallback: Function = null;
+	let eventCallback: Function | null = null;
 
 	let showModelSelector = true;
 
@@ -144,7 +142,9 @@
 		currentId: null
 	};
 
-	let params: { [x: string]: any } = {};
+	let params: { [x: string]: any } = {
+		proficiency: 0
+	};
 	let valves = {};
 
 	$: _availableToolIds = selectedModelIds.reduce((a, e, i, arr) => {
@@ -677,7 +677,7 @@
 	import { cubicOut } from 'svelte/easing';
 
 	import { promptStore, variablesStore, explanationStore } from '$lib/stores';
-	import PromptTemplateGenerator from '$lib/components/Cisco/components/PromptTemplateGenerator.svelte';
+	import PromptTemplateGenerator from '$lib/components/cisco/components/PromptTemplateGenerator.svelte';
 	export let isTextareaTruthy = false;
 	export let showPromptTemplateGenerator = false;
 
@@ -966,94 +966,6 @@
 	//////////////////////////
 	// Web functions
 	//////////////////////////
-
-	const initNewChatForSupport = async () => {
-		window.history.replaceState(history.state, '', `/`);
-		chatId.set('');
-
-		autoScroll = true;
-
-		title = '';
-		messages = [];
-		history = {
-			messages: {},
-			currentId: null
-		};
-		chatFiles = [];
-		params = {};
-
-		if ($page.url.searchParams.get('models')) {
-			selectedModels = $page.url.searchParams.get('models')?.split(',') as string[];
-		} else if ($settings?.models) {
-			selectedModels = $settings?.models;
-		} else if ($config?.default_models) {
-			console.log($config?.default_models.split(',') ?? '');
-			selectedModels = $config?.default_models.split(',');
-		} else {
-			selectedModels = [''];
-		}
-		if ($page.url.searchParams.get('q')) {
-			prompt = $page.url.searchParams.get('q') ?? '';
-
-			if (prompt) {
-				await tick();
-				submitPrompt(prompt);
-			}
-		}
-
-		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
-
-		const userSettings = await getUserSettings(localStorage.token);
-
-		if (userSettings) {
-			settings.set(userSettings.ui);
-		} else {
-			settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
-		}
-
-		const chatInput = document.getElementById('chat-textarea');
-		setTimeout(() => chatInput?.focus(), 0);
-		setTimeout(() => {
-			if (chatInput) {
-				chatInput.textContent = prompt;
-			}
-		});
-		const _files: ClientFile[] = JSON.parse(JSON.stringify(files));
-		console.log('[submitPrompt:Chat.svelte] -> _files: ', _files);
-		chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type as string)));
-		chatFiles = chatFiles.filter(
-			// Remove duplicates
-			(item, index, array) => array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
-		);
-
-		let userPrompt = `<blockquote>
-    						"It looks like you're referring to an existing article. Would you like me to adjust the instructions based on your proficiency level?"
-						</blockquote>
-
-						<div class="flex space-x-2 mt-4">
-							<button class="flex text-xs items-center space-x-1 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition">
-								Yes
-							</button>
-							<button class="flex text-xs items-center space-x-1 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition">
-								No
-							</button>
-						</div>
-			`;
-
-		// let userMessageId = uuidv4();
-		// let userMessage = {
-		// 	id: userMessageId,
-		// 	parentId: messages.length !== 0 ? messages.at(-1)!.id : null,
-		// 	childrenIds: [],
-		// 	role: 'user',
-		// 	content: userPrompt,
-		// 	files: _files.length > 0 ? _files : undefined,
-		// 	timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
-		// 	models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx)
-		// };
-		console.log('[submitPrompt:Chat.svelte] -> userPrompt: ', userPrompt);
-		await submitPrompt(userPrompt);
-	};
 
 	const initNewChat = async () => {
 		window.history.replaceState(history.state, '', `/`);
@@ -1484,15 +1396,6 @@
 	const submitPrompt = async (userPrompt: string, { _raw = false } = {}) => {
 		let _responses: string[] = [];
 		console.log('submitPrompt', $chatId);
-		if (params && params.proficiency === 0) {
-			userPrompt = `I am a beginner to computer network infrastructure. Given my current knowledge level, respond to the user prompt following these rules:\n<rules>\n\t1. Take the time to explain basic concepts and terms.\n\t2. Avoid using jargon or technical terms without explaining them.\n\t3. Do not change the intent of the user prompt.\n</rules>\n\n${userPrompt}`;
-		}
-		if (params && params.proficiency === 1) {
-			userPrompt = `I am intermediate to computer network infrastructure. Given my current knowledge level, respond to the user prompt following these rules:\n<rules>\n\t1. Assume I have a basic understanding of computer network infrastructure.\n\t2. Use technical terms and jargon, but explain them when necessary.\n\t3. Do not change the intent of the user prompt.\n</rules>\n\n${userPrompt}`;
-		}
-		if (params && params.proficiency === 2) {
-			userPrompt = `I am advanced in computer network infrastructure. Given my current knowledge level, respond to the user prompt following these rules:\n<rules>\n\t1. Assume I have a deep understanding of computer network infrastructure.\n\t2. Use technical terms and jargon without explanation.\n\t3. Do not change the intent of the user prompt.\n</rules>\n\n${userPrompt}`;
-		}
 		console.log('userPrompt from submitPrompt', userPrompt);
 		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
 
@@ -1638,7 +1541,7 @@
 					timestamp: Date.now()
 				});
 				chats.set(await getChatList(localStorage.token));
-				chatId.set(chat!.id);
+				if (chat) chatId.set(chat.id);
 			} else {
 				chatId.set('local');
 			}
@@ -1687,6 +1590,14 @@
 							}
 						}
 					}
+					if ((params && params?.proficiency) ?? false) {
+						if (userContext === null) {
+							userContext = `Network Proficiency Level: ${params.proficiency}\n`;
+						} else {
+							userContext += `Network Proficiency Level: ${params.proficiency}\n`;
+						}
+					}
+
 					responseMessage.userContext = userContext;
 
 					const chatEventEmitter = await getChatEventEmitter(model.id, _chatId);
@@ -1853,7 +1764,7 @@
 
 				try {
 					let lines = value.split('\n');
-
+					console.log(lines);
 					for (const line of lines) {
 						if (line !== '') {
 							console.log(line);
@@ -2528,7 +2439,6 @@
 			shareEnabled={messages.length > 0}
 			{chat}
 			{initNewChat}
-			{initNewChatForSupport}
 		/>
 
 		{#if $banners.length > 0 && messages.length === 0 && !$chatId && selectedModels.length <= 1}

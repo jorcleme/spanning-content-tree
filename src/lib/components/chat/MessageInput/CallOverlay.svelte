@@ -1,13 +1,11 @@
 <script lang="ts">
+	import type { Model } from '$lib/stores';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { config, models, settings, showCallOverlay } from '$lib/stores';
 	import { onMount, tick, getContext } from 'svelte';
 
-	import {
-		blobToFile,
-		calculateSHA256,
-		extractSentencesForAudio,
-		findWordIndices
-	} from '$lib/utils';
+	import { blobToFile, calculateSHA256, extractSentencesForAudio, findWordIndices } from '$lib/utils';
 	import { generateEmoji } from '$lib/apis';
 	import { synthesizeOpenAISpeech, transcribeAudio } from '$lib/apis/audio';
 
@@ -16,7 +14,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import VideoInputMenu from './CallOverlay/VideoInputMenu.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let eventTarget: EventTarget;
 
@@ -28,27 +26,27 @@
 	export let chatId;
 	export let modelId;
 
-	let model = null;
+	let model: Model | null = null;
 
 	let loading = false;
 	let confirmed = false;
 	let interrupted = false;
 	let assistantSpeaking = false;
 
-	let emoji = null;
+	let emoji: string | null = null;
 
 	let camera = false;
-	let cameraStream = null;
+	let cameraStream: MediaStream | null = null;
 
 	let chatStreaming = false;
 
 	let rmsLevel = 0;
 	let hasStartedSpeaking = false;
-	let mediaRecorder;
-	let audioChunks = [];
+	let mediaRecorder: boolean | MediaRecorder;
+	let audioChunks: Array<Blob> = [];
 
-	let videoInputDevices = [];
-	let selectedVideoInputDeviceId = null;
+	let videoInputDevices: any[] = [];
+	let selectedVideoInputDeviceId: string | null = null;
 
 	const getVideoInputDevices = async () => {
 		const devices = await navigator.mediaDevices.enumerateDevices();
@@ -85,7 +83,7 @@
 	};
 
 	const startVideoStream = async () => {
-		const video = document.getElementById('camera-feed');
+		const video = document.getElementById('camera-feed') as HTMLVideoElement;
 		if (video) {
 			if (selectedVideoInputDeviceId === 'screen') {
 				cameraStream = await navigator.mediaDevices.getDisplayMedia({
@@ -120,14 +118,14 @@
 	};
 
 	const takeScreenshot = () => {
-		const video = document.getElementById('camera-feed');
-		const canvas = document.getElementById('camera-canvas');
+		const video = <HTMLVideoElement>document.getElementById('camera-feed');
+		const canvas = <HTMLCanvasElement>document.getElementById('camera-canvas');
 
 		if (!canvas) {
 			return;
 		}
 
-		const context = canvas.getContext('2d');
+		const context = <CanvasRenderingContext2D>canvas.getContext('2d');
 
 		// Make the canvas match the video dimensions
 		canvas.width = video.videoWidth;
@@ -151,7 +149,7 @@
 	const MIN_DECIBELS = -55;
 	const VISUALIZER_BUFFER_LENGTH = 300;
 
-	const transcribeHandler = async (audioBlob) => {
+	const transcribeHandler = async (audioBlob: Blob) => {
 		// Create a blob from the audio chunks
 
 		await tick();
@@ -247,7 +245,7 @@
 		return Math.sqrt(sumSquares / data.length);
 	};
 
-	const analyseAudio = (stream) => {
+	const analyseAudio = (stream: MediaStream) => {
 		const audioContext = new AudioContext();
 		const audioStreamSource = audioContext.createMediaStreamSource(stream);
 
@@ -305,7 +303,7 @@
 					if (Date.now() - lastSoundTime > 2000) {
 						confirmed = true;
 
-						if (mediaRecorder) {
+						if (mediaRecorder && mediaRecorder instanceof MediaRecorder) {
 							console.log('%c%s', 'color: red; font-size: 20px;', '🔇 Silence detected');
 							mediaRecorder.stop();
 							return;
@@ -322,11 +320,11 @@
 		detectSound();
 	};
 
-	let finishedMessages = {};
-	let currentMessageId = null;
-	let currentUtterance = null;
+	let finishedMessages: { [id: string]: any } = {};
+	let currentMessageId: string | null = null;
+	let currentUtterance: SpeechSynthesisUtterance | null = null;
 
-	const speakSpeechSynthesisHandler = (content) => {
+	const speakSpeechSynthesisHandler = (content: string) => {
 		if ($showCallOverlay) {
 			return new Promise((resolve) => {
 				let voices = [];
@@ -337,9 +335,7 @@
 
 						const voice =
 							voices
-								?.filter(
-									(v) => v.voiceURI === ($settings?.audio?.tts?.voice ?? $config?.audio?.tts?.voice)
-								)
+								?.filter((v) => v.voiceURI === ($settings?.audio?.tts?.voice ?? $config?.audio?.tts?.voice))
 								?.at(0) ?? undefined;
 
 						currentUtterance = new SpeechSynthesisUtterance(content);
@@ -361,10 +357,10 @@
 		}
 	};
 
-	const playAudio = (audio) => {
+	const playAudio = (audio: HTMLAudioElement) => {
 		if ($showCallOverlay) {
 			return new Promise((resolve) => {
-				const audioElement = document.getElementById('audioElement');
+				const audioElement = <HTMLAudioElement>document.getElementById('audioElement');
 
 				if (audioElement) {
 					audioElement.src = audio.src;
@@ -403,7 +399,7 @@
 			currentUtterance = null;
 		}
 
-		const audioElement = document.getElementById('audioElement');
+		const audioElement = <HTMLAudioElement>document.getElementById('audioElement');
 		if (audioElement) {
 			audioElement.muted = true;
 			audioElement.pause();
@@ -414,10 +410,10 @@
 	let audioAbortController = new AbortController();
 
 	// Audio cache map where key is the content and value is the Audio object.
-	const audioCache = new Map();
-	const emojiCache = new Map();
+	const audioCache = new Map<string, HTMLAudioElement | boolean>();
+	const emojiCache = new Map<string, string>();
 
-	const fetchAudio = async (content) => {
+	const fetchAudio = async (content: string) => {
 		if (!audioCache.has(content)) {
 			try {
 				// Set the emoji for the content if needed
@@ -428,7 +424,7 @@
 					}
 				}
 
-				if ($config.audio.tts.engine !== '') {
+				if ($config?.audio?.tts?.engine !== '') {
 					const res = await synthesizeOpenAISpeech(
 						localStorage.token,
 						$settings?.audio?.tts?.voice ?? $config?.audio?.tts?.voice,
@@ -454,33 +450,29 @@
 		return audioCache.get(content);
 	};
 
-	let messages = {};
+	let messages: { [id: string]: string[] } = {};
 
-	const monitorAndPlayAudio = async (id, signal) => {
+	const monitorAndPlayAudio = async (id: string, signal: AbortSignal) => {
 		while (!signal.aborted) {
 			if (messages[id] && messages[id].length > 0) {
 				// Retrieve the next content string from the queue
-				const content = messages[id].shift(); // Dequeues the content for playing
+				const content = messages[id].shift() as string; // Dequeues the content for playing
 
 				if (audioCache.has(content)) {
 					// If content is available in the cache, play it
 
 					// Set the emoji for the content if available
 					if (($settings?.showEmojiInCall ?? false) && emojiCache.has(content)) {
-						emoji = emojiCache.get(content);
+						emoji = emojiCache.get(content) as string;
 					} else {
 						emoji = null;
 					}
 
-					if ($config.audio.tts.engine !== '') {
+					if ($config?.audio?.tts?.engine !== '') {
 						try {
-							console.log(
-								'%c%s',
-								'color: red; font-size: 20px;',
-								`Playing audio for content: ${content}`
-							);
+							console.log('%c%s', 'color: red; font-size: 20px;', `Playing audio for content: ${content}`);
 
-							const audio = audioCache.get(content);
+							const audio = audioCache.get(content) as HTMLAudioElement;
 							await playAudio(audio); // Here ensure that playAudio is indeed correct method to execute
 							console.log(`Played audio for content: ${content}`);
 							await new Promise((resolve) => setTimeout(resolve, 200)); // Wait before retrying to reduce tight loop
@@ -507,13 +499,13 @@
 		}
 		console.log(`Audio monitoring and playing stopped for message ID ${id}`);
 	};
-
+	// @ts-expect-error - onMount isn't typed for Promise
 	onMount(async () => {
-		model = $models.find((m) => m.id === modelId);
+		model = $models.find((m) => m.id === modelId) as Model;
 
 		startRecording();
 
-		const chatStartHandler = async (e) => {
+		const chatStartHandler = async (e: CustomEvent<{ id: string }>) => {
 			const { id } = e.detail;
 
 			chatStreaming = true;
@@ -533,7 +525,7 @@
 			}
 		};
 
-		const chatEventHandler = async (e) => {
+		const chatEventHandler = async (e: CustomEvent<{ id: string; content: string }>) => {
 			const { id, content } = e.detail;
 			// "id" here is message id
 			// if "id" is not the same as "currentMessageId" then do not process
@@ -559,7 +551,7 @@
 			}
 		};
 
-		const chatFinishHandler = async (e) => {
+		const chatFinishHandler = async (e: CustomEvent<{ id: string; content: string }>) => {
 			const { id, content } = e.detail;
 			// "content" here is the entire message from the assistant
 			finishedMessages[id] = true;
@@ -567,14 +559,14 @@
 			chatStreaming = false;
 		};
 
-		eventTarget.addEventListener('chat:start', chatStartHandler);
-		eventTarget.addEventListener('chat', chatEventHandler);
-		eventTarget.addEventListener('chat:finish', chatFinishHandler);
+		eventTarget.addEventListener('chat:start', chatStartHandler as unknown as EventListener);
+		eventTarget.addEventListener('chat', chatEventHandler as unknown as EventListener);
+		eventTarget.addEventListener('chat:finish', chatFinishHandler as unknown as EventListener);
 
 		return async () => {
-			eventTarget.removeEventListener('chat:start', chatStartHandler);
-			eventTarget.removeEventListener('chat', chatEventHandler);
-			eventTarget.removeEventListener('chat:finish', chatFinishHandler);
+			eventTarget.removeEventListener('chat:start', chatStartHandler as unknown as EventListener);
+			eventTarget.removeEventListener('chat', chatEventHandler as unknown as EventListener);
+			eventTarget.removeEventListener('chat:finish', chatFinishHandler as unknown as EventListener);
 
 			audioAbortController.abort();
 			await tick();
@@ -661,12 +653,11 @@
 									? ' size-16'
 									: rmsLevel * 100 > 1
 									? 'size-14'
-									: 'size-12'}  transition-all rounded-full {(model?.info?.meta
-									?.profile_image_url ?? '/static/favicon.png') !== '/static/favicon.png'
+									: 'size-12'}  transition-all rounded-full {(model?.info?.meta?.profile_image_url ??
+									'/static/favicon.png') !== '/static/favicon.png'
 									? ' bg-cover bg-center bg-no-repeat'
 									: 'bg-black dark:bg-white'}  bg-black dark:bg-white"
-								style={(model?.info?.meta?.profile_image_url ?? '/static/favicon.png') !==
-								'/static/favicon.png'
+								style={(model?.info?.meta?.profile_image_url ?? '/static/favicon.png') !== '/static/favicon.png'
 									? `background-image: url('${model?.info?.meta?.profile_image_url}');`
 									: ''}
 							/>
@@ -743,21 +734,19 @@
 										? 'size-48'
 										: rmsLevel * 100 > 1
 										? 'size-[11.5rem]'
-										: 'size-44'}  transition-all rounded-full {(model?.info?.meta
-										?.profile_image_url ?? '/static/favicon.png') !== '/static/favicon.png'
+										: 'size-44'}  transition-all rounded-full {(model?.info?.meta?.profile_image_url ??
+										'/static/favicon.png') !== '/static/favicon.png'
 										? ' bg-cover bg-center bg-no-repeat'
 										: 'bg-black dark:bg-white'} "
-									style={(model?.info?.meta?.profile_image_url ?? '/static/favicon.png') !==
-									'/static/favicon.png'
+									style={(model?.info?.meta?.profile_image_url ?? '/static/favicon.png') !== '/static/favicon.png'
 										? `background-image: url('${model?.info?.meta?.profile_image_url}');`
 										: ''}
 								/>
 							{/if}
 						</button>
 					{:else}
-						<div
-							class="relative flex video-container w-full max-h-full pt-2 pb-4 md:py-6 px-2 h-full"
-						>
+						<div class="relative flex video-container w-full max-h-full pt-2 pb-4 md:py-6 px-2 h-full">
+							<!-- svelte-ignore a11y-media-has-caption -->
 							<video
 								id="camera-feed"
 								autoplay
@@ -775,12 +764,7 @@
 										stopCamera();
 									}}
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										viewBox="0 0 16 16"
-										fill="currentColor"
-										class="size-6"
-									>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-6">
 										<path
 											d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z"
 										/>
@@ -804,12 +788,7 @@
 								}}
 							>
 								<button class=" p-3 rounded-full bg-gray-50 dark:bg-gray-900" type="button">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										viewBox="0 0 20 20"
-										fill="currentColor"
-										class="size-5"
-									>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
 										<path
 											fill-rule="evenodd"
 											d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z"
@@ -881,12 +860,7 @@
 							}}
 							type="button"
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								class="size-5"
-							>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
 								<path
 									d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"
 								/>

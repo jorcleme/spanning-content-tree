@@ -32,6 +32,7 @@ export async function createOpenAITextStream(
 		.getReader();
 	let iterator = openAIStreamToIterator(eventStream);
 	if (splitLargeDeltas) {
+		console.log('Splitting large deltas into random chunks');
 		iterator = streamLargeDeltasAsRandomChunks(iterator);
 	}
 	return iterator;
@@ -96,13 +97,13 @@ async function* streamLargeDeltasAsRandomChunks(
 		}
 		let content = textStreamUpdate.value;
 		if (content.length < 5) {
-			yield { done: false, value: content };
+			yield { done: false, value: content, usage: textStreamUpdate.usage ?? undefined };
 			continue;
 		}
 		while (content != '') {
 			const chunkSize = Math.min(Math.floor(Math.random() * 3) + 1, content.length);
 			const chunk = content.slice(0, chunkSize);
-			yield { done: false, value: chunk };
+			yield { done: false, value: chunk, usage: textStreamUpdate.usage ?? undefined };
 			// Do not sleep if the tab is hidden
 			// Timers are throttled to 1s in hidden tabs
 			if (document?.visibilityState !== 'hidden') {

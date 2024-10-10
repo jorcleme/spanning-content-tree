@@ -245,7 +245,12 @@ export const generateTitle = async (token: string = '', model: string, prompt: s
 	return res?.choices[0]?.message?.content.replace(/["']/g, '') ?? 'New Chat';
 };
 
-export const generateEmoji = async (token: string = '', model: string, prompt: string, chat_id?: string) => {
+export const generateEmoji = async (
+	token: string = '',
+	model: string,
+	prompt: string,
+	chat_id?: string
+): Promise<string | null> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_BASE_URL}/api/task/emoji/completions`, {
@@ -263,7 +268,7 @@ export const generateEmoji = async (token: string = '', model: string, prompt: s
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -899,6 +904,7 @@ export interface ModelMeta {
 	user?: SessionUser;
 	toolIds?: string[];
 	profile_image_url?: string;
+	filterIds?: string[];
 }
 
 export interface ModelParams {}

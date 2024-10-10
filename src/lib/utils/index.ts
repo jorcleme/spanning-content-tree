@@ -35,7 +35,7 @@ export const sanitizeResponseContent = (content: string) => {
 	return content.trim();
 };
 
-export const replaceTokens = (content, char, user) => {
+export const replaceTokens = (content: string, char?: string, user?: string) => {
 	const charToken = /{{char}}/gi;
 	const userToken = /{{user}}/gi;
 	const videoIdToken = /{{VIDEO_FILE_ID_([a-f0-9-]+)}}/gi; // Regex to capture the video ID
@@ -70,11 +70,11 @@ export const revertSanitizedResponseContent = (content: string) => {
 	return content.replaceAll('&lt;', '<').replaceAll('&gt;', '>');
 };
 
-export const capitalizeFirstLetter = (string) => {
+export const capitalizeFirstLetter = (string: string) => {
 	return string.charAt(0).toUpperCase() + string.slice(1);
 };
 
-export const splitStream = (splitOn) => {
+export const splitStream = (splitOn: string) => {
 	let buffer = '';
 	return new TransformStream({
 		transform(chunk, controller) {
@@ -102,7 +102,7 @@ export const convertMessagesToHistory = (messages: Message[]) => {
 		messageId = uuidv4();
 
 		if (parentMessageId !== null) {
-			history.messages[parentMessageId].childrenIds = [...history.messages[parentMessageId].childrenIds, messageId];
+			history.messages[parentMessageId].childrenIds = [...history.messages[parentMessageId].childrenIds!, messageId];
 		}
 
 		history.messages[messageId] = {
@@ -119,13 +119,14 @@ export const convertMessagesToHistory = (messages: Message[]) => {
 	return history;
 };
 
-export const getGravatarURL = (email) => {
+export const getGravatarURL = (email: any) => {
 	// Trim leading and trailing whitespace from
 	// an email address and force all characters
 	// to lower case
 	const address = String(email).trim().toLowerCase();
 
 	// Create a SHA256 hash of the final string
+	// @ts-expect-error - TS doesn't know about the global `sha256` function
 	const hash = sha256(address);
 
 	// Grab the actual image URL
@@ -136,7 +137,7 @@ export const canvasPixelTest = () => {
 	// Test a 1x1 pixel to potentially identify browser/plugin fingerprint blocking or spoofing
 	// Inspiration: https://github.com/kkapsner/CanvasBlocker/blob/master/test/detectionTest.js
 	const canvas = document.createElement('canvas');
-	const ctx = canvas.getContext('2d');
+	const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 	canvas.height = 1;
 	canvas.width = 1;
 	const imageData = new ImageData(canvas.width, canvas.height);
@@ -173,9 +174,9 @@ export const canvasPixelTest = () => {
 	return true;
 };
 
-export const generateInitialsImage = (name) => {
-	const canvas = document.createElement('canvas');
-	const ctx = canvas.getContext('2d');
+export const generateInitialsImage = (name: string) => {
+	const canvas = document.createElement('canvas') as HTMLCanvasElement;
+	const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 	canvas.width = 100;
 	canvas.height = 100;
 
@@ -204,7 +205,7 @@ export const generateInitialsImage = (name) => {
 	return canvas.toDataURL();
 };
 
-export const copyToClipboard = async (text) => {
+export const copyToClipboard = async (text: string) => {
 	let result = false;
 	if (!navigator.clipboard) {
 		const textArea = document.createElement('textarea');
@@ -246,7 +247,7 @@ export const copyToClipboard = async (text) => {
 	return result;
 };
 
-export const compareVersion = (latest, current) => {
+export const compareVersion = (latest: string, current: string) => {
 	return current === '0.0.0'
 		? false
 		: current.localeCompare(latest, undefined, {
@@ -256,7 +257,7 @@ export const compareVersion = (latest, current) => {
 		  }) < 0;
 };
 
-export const findWordIndices = (text) => {
+export const findWordIndices = (text: string) => {
 	const regex = /\[([^\]]+)\]/g;
 	const matches = [];
 	let match;
@@ -272,7 +273,7 @@ export const findWordIndices = (text) => {
 	return matches;
 };
 
-export const removeFirstHashWord = (inputString) => {
+export const removeFirstHashWord = (inputString: string) => {
 	// Split the string into an array of words
 	const words = inputString.split(' ');
 
@@ -290,7 +291,7 @@ export const removeFirstHashWord = (inputString) => {
 	return resultString;
 };
 
-export const transformFileName = (fileName) => {
+export const transformFileName = (fileName: string) => {
 	// Convert to lowercase
 	const lowerCaseFileName = fileName.toLowerCase();
 
@@ -303,13 +304,13 @@ export const transformFileName = (fileName) => {
 	return finalFileName;
 };
 
-export const calculateSHA256 = async (file) => {
+export const calculateSHA256 = async (file: Blob) => {
 	// Create a FileReader to read the file asynchronously
 	const reader = new FileReader();
 
 	// Define a promise to handle the file reading
-	const readFile = new Promise((resolve, reject) => {
-		reader.onload = () => resolve(reader.result);
+	const readFile: Promise<ArrayBuffer> = new Promise((resolve, reject) => {
+		reader.onload = () => resolve(reader.result as ArrayBuffer);
 		reader.onerror = reject;
 	});
 
@@ -337,7 +338,7 @@ export const calculateSHA256 = async (file) => {
 	}
 };
 
-export const getImportOrigin = (_chats) => {
+export const getImportOrigin = (_chats: Array<{ mapping?: string }>) => {
 	// Check what external service chat imports are from
 	if ('mapping' in _chats[0]) {
 		return 'openai';
@@ -368,7 +369,7 @@ export const getUserPosition = async (raw: boolean = false) => {
 	}
 };
 
-const convertOpenAIMessages = (convo) => {
+const convertOpenAIMessages = (convo: any) => {
 	// Parse OpenAI chat messages and create chat dictionary for creating new chats
 	const mapping = convo['mapping'];
 	const messages = [];
@@ -421,8 +422,8 @@ const convertOpenAIMessages = (convo) => {
 	};
 	return chat;
 };
-
-const validateChat = (chat) => {
+import type { Chat } from '$lib/types';
+const validateChat = (chat: any) => {
 	// Because ChatGPT sometimes has features we can't use like DALL-E or migh have corrupted messages, need to validate
 	const messages = chat.messages;
 
@@ -433,7 +434,7 @@ const validateChat = (chat) => {
 
 	// Last message's children should be an empty array
 	const lastMessage = messages[messages.length - 1];
-	if (lastMessage.childrenIds.length !== 0) {
+	if (lastMessage.childrenIds?.length !== 0) {
 		return false;
 	}
 
@@ -444,7 +445,7 @@ const validateChat = (chat) => {
 	}
 
 	// Every message's content should be a string
-	for (let message of messages) {
+	for (const message of messages) {
 		if (typeof message.content !== 'string') {
 			return false;
 		}
@@ -452,7 +453,7 @@ const validateChat = (chat) => {
 
 	return true;
 };
-import type { Chat } from '$lib/types';
+
 export const convertOpenAIChats = (_chats: Chat[]) => {
 	// Create a list of dictionaries with each conversation from import
 	const chats = [];
@@ -756,3 +757,25 @@ export const isErrorWithMessage = (error: unknown): error is { message: string }
 };
 
 export const isErrorAsString = (error: unknown): error is string => typeof error === 'string';
+
+export const debounce = (func: (...args: any[]) => void, delay = 200) => {
+	let timer: Timer;
+	return (...args: any[]) => {
+		clearTimeout(timer);
+		timer = setTimeout(() => func(...args), delay);
+	};
+};
+
+export const stripHtml = (text: string) => {
+	return text
+		.replace(/<[^>]*>?/g, '')
+		.replace(/&gt;/g, '>')
+		.replace(/&lt;/g, '<')
+		.replace(/&amp;/g, '&') // Convert &amp; to &
+		.replace(/&quot;/g, '"') // Convert &quot; to "
+		.replace(/&apos;/g, "'"); // Convert &apos; to ';
+};
+
+export const titleizeWords = (str: string) => {
+	return str.replace(/\b\w/g, (char) => char.toUpperCase());
+};

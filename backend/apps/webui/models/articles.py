@@ -6,6 +6,7 @@ from sqlalchemy import String, Column, Text, Enum, ForeignKey, BigInteger, Table
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 import uuid
+import json
 import logging
 import time
 from apps.webui.internal.db import Base, get_db, JSONField
@@ -108,8 +109,6 @@ class ArticleResponse(BaseModel):
     applicable_devices: Optional[List[Any]]
     introduction: Optional[str]
     steps: Optional[List[Dict[str, Any]]]
-    series: List[str]
-    # series_id: str
     created_at: int
     updated_at: int
 
@@ -370,10 +369,40 @@ class ArticlesTable:
     def update_article_by_id(self, id: str, updated: dict) -> Optional[ArticleModel]:
         try:
             with get_db() as db:
-                db.query(Article).filter_by(id=id).update(**updated)
+                db.query(Article).filter_by(id=id).update(updated)
                 db.commit()
-                article = db.query(Article).filter_by(id=id).first()
-                return ArticleModel.model_validate(article)
+                article_obj = db.query(Article).filter_by(id=id).first()
+                article_obj.updated_at = int(time.time())
+                db.commit()
+                db.refresh(article_obj)
+                return ArticleModel.model_validate(article_obj)
+        except Exception as e:
+            return None
+
+    def update_article_steps_by_id(
+        self, id: str, updated: dict, step_idx: int
+    ) -> Optional[ArticleModel]:
+        try:
+            with get_db() as db:
+                a = db.query(Article).filter_by(id=id).first()
+                if a:
+                    log.debug(f"Article found: {a.title}")
+                    if 0 <= step_idx < len(a.steps):
+                        log.debug(f"Updating step {step_idx} for article {id}")
+                        steps = list(a.steps)
+                        steps[step_idx] = updated
+                        a.steps = steps
+                        a.updated_at = int(time.time())
+                        db.commit()
+                        db.refresh(a)
+                        return ArticleModel.model_validate(a)
+                    else:
+                        log.debug(f"Step index {step_idx} out of range")
+                        return None
+                else:
+                    log.debug(f"Article not found: {id}")
+                    return None
+
         except Exception as e:
             return None
 

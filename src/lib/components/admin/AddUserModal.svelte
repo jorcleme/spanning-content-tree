@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { toast } from 'svelte-sonner';
 	import { createEventDispatcher } from 'svelte';
 	import { onMount, getContext } from 'svelte';
@@ -7,14 +9,14 @@
 	import Modal from '../common/Modal.svelte';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
 	export let show = false;
 
 	let loading = false;
 	let tab = '';
-	let inputFiles;
+	let inputFiles: FileList | null;
 
 	let _user = {
 		name: '',
@@ -41,15 +43,11 @@
 		if (tab === '') {
 			loading = true;
 
-			const res = await addUser(
-				localStorage.token,
-				_user.name,
-				_user.email,
-				_user.password,
-				_user.role
-			).catch((error) => {
-				toast.error(error);
-			});
+			const res = await addUser(localStorage.token, _user.name, _user.email, _user.password, _user.role).catch(
+				(error) => {
+					toast.error(error);
+				}
+			);
 
 			if (res) {
 				stopLoading();
@@ -63,7 +61,7 @@
 				const reader = new FileReader();
 
 				reader.onload = async (e) => {
-					const csv = e.target.result;
+					const csv = e.target?.result as string;
 					const rows = csv.split('\n');
 
 					let userCount = 0;
@@ -73,10 +71,7 @@
 						console.log(idx, columns);
 
 						if (idx > 0) {
-							if (
-								columns.length === 4 &&
-								['admin', 'user', 'pending'].includes(columns[3].toLowerCase())
-							) {
+							if (columns.length === 4 && ['admin', 'user', 'pending'].includes(columns[3].toLowerCase())) {
 								const res = await addUser(
 									localStorage.token,
 									columns[0],
@@ -102,7 +97,7 @@
 					const uploadInputElement = document.getElementById('upload-user-csv-input');
 
 					if (uploadInputElement) {
-						uploadInputElement.value = null;
+						(uploadInputElement as HTMLInputElement).value = '';
 					}
 
 					stopLoading();
@@ -126,12 +121,7 @@
 					show = false;
 				}}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="w-5 h-5"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 					<path
 						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 					/>
@@ -231,13 +221,7 @@
 						{:else if tab === 'import'}
 							<div>
 								<div class="mb-3 w-full">
-									<input
-										id="upload-user-csv-input"
-										hidden
-										bind:files={inputFiles}
-										type="file"
-										accept=".csv"
-									/>
+									<input id="upload-user-csv-input" hidden bind:files={inputFiles} type="file" accept=".csv" />
 
 									<button
 										class="w-full text-sm font-medium py-3 bg-transparent hover:bg-gray-100 border border-dashed dark:border-gray-800 dark:hover:bg-gray-850 text-center rounded-xl"
@@ -255,13 +239,8 @@
 								</div>
 
 								<div class=" text-xs text-gray-500">
-									ⓘ {$i18n.t(
-										'Ensure your CSV file includes 4 columns in this order: Name, Email, Password, Role.'
-									)}
-									<a
-										class="underline dark:text-gray-200"
-										href="{WEBUI_BASE_URL}/static/user-import.csv"
-									>
+									ⓘ {$i18n.t('Ensure your CSV file includes 4 columns in this order: Name, Email, Password, Role.')}
+									<a class="underline dark:text-gray-200" href="{WEBUI_BASE_URL}/static/user-import.csv">
 										{$i18n.t('Click here to download user import template file.')}
 									</a>
 								</div>
@@ -281,11 +260,7 @@
 
 							{#if loading}
 								<div class="ml-2 self-center">
-									<svg
-										class=" w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="currentColor"
-										xmlns="http://www.w3.org/2000/svg"
+									<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
 										><style>
 											.spinner_ajPY {
 												transform-origin: center;

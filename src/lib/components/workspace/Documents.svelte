@@ -1,4 +1,8 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { Document } from '$lib/stores';
+	import type { ClientFile } from '$lib/types';
 	import { toast } from 'svelte-sonner';
 	import fileSaver from 'file-saver';
 	const { saveAs } = fileSaver;
@@ -17,38 +21,38 @@
 	import AddFilesPlaceholder from '$lib/components/AddFilesPlaceholder.svelte';
 	import AddDocModal from '$lib/components/documents/AddDocModal.svelte';
 	import { transcribeAudio } from '$lib/apis/audio';
-	import { uploadFile } from '$lib/apis/files';
+	import { type _FileUploadRes, uploadFile } from '$lib/apis/files';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
-	let importFiles = '';
+	let importFiles: FileList;
 
 	let inputFiles = '';
 	let query = '';
 	let documentsImportInputElement: HTMLInputElement;
-	let tags = [];
-	let files = [];
+	let tags: string[] = [];
+	let files: ClientFile[] = [];
 	let showSettingsModal = false;
 	let showAddDocModal = false;
 	let showEditDocModal = false;
-	let selectedDoc;
+	let selectedDoc: Document & { selected: 'checked' | 'unchecked' };
 	let selectedTag = '';
 
 	let dragged = false;
 
-	const deleteDoc = async (name) => {
+	const deleteDoc = async (name: string) => {
 		await deleteDocByName(localStorage.token, name);
-		await documents.set(await getDocs(localStorage.token));
+		documents.set(await getDocs(localStorage.token));
 	};
 
-	const deleteDocs = async (docs) => {
-		const res = await Promise.all(
+	const deleteDocs = async (docs: Document[]) => {
+		await Promise.all(
 			docs.map(async (doc) => {
 				return await deleteDocByName(localStorage.token, doc.name);
 			})
 		);
 
-		await documents.set(await getDocs(localStorage.token));
+		documents.set(await getDocs(localStorage.token));
 	};
 
 	const uploadDoc = async (file: File) => {
@@ -73,23 +77,25 @@
 			return null;
 		});
 
-		const res = await processDocToVectorDB(localStorage.token, uploadedFile.id).catch((error) => {
-			toast.error(error);
-			return null;
-		});
-
-		if (res) {
-			await createNewDoc(
-				localStorage.token,
-				res.collection_name,
-				res.filename,
-				transformFileName(res.filename),
-				res.filename
-			).catch((error) => {
+		if (uploadedFile) {
+			const res = await processDocToVectorDB(localStorage.token, uploadedFile.id).catch((error) => {
 				toast.error(error);
 				return null;
 			});
-			await documents.set(await getDocs(localStorage.token));
+
+			if (res) {
+				await createNewDoc(
+					localStorage.token,
+					res.collection_name,
+					res.filename,
+					transformFileName(res.filename),
+					res.filename
+				).catch((error) => {
+					toast.error(error);
+					return null;
+				});
+				documents.set(await getDocs(localStorage.token));
+			}
 		}
 	};
 
@@ -97,11 +103,11 @@
 		documents.subscribe((docs) => {
 			tags = docs.reduce((a, e, i, arr) => {
 				return [...new Set([...a, ...(e?.content?.tags ?? []).map((tag) => tag.name)])];
-			}, []);
+			}, [] as string[]);
 		});
 		const dropZone = document.querySelector('body');
 
-		const onDragOver = (e) => {
+		const onDragOver = (e: DragEvent) => {
 			e.preventDefault();
 			dragged = true;
 		};
@@ -133,13 +139,11 @@
 						console.log(file, file.name.split('.').at(-1));
 						if (
 							SUPPORTED_FILE_TYPE.includes(file['type']) ||
-							SUPPORTED_FILE_EXTENSIONS.includes(file.name.split('.').at(-1))
+							SUPPORTED_FILE_EXTENSIONS.includes(file.name?.split('.').at(-1)!)
 						) {
 							uploadDoc(file);
 						} else {
-							toast.error(
-								`Unknown File Type '${file['type']}', but accepting and treating as plain text`
-							);
+							toast.error(`Unknown File Type '${file['type']}', but accepting and treating as plain text`);
 							uploadDoc(file);
 						}
 					}
@@ -162,14 +166,37 @@
 		};
 	});
 
-	let filteredDocs;
+	const handleUploadFile = () => {
+		console.log(importFiles);
+
+		const reader = new FileReader();
+		reader.onload = async (event) => {
+			const results = event.target?.result as string;
+			const savedDocs = JSON.parse(results);
+			console.log(savedDocs);
+
+			for (const doc of savedDocs) {
+				await createNewDoc(localStorage.token, doc.collection_name, doc.filename, doc.name, doc.title).catch(
+					(error) => {
+						toast.error(error);
+						return null;
+					}
+				);
+			}
+
+			documents.set(await getDocs(localStorage.token));
+		};
+
+		reader.readAsText(importFiles[0]);
+	};
+
+	let filteredDocs: Array<Document & { selected: 'checked' | 'unchecked' }> = [];
 
 	$: filteredDocs = $documents.filter(
 		(doc) =>
-			(selectedTag === '' ||
-				(doc?.content?.tags ?? []).map((tag) => tag.name).includes(selectedTag)) &&
+			(selectedTag === '' || (doc?.content?.tags ?? []).map((tag) => tag.name).includes(selectedTag)) &&
 			(query === '' || doc.name.includes(query))
-	);
+	) as Array<Document & { selected: 'checked' | 'unchecked' }>;
 </script>
 
 <svelte:head>
@@ -216,12 +243,7 @@
 <div class=" flex w-full space-x-2">
 	<div class="flex flex-1">
 		<div class=" self-center ml-1 mr-3">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 20 20"
-				fill="currentColor"
-				class="w-4 h-4"
-			>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 				<path
 					fill-rule="evenodd"
 					d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
@@ -243,12 +265,7 @@
 				showAddDocModal = true;
 			}}
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 16 16"
-				fill="currentColor"
-				class="w-4 h-4"
-			>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 				<path
 					d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
 				/>
@@ -282,8 +299,7 @@
 	<div class="px-2.5 pt-1 flex gap-1 flex-wrap">
 		<div class="ml-0.5 pr-3 my-auto flex items-center">
 			<Checkbox
-				state={filteredDocs.filter((doc) => doc?.selected === 'checked').length ===
-				filteredDocs.length
+				state={filteredDocs.filter((doc) => doc?.selected === 'checked').length === filteredDocs.length
 					? 'checked'
 					: 'unchecked'}
 				indeterminate={filteredDocs.filter((doc) => doc?.selected === 'checked').length > 0 &&
@@ -375,12 +391,7 @@
 				<div class=" flex items-center space-x-3">
 					<div class="p-2.5 bg-red-400 text-white rounded-lg">
 						{#if doc}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 24 24"
-								fill="currentColor"
-								class="w-6 h-6"
-							>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
 								<path
 									fill-rule="evenodd"
 									d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z"
@@ -527,32 +538,7 @@
 			type="file"
 			accept=".json"
 			hidden
-			on:change={() => {
-				console.log(importFiles);
-
-				const reader = new FileReader();
-				reader.onload = async (event) => {
-					const savedDocs = JSON.parse(event.target.result);
-					console.log(savedDocs);
-
-					for (const doc of savedDocs) {
-						await createNewDoc(
-							localStorage.token,
-							doc.collection_name,
-							doc.filename,
-							doc.name,
-							doc.title
-						).catch((error) => {
-							toast.error(error);
-							return null;
-						});
-					}
-
-					await documents.set(await getDocs(localStorage.token));
-				};
-
-				reader.readAsText(importFiles[0]);
-			}}
+			on:change={() => handleUploadFile()}
 		/>
 
 		<button
@@ -566,12 +552,7 @@
 			</div>
 
 			<div class=" self-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 16 16"
-					fill="currentColor"
-					class="w-4 h-4"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 					<path
 						fill-rule="evenodd"
 						d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm4 9.5a.75.75 0 0 1-.75-.75V8.06l-.72.72a.75.75 0 0 1-1.06-1.06l2-2a.75.75 0 0 1 1.06 0l2 2a.75.75 0 1 1-1.06 1.06l-.72-.72v2.69a.75.75 0 0 1-.75.75Z"
@@ -595,12 +576,7 @@
 			</div>
 
 			<div class=" self-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 16 16"
-					fill="currentColor"
-					class="w-4 h-4"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 					<path
 						fill-rule="evenodd"
 						d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm4 3.5a.75.75 0 0 1 .75.75v2.69l.72-.72a.75.75 0 1 1 1.06 1.06l-2 2a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 0 1 1.06-1.06l.72.72V6.25A.75.75 0 0 1 8 5.5Z"

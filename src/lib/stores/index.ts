@@ -1,6 +1,7 @@
 import { APP_NAME } from '$lib/constants';
-import { type Writable, writable } from 'svelte/store';
-import type { ChatListResponse, TagsByUserResponse } from '$lib/types';
+import { page } from '$app/stores';
+import { derived, type Writable, writable } from 'svelte/store';
+import type { ChatListResponse, TagsByUserResponse, Article } from '$lib/types';
 import type { GlobalModelConfig, ModelConfig } from '$lib/apis';
 import type { Banner } from '$lib/types';
 import type { Socket } from 'socket.io-client';
@@ -86,6 +87,7 @@ type BaseModel = {
 	info?: ModelConfig;
 	ollama?: OllamaPullDetails;
 	openai?: OpenAIModelDetails;
+	preset?: boolean;
 };
 
 export interface OpenAIModel extends BaseModel {
@@ -163,14 +165,89 @@ export type Settings = {
 	splitLargeChunks?: boolean;
 	backgroundImageUrl?: string;
 	chatBubble?: boolean;
+	showEmojiInCall?: boolean;
+	voiceInterruption?: boolean;
+	widescreenMode?: boolean;
 };
 
 // Cisco Defined Types
+export const IsSupportingArticle = derived([page], ([$page]) => {
+	if ($page.route.id === '/(app)/article') {
+		return true;
+	}
+	return false;
+});
+export const ExpGradeSelected = writable('Fully Guided');
+export const activeSupportSection = writable('Objective');
+export const activeSupportStep = writable(1);
+export const isSupportWidgetOpen = writable(false);
+export const mostRecentStep = writable(-1);
+export const activeArticle = writable<null | Article>(null);
+
+export const activeArticleId = derived([activeArticle], ([$activeArticle]) => {
+	if ($activeArticle) {
+		return $activeArticle.id;
+	}
+	return '';
+});
+
+export const mountedArticleSteps = derived([activeArticle], ([$activeArticle]) => {
+	if ($activeArticle) {
+		return $activeArticle.steps;
+	}
+	return [];
+});
+
+export const mountedArticlePreambleObjective = derived([activeArticle], ([$activeArticle]) => {
+	if ($activeArticle) {
+		return $activeArticle.objective;
+	}
+	return '';
+});
+
+export const mountedArticlePreambleDevices = derived(
+	[activeArticle],
+	([$activeArticle]) =>
+		$activeArticle?.applicable_devices
+			.map((device) => `${device.device} (Firmware Version: ${device.software})`)
+			.join(' and ') || ''
+);
+
+export const isSupportStepDetailsOpen = writable(false);
 
 // PersistentConfig Settings
 export type PersistentConfigSettings = {
 	ui: Settings;
 };
+
+export interface _CiscoArticleMessage {
+	id: string;
+	role: string;
+	content: string;
+	timestamp: number;
+	model: string;
+	sources?: Record<string, any>[];
+	associatedQuestion?: string | null;
+	error?: any;
+	done?: boolean;
+	info?: Record<string, any>;
+	originalContent?: string;
+	annotation?: {
+		rating?: number;
+		reasons?: string[];
+		comment?: string;
+	};
+}
+
+interface _CiscoArticleQuestion {
+	id: string;
+	text: string;
+	clicked: boolean;
+	stepIndex: number;
+}
+
+export const ciscoArticleMessages = writable<_CiscoArticleMessage[]>([]);
+export const ciscoArticleQuestions = writable<_CiscoArticleQuestion[]>([]);
 
 type ModelDownloadPool = Record<string, any>;
 

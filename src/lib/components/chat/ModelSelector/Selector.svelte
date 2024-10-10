@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { DropdownMenu } from 'bits-ui';
 	import { marked } from 'marked';
 
@@ -13,20 +15,15 @@
 
 	import { user, MODEL_DOWNLOAD_POOL, models, mobile, type Model } from '$lib/stores';
 	import { toast } from 'svelte-sonner';
-	import {
-		capitalizeFirstLetter,
-		sanitizeResponseContent,
-		splitStream,
-		isErrorWithMessage
-	} from '$lib/utils';
+	import { capitalizeFirstLetter, sanitizeResponseContent, splitStream, isErrorWithMessage } from '$lib/utils';
 	import { getModels } from '$lib/apis';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
-	type SelectedItems = {
+	type SelectedItem = {
 		label: string;
 		value: string;
 		model: Model;
@@ -37,7 +34,7 @@
 	export let placeholder = 'Select a model';
 	export let searchEnabled = true;
 	export let searchPlaceholder = $i18n.t('Search a model');
-	export let items: SelectedItems[] = [];
+	export let items: SelectedItem[] = [];
 
 	export let className = 'w-[30rem]';
 
@@ -48,16 +45,14 @@
 	$: selectedModel = items.find((item) => item.value === value) ?? null;
 
 	let searchValue = '';
-	let ollamaVersion: string | null = null;
+	let ollamaVersion: string | boolean | null = null;
 
 	$: filteredItems = items.filter(
 		(item) =>
 			(searchValue
 				? item.value.toLowerCase().includes(searchValue.toLowerCase()) ||
 				  item.label.toLowerCase().includes(searchValue.toLowerCase()) ||
-				  (item.model?.info?.meta?.tags ?? []).some((tag) =>
-						tag.name.toLowerCase().includes(searchValue.toLowerCase())
-				  )
+				  (item.model?.info?.meta?.tags ?? []).some((tag) => tag.name.toLowerCase().includes(searchValue.toLowerCase()))
 				: true) && !(item.model?.info?.meta?.hidden ?? false)
 	);
 
@@ -80,9 +75,7 @@
 			return;
 		}
 		if (Object.keys($MODEL_DOWNLOAD_POOL).length === 3) {
-			toast.error(
-				$i18n.t('Maximum of 3 models can be downloaded simultaneously. Please try again later.')
-			);
+			toast.error($i18n.t('Maximum of 3 models can be downloaded simultaneously. Please try again later.'));
 			return;
 		}
 
@@ -93,10 +86,7 @@
 		);
 
 		if (res && res.ok) {
-			const reader = res
-				.body!.pipeThrough(new TextDecoderStream())
-				.pipeThrough(splitStream('\n'))
-				.getReader();
+			const reader = res.body!.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			MODEL_DOWNLOAD_POOL.set({
 				...$MODEL_DOWNLOAD_POOL,
@@ -162,12 +152,8 @@
 					if (isErrorWithMessage(error)) {
 						error = error.message;
 					}
-					// if (typeof error !== 'string') {
-					// 	error = error.message;
-					// }
 
 					toast.error(error as string);
-					// opts.callback({ success: false, error, modelName: opts.modelName });
 					break;
 				}
 			}
@@ -296,15 +282,10 @@
 													item.model.ollama?.details?.quantization_level
 														? item.model.ollama?.details?.quantization_level + ' '
 														: ''
-												}${
-													item.model.ollama?.size
-														? `(${(item.model.ollama?.size / 1024 ** 3).toFixed(1)}GB)`
-														: ''
-												}`}
+												}${item.model.ollama?.size ? `(${(item.model.ollama?.size / 1024 ** 3).toFixed(1)}GB)` : ''}`}
 												className="self-end"
 											>
-												<span
-													class=" text-xs font-medium text-gray-600 dark:text-gray-400 line-clamp-1"
+												<span class=" text-xs font-medium text-gray-600 dark:text-gray-400 line-clamp-1"
 													>{item.model.ollama?.details?.parameter_size ?? ''}</span
 												>
 											</Tooltip>
@@ -329,12 +310,7 @@
 								{#if item.model.owned_by === 'openai'}
 									<Tooltip content={`${'External'}`}>
 										<div class="">
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 16 16"
-												fill="currentColor"
-												class="size-3"
-											>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-3">
 												<path
 													fill-rule="evenodd"
 													d="M8.914 6.025a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95l-2 2a3.5 3.5 0 0 1-5.396-4.402.75.75 0 0 1 1.251.827 2 2 0 0 0 3.085 2.514l2-2a2 2 0 0 0 0-2.828.75.75 0 0 1 0-1.06Z"
@@ -353,10 +329,7 @@
 								{#if item.model?.info?.meta?.description}
 									<Tooltip
 										content={`${marked.parse(
-											sanitizeResponseContent(item.model?.info?.meta?.description).replaceAll(
-												'\n',
-												'<br>'
-											)
+											sanitizeResponseContent(item.model?.info?.meta?.description).replaceAll('\n', '<br>')
 										)}`}
 									>
 										<div class="">
@@ -411,11 +384,7 @@
 					>
 						<div class="flex">
 							<div class="-ml-2 mr-2.5 translate-y-0.5">
-								<svg
-									class="size-4"
-									viewBox="0 0 24 24"
-									fill="currentColor"
-									xmlns="http://www.w3.org/2000/svg"
+								<svg class="size-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
 									><style>
 										.spinner_ajPY {
 											transform-origin: center;

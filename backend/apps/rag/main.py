@@ -1418,6 +1418,21 @@ def reset(user=Depends(get_admin_user)) -> bool:
     return True
 
 
+from apps.cisco.supporting_docs_loader import CiscoSupportingDocumentsLoader
+
+
+class CiscoPageRetrieveForm(BaseModel):
+    url: str
+    doc_type: str
+
+
+@app.post("/cisco/page/retrieve")
+async def retrieve_cisco_page(form_data: CiscoPageRetrieveForm):
+    if form_data.doc_type == "cli":
+        loader = CiscoSupportingDocumentsLoader(form_data.url, schema="cli")
+        documents = loader.load()
+
+
 class SafeWebBaseLoader(WebBaseLoader):
     """WebBaseLoader with enhanced error handling for URLs."""
 

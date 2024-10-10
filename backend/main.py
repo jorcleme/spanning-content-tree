@@ -684,7 +684,7 @@ class ChatCompletionMiddleware(BaseHTTPMiddleware):
 
             # If context is not empty, insert it into the messages
             if len(contexts) > 0:
-                context_string = "/n".join(contexts).strip()
+                context_string = "\n".join(contexts).strip()
                 prompt = get_last_user_message(body["messages"])
                 body["messages"] = add_or_update_system_message(
                     rag_template(

@@ -28,6 +28,10 @@
 	font-display: swap;
 }
 
+:root {
+	--cisco-blue-500: #3e84e5;
+}
+
 html {
 	word-break: break-word;
 }
@@ -168,7 +172,6 @@ input[type='number'] {
 }
 
 .cisco * {
-	/* color: #0d5cbd !important; */
 	stroke: #3e84e5 !important;
 	font-family: 'CiscoSans', sans-serif !important;
 }
@@ -274,8 +277,7 @@ input[type='number'] {
 	background-color: #f7f7f7;
 }
 
-.cisco
-	.w-full.rounded.py-2.px-4.text-sm.dark\:text-gray-300.dark\:bg-gray-800.outline-none.svelte-1vx7r9s {
+.cisco .w-full.rounded.py-2.px-4.text-sm.dark\:text-gray-300.dark\:bg-gray-800.outline-none.svelte-1vx7r9s {
 	background-color: #f7f7f7;
 }
 
@@ -305,4 +307,10 @@ input[type='number'] {
 .cisco .svelte-11kvm4p {
 	--primary: #56949f !important;
 	--secondary: #fffaf3 !important;
+}
+
+.detailsGetSupport > .assistant ol > li,
+.detailsGetSupport > .assistant ul > li {
+	margin: 0.5em 0;
+	margin-left: 10px;
 }

@@ -248,7 +248,7 @@
 			}
 		};
 
-		const onDragOver = (e) => {
+		const onDragOver = (e: DragEvent) => {
 			e.preventDefault();
 			dragged = true;
 		};
@@ -345,6 +345,109 @@
 		}
 		return a;
 	}, {} as { [id: string]: any });
+
+	const onTextAreaKeydown = async (
+		e: KeyboardEvent & {
+			currentTarget: EventTarget & HTMLTextAreaElement;
+		}
+	) => {
+		const isCtrlPressed = e.ctrlKey || e.metaKey; // metaKey is for Cmd key on Mac
+
+		// Check if Ctrl + R is pressed
+		if (prompt === '' && isCtrlPressed && e.key.toLowerCase() === 'r') {
+			e.preventDefault();
+			console.log('regenerate');
+
+			const regenerateButton = [...document.getElementsByClassName('regenerate-response-button')]?.at(
+				-1
+			) as HTMLButtonElement;
+
+			regenerateButton?.click();
+		}
+
+		if (prompt === '' && e.key == 'ArrowUp') {
+			e.preventDefault();
+
+			const userMessageElement = [...document.getElementsByClassName('user-message')]?.at(-1);
+
+			const editButton = [...document.getElementsByClassName('edit-user-message-button')]?.at(-1) as HTMLButtonElement;
+
+			console.log(userMessageElement);
+
+			userMessageElement?.scrollIntoView({ block: 'center' });
+			editButton?.click();
+		}
+
+		if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'ArrowUp') {
+			e.preventDefault();
+
+			(promptsElement || documentsElement || modelsElement).selectUp();
+
+			const commandOptionButton = [...document.getElementsByClassName('selected-command-option-button')]?.at(-1);
+			commandOptionButton?.scrollIntoView({ block: 'center' });
+		}
+
+		if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'ArrowDown') {
+			e.preventDefault();
+
+			(promptsElement || documentsElement || modelsElement).selectDown();
+
+			const commandOptionButton = [...document.getElementsByClassName('selected-command-option-button')]?.at(-1);
+			commandOptionButton?.scrollIntoView({ block: 'center' });
+		}
+
+		if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'Enter') {
+			e.preventDefault();
+
+			const commandOptionButton = [...document.getElementsByClassName('selected-command-option-button')]?.at(
+				-1
+			) as HTMLButtonElement;
+
+			if (e.shiftKey) {
+				prompt = `${prompt}\n`;
+			} else if (commandOptionButton) {
+				commandOptionButton?.click();
+			} else {
+				document.getElementById('send-message-button')?.click();
+			}
+		}
+
+		if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'Tab') {
+			e.preventDefault();
+
+			const commandOptionButton = [...document.getElementsByClassName('selected-command-option-button')]?.at(
+				-1
+			) as HTMLButtonElement;
+
+			commandOptionButton?.click();
+		} else if (e.key === 'Tab') {
+			const words = findWordIndices(prompt);
+
+			if (words.length > 0) {
+				const word = words.at(0) ?? words[0];
+				// const word = words.at(0);
+				const fullPrompt = prompt;
+
+				prompt = prompt.substring(0, word?.endIndex + 1);
+				await tick();
+
+				e.currentTarget.scrollTop = e.currentTarget.scrollHeight;
+				prompt = fullPrompt;
+				await tick();
+
+				e.preventDefault();
+				e.currentTarget.setSelectionRange(word?.startIndex, word.endIndex + 1);
+			}
+
+			e.currentTarget.style.height = '';
+			e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
+		}
+
+		if (e.key === 'Escape') {
+			console.log('Escape');
+			atSelectedModel = undefined;
+		}
+	};
 </script>
 
 <FilesOverlay show={dragged} />
@@ -716,108 +819,7 @@
 											}
 										}
 									}}
-									on:keydown={async (e) => {
-										const isCtrlPressed = e.ctrlKey || e.metaKey; // metaKey is for Cmd key on Mac
-
-										// Check if Ctrl + R is pressed
-										if (prompt === '' && isCtrlPressed && e.key.toLowerCase() === 'r') {
-											e.preventDefault();
-											console.log('regenerate');
-
-											const regenerateButton = [...document.getElementsByClassName('regenerate-response-button')]?.at(
-												-1
-											);
-
-											regenerateButton?.click();
-										}
-
-										if (prompt === '' && e.key == 'ArrowUp') {
-											e.preventDefault();
-
-											const userMessageElement = [...document.getElementsByClassName('user-message')]?.at(-1);
-
-											const editButton = [...document.getElementsByClassName('edit-user-message-button')]?.at(-1);
-
-											console.log(userMessageElement);
-
-											userMessageElement?.scrollIntoView({ block: 'center' });
-											editButton?.click();
-										}
-
-										if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'ArrowUp') {
-											e.preventDefault();
-
-											(promptsElement || documentsElement || modelsElement).selectUp();
-
-											const commandOptionButton = [
-												...document.getElementsByClassName('selected-command-option-button')
-											]?.at(-1);
-											commandOptionButton?.scrollIntoView({ block: 'center' });
-										}
-
-										if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'ArrowDown') {
-											e.preventDefault();
-
-											(promptsElement || documentsElement || modelsElement).selectDown();
-
-											const commandOptionButton = [
-												...document.getElementsByClassName('selected-command-option-button')
-											]?.at(-1);
-											commandOptionButton?.scrollIntoView({ block: 'center' });
-										}
-
-										if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'Enter') {
-											e.preventDefault();
-
-											const commandOptionButton = [
-												...document.getElementsByClassName('selected-command-option-button')
-											]?.at(-1);
-
-											if (e.shiftKey) {
-												prompt = `${prompt}\n`;
-											} else if (commandOptionButton) {
-												commandOptionButton?.click();
-											} else {
-												document.getElementById('send-message-button')?.click();
-											}
-										}
-
-										if (['/', '#', '@'].includes(prompt.charAt(0)) && e.key === 'Tab') {
-											e.preventDefault();
-
-											const commandOptionButton = [
-												...document.getElementsByClassName('selected-command-option-button')
-											]?.at(-1);
-
-											commandOptionButton?.click();
-										} else if (e.key === 'Tab') {
-											const words = findWordIndices(prompt);
-
-											if (words.length > 0) {
-												const word = words.at(0) ?? words[0];
-												// const word = words.at(0);
-												const fullPrompt = prompt;
-
-												prompt = prompt.substring(0, word?.endIndex + 1);
-												await tick();
-
-												e.currentTarget.scrollTop = e.currentTarget.scrollHeight;
-												prompt = fullPrompt;
-												await tick();
-
-												e.preventDefault();
-												e.currentTarget.setSelectionRange(word?.startIndex, word.endIndex + 1);
-											}
-
-											e.currentTarget.style.height = '';
-											e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
-										}
-
-										if (e.key === 'Escape') {
-											console.log('Escape');
-											atSelectedModel = undefined;
-										}
-									}}
+									on:keydown={onTextAreaKeydown}
 									rows="1"
 									on:input={(e) => {
 										e.currentTarget.style.height = '';

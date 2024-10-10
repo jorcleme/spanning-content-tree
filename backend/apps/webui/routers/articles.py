@@ -11,6 +11,8 @@ from apps.webui.models.articles import (
     InsertNewArticleForm,
     BulkInsertNewArticleForm,
 )
+import json
+from apps.webui.models.articles import ArticleResponse
 from utils.utils import get_verified_user
 from apps.webui.models.series import Series_Table
 from constants import ERROR_MESSAGES
@@ -20,6 +22,19 @@ log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
 router = APIRouter()
+
+
+class ArticleUrlRequest(BaseModel):
+    url: HttpUrl
+
+
+class ArticleForm(BaseModel):
+    article: dict
+
+
+class ArticleStepsForm(BaseModel):
+    step: dict
+    step_index: int
 
 
 ################
@@ -67,7 +82,7 @@ async def get_article_by_id(id: str):
 
 
 @router.get("/document/{document_id}", response_model=Optional[ArticleModel])
-async def get_article_by_document_id(document_id: str):
+async def get_article_by_document_id(document_id: str, user=Depends(get_verified_user)):
     article = Article_Table.get_article_by_document_id(document_id)
     if article:
         return article
@@ -81,10 +96,6 @@ async def get_article_by_document_id(document_id: str):
 ################
 # GetArticleByUrl
 ################
-
-
-class ArticleUrlRequest(BaseModel):
-    url: HttpUrl
 
 
 @router.post("/url", response_model=Optional[ArticleModel])
@@ -172,9 +183,50 @@ async def bulk_add_new_article(form_data: BulkInsertNewArticleForm):
 ################
 
 
-@router.put("/{id}", response_model=Optional[ArticleModel])
-async def update_article(id: str, updated: dict):
-    article = Article_Table.update_article_by_id(id, updated)
+@router.put("/{id}", response_model=Optional[ArticleResponse])
+async def update_article_by_id(
+    id: str, form_data: ArticleForm, user=Depends(get_verified_user)
+):
+    article = Article_Table.get_article_by_id(id)
+    log.debug(f"Article: {article.title}")
+    if article:
+        updated = {**article.model_dump(), **form_data.article}
+
+        updated_article = Article_Table.update_article_by_id(id, updated)
+        log.debug(f"Updated Article: {updated_article}")
+        if updated_article:
+            return ArticleResponse(**{**updated_article.model_dump()})
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ERROR_MESSAGES.DEFAULT(),
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
+
+
+@router.put("/{id}/steps", response_model=Optional[ArticleResponse])
+async def update_article_steps_by_id(
+    id: str, form_data: ArticleStepsForm, user=Depends(get_verified_user)
+):
+    article = Article_Table.get_article_by_id(id)
+    if article:
+        updated_article_steps = {
+            **article.steps[form_data.step_index],
+            **form_data.step,
+        }
+        article = Article_Table.update_article_steps_by_id(
+            id, updated_article_steps, form_data.step_index
+        )
+        return ArticleResponse(**{**article.model_dump()})
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
 
 
 @router.get("/test/view_article_on_series")

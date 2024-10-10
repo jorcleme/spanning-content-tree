@@ -1,4 +1,7 @@
-<script>
+<script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { Model } from '$lib/stores';
 	import { v4 as uuidv4 } from 'uuid';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
@@ -19,10 +22,10 @@
 	import { parseFile } from '$lib/utils/characters';
 	import FiltersSelector from '$lib/components/workspace/Models/FiltersSelector.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
-	let filesInputElement;
-	let inputFiles;
+	let filesInputElement: HTMLInputElement;
+	let inputFiles: FileList | null;
 
 	let showAdvanced = false;
 	let showPreview = false;
@@ -37,7 +40,11 @@
 	let id = '';
 	let name = '';
 
-	let info = {
+	let toolIds: string[] = [];
+	let knowledge: any[] = [];
+	let filterIds: string[] = [];
+
+	let info: { [key: string]: any } = {
 		id: '',
 		base_model_id: null,
 		name: '',
@@ -55,14 +62,10 @@
 		}
 	};
 
-	let params = {};
-	let capabilities = {
+	let params: { [key: string]: any } = {};
+	let capabilities: { [key: string]: any } = {
 		vision: true
 	};
-
-	let toolIds = [];
-	let knowledge = [];
-	let filterIds = [];
 
 	$: if (name) {
 		id = name
@@ -71,7 +74,7 @@
 			.toLowerCase();
 	}
 
-	const addUsage = (base_model_id) => {
+	const addUsage = (base_model_id: string) => {
 		const baseModel = $models.find((m) => m.id === base_model_id);
 
 		if (baseModel) {
@@ -115,7 +118,7 @@
 			}
 		}
 
-		info.params.stop = params.stop ? params.stop.split(',').filter((s) => s.trim()) : null;
+		info.params.stop = params.stop ? params.stop.split(',').filter((s: string) => s.trim()) : null;
 		Object.keys(info.params).forEach((key) => {
 			if (info.params[key] === '' || info.params[key] === null) {
 				delete info.params[key];
@@ -123,9 +126,7 @@
 		});
 
 		if ($models.find((m) => m.id === info.id)) {
-			toast.error(
-				`Error: A model with the ID '${info.id}' already exists. Please select a different ID to proceed.`
-			);
+			toast.error(`Error: A model with the ID '${info.id}' already exists. Please select a different ID to proceed.`);
 			loading = false;
 			success = false;
 			return success;
@@ -138,7 +139,7 @@
 					...info.meta,
 					profile_image_url: info.meta.profile_image_url ?? '/static/favicon.png',
 					suggestion_prompts: info.meta.suggestion_prompts
-						? info.meta.suggestion_prompts.filter((prompt) => prompt.content !== '')
+						? info.meta.suggestion_prompts.filter((prompt: Record<string, any>) => prompt.content !== '')
 						: null
 				},
 				params: { ...info.params, ...params }
@@ -155,28 +156,25 @@
 		success = false;
 	};
 
-	const initModel = async (model) => {
+	const initModel = async (model: Model) => {
 		name = model.name;
 		await tick();
 
 		id = model.id;
 
-		if (model.info.base_model_id) {
+		if (model.info?.base_model_id) {
 			const base_model = $models
 				.filter((m) => !m?.preset)
-				.find((m) =>
-					[model.info.base_model_id, `${model.info.base_model_id}:latest`].includes(m.id)
-				);
+				.find((m) => [model.info?.base_model_id, `${model.info?.base_model_id}:latest`].includes(m.id));
 
 			console.log('base_model', base_model);
 
 			if (!base_model) {
-				model.info.base_model_id = null;
-			} else if ($models.find((m) => m.id === `${model.info.base_model_id}:latest`)) {
+				model.info.base_model_id = undefined;
+			} else if ($models.find((m) => m.id === `${model.info?.base_model_id}:latest`)) {
 				model.info.base_model_id = `${model.info.base_model_id}:latest`;
 			}
 		}
-
 		params = { ...params, ...model?.info?.params };
 		params.stop = params?.stop ? (params?.stop ?? []).join(',') : null;
 
@@ -197,11 +195,7 @@
 
 	onMount(async () => {
 		window.addEventListener('message', async (event) => {
-			if (
-				!['https://openwebui.com', 'https://www.openwebui.com', 'http://localhost:5173'].includes(
-					event.origin
-				)
-			)
+			if (!['https://openwebui.com', 'https://www.openwebui.com', 'http://localhost:5173'].includes(event.origin))
 				return;
 
 			const model = JSON.parse(event.data);
@@ -222,6 +216,93 @@
 			initModel(model);
 		}
 	});
+
+	const handleChange = () => {
+		let reader = new FileReader();
+		reader.onload = async (event) => {
+			let originalImageUrl = `${event.target?.result}`;
+			let file = inputFiles
+				? await parseFile(inputFiles[0]).catch((error) => {
+						return null;
+				  })
+				: null;
+			console.log(file);
+
+			if (file && file.character) {
+				const { character } = file;
+				console.log(character);
+
+				name = character.name;
+
+				const pattern = /<\/?[a-z][\s\S]*>/i;
+				if (character.summary.match(pattern)) {
+					const turndownService = new TurndownService();
+					info.meta.description = turndownService.turndown(character.summary);
+				} else {
+					info.meta.description = character.summary;
+				}
+
+				info.params.system = `Personality: ${character.personality}${
+					character?.scenario ? `\nScenario: ${character.scenario}` : ''
+				}${character?.greeting ? `\First Message: ${character.greeting}` : ''}${
+					character?.examples ? `\nExamples: ${character.examples}` : ''
+				}`;
+			}
+			const img = new Image();
+			img.src = originalImageUrl;
+
+			img.onload = function () {
+				const canvas = document.createElement('canvas');
+				const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+
+				// Calculate the aspect ratio of the image
+				const aspectRatio = img.width / img.height;
+
+				// Calculate the new width and height to fit within 100x100
+				let newWidth, newHeight;
+				if (aspectRatio > 1) {
+					newWidth = 250 * aspectRatio;
+					newHeight = 250;
+				} else {
+					newWidth = 250;
+					newHeight = 250 / aspectRatio;
+				}
+
+				// Set the canvas size
+				canvas.width = 250;
+				canvas.height = 250;
+
+				// Calculate the position to center the image
+				const offsetX = (250 - newWidth) / 2;
+				const offsetY = (250 - newHeight) / 2;
+
+				// Draw the image on the canvas
+				ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
+
+				// Get the base64 representation of the compressed image
+				const compressedSrc = canvas.toDataURL('image/jpeg');
+
+				// Display the compressed image
+				info.meta.profile_image_url = compressedSrc;
+
+				inputFiles = null;
+			};
+		};
+		if (
+			inputFiles &&
+			inputFiles.length > 0 &&
+			['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
+		) {
+			reader.readAsDataURL(inputFiles[0]);
+		} else {
+			if (inputFiles) {
+				console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
+			} else {
+				console.log('No file selected.');
+			}
+			inputFiles = null;
+		}
+	};
 </script>
 
 <div class="w-full max-h-full">
@@ -231,90 +312,7 @@
 		type="file"
 		hidden
 		accept="image/*"
-		on:change={() => {
-			let reader = new FileReader();
-			reader.onload = async (event) => {
-				let originalImageUrl = `${event.target.result}`;
-
-				let character = await parseFile(inputFiles[0]).catch((error) => {
-					return null;
-				});
-
-				console.log(character);
-
-				if (character && character.character) {
-					character = character.character;
-					console.log(character);
-
-					name = character.name;
-
-					const pattern = /<\/?[a-z][\s\S]*>/i;
-					if (character.summary.match(pattern)) {
-						const turndownService = new TurndownService();
-						info.meta.description = turndownService.turndown(character.summary);
-					} else {
-						info.meta.description = character.summary;
-					}
-
-					info.params.system = `Personality: ${character.personality}${
-						character?.scenario ? `\nScenario: ${character.scenario}` : ''
-					}${character?.greeting ? `\First Message: ${character.greeting}` : ''}${
-						character?.examples ? `\nExamples: ${character.examples}` : ''
-					}`;
-				}
-
-				const img = new Image();
-				img.src = originalImageUrl;
-
-				img.onload = function () {
-					const canvas = document.createElement('canvas');
-					const ctx = canvas.getContext('2d');
-
-					// Calculate the aspect ratio of the image
-					const aspectRatio = img.width / img.height;
-
-					// Calculate the new width and height to fit within 100x100
-					let newWidth, newHeight;
-					if (aspectRatio > 1) {
-						newWidth = 250 * aspectRatio;
-						newHeight = 250;
-					} else {
-						newWidth = 250;
-						newHeight = 250 / aspectRatio;
-					}
-
-					// Set the canvas size
-					canvas.width = 250;
-					canvas.height = 250;
-
-					// Calculate the position to center the image
-					const offsetX = (250 - newWidth) / 2;
-					const offsetY = (250 - newHeight) / 2;
-
-					// Draw the image on the canvas
-					ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
-
-					// Get the base64 representation of the compressed image
-					const compressedSrc = canvas.toDataURL('image/jpeg');
-
-					// Display the compressed image
-					info.meta.profile_image_url = compressedSrc;
-
-					inputFiles = null;
-				};
-			};
-
-			if (
-				inputFiles &&
-				inputFiles.length > 0 &&
-				['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
-			) {
-				reader.readAsDataURL(inputFiles[0]);
-			} else {
-				console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
-				inputFiles = null;
-			}
-		}}
+		on:change={() => handleChange()}
 	/>
 
 	<button
@@ -324,12 +322,7 @@
 		}}
 	>
 		<div class=" self-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 20 20"
-				fill="currentColor"
-				class="w-4 h-4"
-			>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 				<path
 					fill-rule="evenodd"
 					d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
@@ -359,18 +352,9 @@
 					}}
 				>
 					{#if info.meta.profile_image_url}
-						<img
-							src={info.meta.profile_image_url}
-							alt="modelfile profile"
-							class=" rounded-full size-16 object-cover"
-						/>
+						<img src={info.meta.profile_image_url} alt="modelfile profile" class=" rounded-full size-16 object-cover" />
 					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							class="size-8"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-8">
 							<path
 								fill-rule="evenodd"
 								d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z"
@@ -419,7 +403,7 @@
 					placeholder="Select a base model (e.g. llama3, gpt-4o)"
 					bind:value={info.base_model_id}
 					on:change={(e) => {
-						addUsage(e.target.value);
+						addUsage(e.currentTarget.value);
 					}}
 					required
 				>
@@ -459,7 +443,7 @@
 					class="px-3 py-1.5 text-sm w-full bg-transparent border dark:border-gray-600 outline-none rounded-lg"
 					placeholder={$i18n.t('Add a short description about what this model does')}
 					bind:value={info.meta.description}
-					row="3"
+					rows="3"
 				/>
 			{/if}
 		</div>
@@ -549,20 +533,12 @@
 						class="p-1 px-2 text-xs flex rounded transition"
 						type="button"
 						on:click={() => {
-							if (
-								info.meta.suggestion_prompts.length === 0 ||
-								info.meta.suggestion_prompts.at(-1).content !== ''
-							) {
+							if (info.meta.suggestion_prompts.length === 0 || info.meta.suggestion_prompts.at(-1).content !== '') {
 								info.meta.suggestion_prompts = [...info.meta.suggestion_prompts, { content: '' }];
 							}
 						}}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 							<path
 								d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"
 							/>
@@ -590,12 +566,7 @@
 										info.meta.suggestion_prompts = info.meta.suggestion_prompts;
 									}}
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										viewBox="0 0 20 20"
-										fill="currentColor"
-										class="w-4 h-4"
-									>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 										<path
 											d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 										/>
@@ -714,11 +685,7 @@
 
 				{#if loading}
 					<div class="ml-1.5 self-center">
-						<svg
-							class=" w-4 h-4"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							xmlns="http://www.w3.org/2000/svg"
+						<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
 							><style>
 								.spinner_ajPY {
 									transform-origin: center;

@@ -27,6 +27,7 @@ Some examples (model - class or model name)::
 from contextlib import suppress
 
 import peewee as pw
+from peewee import DeferredForeignKey
 from peewee_migrate import Migrator
 
 
@@ -49,7 +50,12 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
         created_at = pw.BigIntegerField(null=False)
         updated_at = pw.BigIntegerField(null=False)
 
-        articles = pw.ManyToManyField("Article", backref="series")
+        articles = pw.ManyToManyField(
+            pw.DeferredForeignKey("Article"),
+            backref="series",
+            on_delete="CASCADE",
+            on_update="CASCADE",
+        )
 
         class Meta:
             table_name = "series"
@@ -58,15 +64,15 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
     class Article(pw.Model):
         id = pw.TextField(unique=True, primary_key=True)
         title = pw.TextField()
-        document_id = pw.TextField()
+        document_id = pw.TextField(unique=True)
         category = pw.TextField()
-        url = pw.TextField()
+        url = pw.TextField(unique=True)
         objective = pw.TextField()
         applicable_devices = pw.TextField()
         introduction = pw.TextField()
         steps = pw.TextField()
 
-        series = pw.ManyToManyField(Series, backref="articles")
+        series = pw.ManyToManyField(DeferredForeignKey("Series"), backref="articles")
 
         created_at = pw.BigIntegerField(null=False)
         updated_at = pw.BigIntegerField(null=False)
@@ -76,8 +82,18 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
 
     @migrator.create_model
     class ArticleOnSeries(pw.Model):
-        article = pw.ForeignKeyField(Article, backref="series", on_delete="CASCADE")
-        series = pw.ForeignKeyField(Series, backref="articles", on_delete="CASCADE")
+        article = pw.ForeignKeyField(
+            Article,
+            backref="series",
+            on_delete="CASCADE",
+            lazy_load=True,
+        )
+        series = pw.ForeignKeyField(
+            Series,
+            backref="articles",
+            on_delete="CASCADE",
+            lazy_load=True,
+        )
 
         class Meta:
             table_name = "article_on_series"

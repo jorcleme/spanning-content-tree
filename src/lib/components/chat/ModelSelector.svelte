@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { models, showSettings, settings, user, mobile } from '$lib/stores';
 	import { onMount, tick, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
@@ -8,7 +10,7 @@
 	import { setDefaultModels } from '$lib/apis/configs';
 	import { updateUserSettings } from '$lib/apis/users';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let selectedModels = [''];
 	export let disabled = false;
@@ -28,9 +30,7 @@
 	};
 
 	$: if (selectedModels.length > 0 && $models.length > 0) {
-		selectedModels = selectedModels.map((model) =>
-			$models.map((m) => m.id).includes(model) ? model : ''
-		);
+		selectedModels = selectedModels.map((model) => ($models.map((m) => m.id).includes(model) ? model : ''));
 	}
 </script>
 

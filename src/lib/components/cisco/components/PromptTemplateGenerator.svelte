@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { writable, get } from 'svelte/store';
-	import { slide, fade } from 'svelte/transition';
+	import { slide, fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { sanitizeResponseContent } from '$lib/utils';
-	import { debounce } from 'lodash';
-
-	export let showPromptTemplateGenerator: boolean;
+	import _ from 'lodash';
+	import Slide from './common/Slide.svelte';
+	import DeviceSelection from '../gen/CiscoDeviceSelector.svelte';
+	import ArticleTopics from '../gen/ArticleTopics.svelte';
+	import GenerateNewArticle from '../gen/GenerateNewArticle.svelte';
 	import { explanationStore, promptStore, variablesStore } from '$lib/stores';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import {
@@ -25,7 +27,9 @@
 		Users
 	} from 'lucide-svelte';
 	import { createEventDispatcher, onMount, tick, onDestroy } from 'svelte';
-	import AssistantAnimationHero from '$lib/components/Cisco/components/layout/AssistantAnimationHero.svelte';
+	import AssistantAnimationHero from '$lib/components/cisco/components/layout/AssistantAnimationHero.svelte';
+
+	export let showPromptTemplateGenerator: boolean;
 	export let explanation = '';
 	export let showPromptTemplate: boolean;
 	export let showPromptIntro: boolean;
@@ -35,7 +39,6 @@
 
 	let varName;
 	export let extractVariablesFromPrompt: (prompt: string) => Record<string, string>;
-	import _ from 'lodash';
 
 	const debouncedHandleVariableInput = _.debounce((varName, value) => {
 		handleVariableInput(varName, value);
@@ -45,6 +48,42 @@
 	export let headerText = 'Loading';
 	export let originalUserPrompt;
 	export let isGeneratingPrompt: boolean;
+
+	let currentSlide = writable(0);
+
+	const slides: { component: any; props: Record<string, any> }[] = [
+		{
+			component: DeviceSelection,
+			props: { onConfirm: handleDeviceConfirm }
+		},
+		{
+			component: ArticleTopics,
+			props: { onGenerateNewArticle: handleGenerateNewArticle }
+		},
+		{
+			component: GenerateNewArticle,
+			props: { onSubmit: handleArticleSubmit }
+		}
+	];
+
+	function handleDeviceConfirm(event: CustomEvent<{ device: string; name: string }>) {
+		// Move to the next slide
+		currentSlide.set(1);
+		const { device, name } = event.detail;
+		console.log('Device selected:', device, name);
+		seriesId = device;
+		variablesStore.update((vars) => ({ ...vars, device: name }));
+	}
+
+	function handleGenerateNewArticle() {
+		// Move to the generate new article slide
+		currentSlide.set(2);
+	}
+
+	function handleArticleSubmit(event) {
+		// Handle article submission
+		console.log('Article submitted:', event.detail.input);
+	}
 	let lastCaretPosition = { node: null, offset: 0 };
 
 	let editablePrompt = '';
@@ -53,6 +92,8 @@
 	let updateTimeout;
 	let variableUpdateTimeouts = {};
 	let observer: MutationObserver;
+	let seriesId = '';
+	$: seriesId;
 
 	const dispatch = createEventDispatcher();
 
@@ -223,7 +264,7 @@
 		});
 	}
 
-	let updateVariableAndPrompt = debounce((varName: string, value: string) => {
+	let updateVariableAndPrompt = _.debounce((varName: string, value: string) => {
 		variablesStore.update((store) => ({
 			...store,
 			[varName]: value
@@ -350,8 +391,23 @@
 
 <div class="relative overflow-x-scroll h-full p-4" style="background:whitesmoke;">
 	<div>
-		<div class="flex h-full">
+		<div class="flex flex-col h-full">
 			{#if showPromptIntro}
+				<div class="slide flex justify-center items-center" transition:fly={{ x: 200, duration: 500 }}>
+					{#if $currentSlide === 0}
+						<Slide currentSlide={0} slideIndex={0}>
+							<DeviceSelection on:confirm={handleDeviceConfirm} />
+						</Slide>
+					{:else if $currentSlide === 1}
+						<Slide currentSlide={1} slideIndex={1}>
+							<ArticleTopics {seriesId} on:generateNewArticle={handleGenerateNewArticle} />
+						</Slide>
+					{:else if $currentSlide === 2}
+						<Slide currentSlide={2} slideIndex={2}>
+							<GenerateNewArticle on:submit={handleArticleSubmit} />
+						</Slide>
+					{/if}
+				</div>
 				<div class="text-black p-10 max-w-5xl w-full" transition:slide={{ duration: 500, easing: cubicOut }}>
 					<div class="flex justify-between items-center mb-8">
 						<h2 class="text-3xl font-semibold">Describe your learning goal</h2>

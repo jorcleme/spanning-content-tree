@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { models, user } from '$lib/stores';
 	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
 
@@ -27,7 +29,7 @@
 	import { getModels as _getModels } from '$lib/apis';
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	const getModels = async () => {
 		const models = await _getModels(localStorage.token);
@@ -40,12 +42,12 @@
 	let OPENAI_API_KEYS = [''];
 	let OPENAI_API_BASE_URLS = [''];
 
-	let pipelineUrls = {};
+	let pipelineUrls: { [key: string]: any } = {};
 
-	let ENABLE_OPENAI_API = null;
-	let ENABLE_OLLAMA_API = null;
+	let ENABLE_OPENAI_API: boolean | null = null;
+	let ENABLE_OLLAMA_API: boolean | null = null;
 
-	const verifyOpenAIHandler = async (idx) => {
+	const verifyOpenAIHandler = async (idx: number) => {
 		OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS.map((url) => url.replace(/\/$/, ''));
 
 		OPENAI_API_BASE_URLS = await updateOpenAIUrls(localStorage.token, OPENAI_API_BASE_URLS);
@@ -66,10 +68,8 @@
 		await models.set(await getModels());
 	};
 
-	const verifyOllamaHandler = async (idx) => {
-		OLLAMA_BASE_URLS = OLLAMA_BASE_URLS.filter((url) => url !== '').map((url) =>
-			url.replace(/\/$/, '')
-		);
+	const verifyOllamaHandler = async (idx: number) => {
+		OLLAMA_BASE_URLS = OLLAMA_BASE_URLS.filter((url) => url !== '').map((url) => url.replace(/\/$/, ''));
 
 		OLLAMA_BASE_URLS = await updateOllamaUrls(localStorage.token, OLLAMA_BASE_URLS);
 
@@ -110,9 +110,7 @@
 	};
 
 	const updateOllamaUrlsHandler = async () => {
-		OLLAMA_BASE_URLS = OLLAMA_BASE_URLS.filter((url) => url !== '').map((url) =>
-			url.replace(/\/$/, '')
-		);
+		OLLAMA_BASE_URLS = OLLAMA_BASE_URLS.filter((url) => url !== '').map((url) => url.replace(/\/$/, ''));
 
 		console.log(OLLAMA_BASE_URLS);
 
@@ -137,7 +135,7 @@
 	};
 
 	onMount(async () => {
-		if ($user.role === 'admin') {
+		if ($user?.role === 'admin') {
 			await Promise.all([
 				(async () => {
 					OLLAMA_BASE_URLS = await getOllamaUrls(localStorage.token);
@@ -161,9 +159,23 @@
 			const openaiConfig = await getOpenAIConfig(localStorage.token);
 
 			ENABLE_OPENAI_API = openaiConfig.ENABLE_OPENAI_API;
-			ENABLE_OLLAMA_API = ollamaConfig.ENABLE_OLLAMA_API;
+			ENABLE_OLLAMA_API = ollamaConfig?.ENABLE_OLLAMA_API;
 		}
 	});
+
+	const handleOnChangeOpenAI = async () => {
+		await tick();
+		await updateOpenAIConfig(localStorage.token, ENABLE_OPENAI_API as boolean);
+	};
+
+	const handleOnChangeOllama = async () => {
+		await tick();
+		await updateOllamaConfig(localStorage.token, ENABLE_OLLAMA_API as boolean);
+
+		if (OLLAMA_BASE_URLS.length === 0) {
+			OLLAMA_BASE_URLS = [''];
+		}
+	};
 </script>
 
 <form
@@ -186,7 +198,7 @@
 							<Switch
 								bind:state={ENABLE_OPENAI_API}
 								on:change={async () => {
-									updateOpenAIConfig(localStorage.token, ENABLE_OPENAI_API);
+									await handleOnChangeOpenAI();
 								}}
 							/>
 						</div>
@@ -230,10 +242,7 @@
 										{/if}
 									</div>
 
-									<SensitiveInput
-										placeholder={$i18n.t('API Key')}
-										bind:value={OPENAI_API_KEYS[idx]}
-									/>
+									<SensitiveInput placeholder={$i18n.t('API Key')} bind:value={OPENAI_API_KEYS[idx]} />
 									<div class="self-center flex items-center">
 										{#if idx === 0}
 											<button
@@ -244,12 +253,7 @@
 												}}
 												type="button"
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 													<path
 														d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
 													/>
@@ -259,19 +263,12 @@
 											<button
 												class="px-1"
 												on:click={() => {
-													OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS.filter(
-														(url, urlIdx) => idx !== urlIdx
-													);
+													OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS.filter((url, urlIdx) => idx !== urlIdx);
 													OPENAI_API_KEYS = OPENAI_API_KEYS.filter((key, keyIdx) => idx !== keyIdx);
 												}}
 												type="button"
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 													<path d="M3.75 7.25a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5Z" />
 												</svg>
 											</button>
@@ -287,12 +284,7 @@
 												}}
 												type="button"
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 20 20"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 													<path
 														fill-rule="evenodd"
 														d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
@@ -323,11 +315,7 @@
 						<Switch
 							bind:state={ENABLE_OLLAMA_API}
 							on:change={async () => {
-								updateOllamaConfig(localStorage.token, ENABLE_OLLAMA_API);
-
-								if (OLLAMA_BASE_URLS.length === 0) {
-									OLLAMA_BASE_URLS = [''];
-								}
+								await handleOnChangeOllama();
 							}}
 						/>
 					</div>
@@ -352,12 +340,7 @@
 												}}
 												type="button"
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 													<path
 														d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
 													/>
@@ -367,18 +350,11 @@
 											<button
 												class="px-1"
 												on:click={() => {
-													OLLAMA_BASE_URLS = OLLAMA_BASE_URLS.filter(
-														(url, urlIdx) => idx !== urlIdx
-													);
+													OLLAMA_BASE_URLS = OLLAMA_BASE_URLS.filter((url, urlIdx) => idx !== urlIdx);
 												}}
 												type="button"
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 													<path d="M3.75 7.25a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5Z" />
 												</svg>
 											</button>
@@ -394,12 +370,7 @@
 												}}
 												type="button"
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 20 20"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 													<path
 														fill-rule="evenodd"
 														d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
@@ -436,10 +407,7 @@
 	</div>
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class="  px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class="  px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

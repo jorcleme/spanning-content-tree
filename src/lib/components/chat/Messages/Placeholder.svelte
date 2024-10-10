@@ -2,16 +2,14 @@
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import type { i18n as i18nType } from 'i18next';
 	import { marked } from 'marked';
-
 	import { config, user, models as _models } from '$lib/stores';
 	import { onMount, getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-
 	import { blur, fade } from 'svelte/transition';
-
 	import Suggestions from '../MessageInput/Suggestions.svelte';
 	import { sanitizeResponseContent } from '$lib/utils';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import AssistantAnimationHero from '$lib/components/cisco/components/layout/AssistantAnimationHero.svelte';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
 
@@ -28,7 +26,7 @@
 	}
 
 	$: models = modelIds.map((id) => $_models.find((m) => m.id === id));
-	import AssistantAnimationHero from '$lib/components/Cisco/components/layout/AssistantAnimationHero.svelte';
+
 	onMount(() => {
 		mounted = true;
 	});
@@ -46,9 +44,7 @@
 						}}
 					>
 						<Tooltip
-							content={marked.parse(
-								sanitizeResponseContent(models[selectedModelIdx]?.info?.meta?.description ?? '')
-							)}
+							content={marked.parse(sanitizeResponseContent(models[selectedModelIdx]?.info?.meta?.description ?? ''))}
 							placement="right"
 						>
 							<!-- <img
@@ -81,20 +77,14 @@
 
 				<div in:fade={{ duration: 200, delay: 200 }}>
 					{#if models[selectedModelIdx]?.info?.meta?.description ?? null}
-						<div
-							class="mt-0.5 text-base font-normal text-gray-500 dark:text-gray-400 line-clamp-3 markdown"
-						>
-							{@html marked.parse(
-								sanitizeResponseContent(models[selectedModelIdx]?.info?.meta.description ?? '')
-							)}
+						<div class="mt-0.5 text-base font-normal text-gray-500 dark:text-gray-400 line-clamp-3 markdown">
+							{@html marked.parse(sanitizeResponseContent(models[selectedModelIdx]?.info?.meta.description ?? ''))}
 						</div>
 						{#if models[selectedModelIdx]?.info?.meta?.user}
 							<div class="mt-0.5 text-sm font-normal text-gray-400 dark:text-gray-500">
 								By
 								{#if models[selectedModelIdx]?.info?.meta?.user?.community ?? null}
-									<a
-										href="https://openwebui.com/m/{models[selectedModelIdx]?.info?.meta?.user
-											?.name}"
+									<a href="https://openwebui.com/m/{models[selectedModelIdx]?.info?.meta?.user?.name}"
 										>{models[selectedModelIdx]?.info?.meta?.user?.name
 											? models[selectedModelIdx]?.info?.meta.user?.name
 											: models[selectedModelIdx]?.info?.meta?.user?.username}</a

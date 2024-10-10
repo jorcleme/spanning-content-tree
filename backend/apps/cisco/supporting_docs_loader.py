@@ -12,7 +12,7 @@ from langchain_core.documents import Document
 from langchain_core.document_loaders import BaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from transformers import GPT2Tokenizer
-from backend.config import (
+from config import (
     CHROMA_CLIENT,
     CATALYST_1200_ADMIN_GUIDE_COLLECTION_NAME,
     CATALYST_1200_CLI_GUIDE_COLLECTION_NAME,
@@ -30,8 +30,9 @@ from backend.config import (
     CISCO_350X_CLI_GUIDE_COLLECTION_NAME,
     CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME,
     CISCO_550X_CLI_GUIDE_COLLECTION_NAME,
+    BASE_DIR,
 )
-from config import BASE_DIR
+
 import chromadb.utils.embedding_functions as embedding_functions
 import os
 from dotenv import load_dotenv
@@ -46,6 +47,7 @@ MAX_TOKENS = 8192
 openai_embeddings = embedding_functions.OpenAIEmbeddingFunction(
     api_key=os.environ.get("OPENAI_API_KEY"), model_name="text-embedding-ada-002"
 )
+sentence_all_MiniLM_V6_v2_embeddings = embedding_functions.DefaultEmbeddingFunction()
 
 
 class CLIParser:
@@ -680,9 +682,9 @@ def query_collection(query: str):
 
 
 if __name__ == "__main__":
-    run()
-    # query = "RADIUS and Duo Authentication"
-    # results = query_collection(query)
-    # if results:
-    #     for result in results["documents"]:
-    #         print(result)
+    # run()
+    query = "RADIUS and Duo Authentication"
+    results = query_collection(query)
+    if results:
+        for result in results["documents"]:
+            print(result)
