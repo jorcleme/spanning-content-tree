@@ -9,6 +9,7 @@ Create Date: 2024-09-05 12:25:15.331396
 from typing import Sequence, Union
 
 from alembic import op
+import uuid
 import sqlalchemy as sa
 import apps.webui.internal.db
 from migrations.util import get_existing_tables
@@ -213,7 +214,9 @@ def upgrade() -> None:
     if "articles" not in existing_tables:
         op.create_table(
             "articles",
-            sa.Column("id", sa.String(), nullable=False),
+            sa.Column(
+                "id", sa.String(), nullable=False, default=lambda: str(uuid.uuid4())
+            ),
             sa.Column("title", sa.Text(), nullable=False),
             sa.Column("document_id", sa.String(), nullable=False),
             sa.Column("category", sa.String(), nullable=False),
@@ -235,13 +238,11 @@ def upgrade() -> None:
     if "article_on_series" not in existing_tables:
         op.create_table(
             "article_on_series",
-            sa.Column("article_id", sa.String(), nullable=False),
-            sa.Column("series_id", sa.String(), nullable=False),
-            sa.ForeignKeyConstraint(
-                ["article_id"], ["articles.id"], ondelete="CASCADE"
-            ),
-            sa.ForeignKeyConstraint(["series_id"], ["series.id"], ondelete="CASCADE"),
-            sa.PrimaryKeyConstraint("article_id", "series_id"),
+            sa.Column("article", sa.String(), nullable=False),
+            sa.Column("series", sa.String(), nullable=False),
+            sa.ForeignKeyConstraint(["article"], ["articles.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(["series"], ["series.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("article", "series"),
         )
     # ### end Alembic commands ###
 

@@ -35,10 +35,8 @@ class ArticleCategory(str, PyEnum):
 ARTICLE_ON_SERIES = Table(
     "article_on_series",
     Base.metadata,
-    Column(
-        "article_id", ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True
-    ),
-    Column("series_id", ForeignKey("series.id", ondelete="CASCADE"), primary_key=True),
+    Column("article", ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True),
+    Column("series", ForeignKey("series.id", ondelete="CASCADE"), primary_key=True),
 )
 
 ####################
@@ -54,7 +52,7 @@ class Article(Base):
     document_id = Column(String, nullable=False, unique=True)
     objective = Column(Text, nullable=True)
     category = Column(Enum(ArticleCategory), nullable=False)
-    url = Column(Text, nullable=False, unique=True)
+    url = Column(Text, nullable=False)
     applicable_devices = Column(JSONField, nullable=True)
     introduction = Column(Text, nullable=True)
     steps = Column(JSONField, nullable=True)
@@ -63,11 +61,10 @@ class Article(Base):
     updated_at = Column(BigInteger, nullable=False)
 
     series = relationship(
-        "Series", secondary=ARTICLE_ON_SERIES, back_populates="articles"
+        "Series",
+        secondary=ARTICLE_ON_SERIES,
+        back_populates="articles",
     )
-
-    # series_id = Column(String, ForeignKey("series.id", ondelete="CASCADE"))
-    # series = relationship("Series", back_populates="articles")
 
 
 ####################
@@ -78,7 +75,6 @@ class Article(Base):
 class ArticleModel(BaseModel):
 
     id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()),
         description="The unique identifier for the article.",
     )
     title: str
@@ -95,6 +91,8 @@ class ArticleModel(BaseModel):
     )
     created_at: int
     updated_at: int
+
+    series_ids: Optional[List[str]] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -245,7 +243,7 @@ class ArticlesTable:
                 # Update the article.series if the series is not already associated.
                 series = db.query(Series).filter_by(id=series_id).first()
                 log.info(f"Series: {series}")
-                if series not in article.series:
+                if series not in list(article.series):
                     article.series.append(series)
                     db.commit()
 
@@ -303,11 +301,12 @@ class ArticlesTable:
         try:
             with get_db() as db:
                 article = db.query(Article).filter_by(id=id).first()
-                series_models = [
-                    SeriesModel.model_validate(series) for series in article.series
-                ]
-                article_data = article.__dict__
-                article_data["series"] = series_models
+                series_ids = [series.id for series in article.series]
+                article_data = {
+                    column.name: getattr(article, column.name)
+                    for column in article.__table__.columns
+                }
+                article_data["series_ids"] = series_ids
                 return ArticleModel.model_validate(article_data)
         except Exception as e:
             return None
@@ -333,37 +332,25 @@ class ArticlesTable:
 
         with get_db() as db:
             articles = db.query(Article).offset(skip).limit(limit).all()
-            log.info(f"Articles: {articles}")
             article_models = []
             for article in articles:
                 series_ids = [series.id for series in article.series]
-                log.info(f"Series: {series_ids}")
-                data = {
-                    "title": article.title,
-                    "document_id": article.document_id,
-                    "objective": article.objective,
-                    "category": article.category,
-                    "url": article.url,
-                    "introduction": article.introduction,
-                    "applicable_devices": article.applicable_devices,
-                    "steps": article.steps,
-                    "series": series_ids,
-                    "created_at": article.created_at,
-                    "updated_at": article.updated_at,
+                article_data = {
+                    column.name: getattr(article, column.name)
+                    for column in article.__table__.columns
                 }
-                article_models.append(ArticleModel.model_validate(data))
+                article_data["series_ids"] = series_ids
+                article_models.append(ArticleModel.model_validate(article_data))
             return article_models
 
     def get_articles_by_series_id(self, series_id: str) -> List[ArticleModel]:
         with get_db() as db:
             articles = (
                 db.query(Article)
-                .join(ARTICLE_ON_SERIES, ARTICLE_ON_SERIES.c.article_id == Article.id)
-                .filter(ARTICLE_ON_SERIES.c.series_id == series_id)
+                .join(ARTICLE_ON_SERIES, ARTICLE_ON_SERIES.c.article == Article.id)
+                .filter(ARTICLE_ON_SERIES.c.series == series_id)
                 .all()
             )
-            log.info(f"Articles: {articles}")
-
             return [ArticleModel.model_validate(article) for article in articles]
 
     def update_article_by_id(self, id: str, updated: dict) -> Optional[ArticleModel]:
@@ -384,18 +371,18 @@ class ArticlesTable:
     ) -> Optional[ArticleModel]:
         try:
             with get_db() as db:
-                a = db.query(Article).filter_by(id=id).first()
-                if a:
-                    log.debug(f"Article found: {a.title}")
-                    if 0 <= step_idx < len(a.steps):
+                article = db.query(Article).filter_by(id=id).first()
+                if article:
+                    log.debug(f"Article found: {article.title}")
+                    if 0 <= step_idx < len(article.steps):
                         log.debug(f"Updating step {step_idx} for article {id}")
-                        steps = list(a.steps)
+                        steps = list(article.steps)
                         steps[step_idx] = updated
-                        a.steps = steps
-                        a.updated_at = int(time.time())
+                        article.steps = steps
+                        article.updated_at = int(time.time())
                         db.commit()
-                        db.refresh(a)
-                        return ArticleModel.model_validate(a)
+                        db.refresh(article)
+                        return ArticleModel.model_validate(article)
                     else:
                         log.debug(f"Step index {step_idx} out of range")
                         return None
@@ -410,12 +397,12 @@ class ArticlesTable:
         with get_db() as db:
             # Execute the raw SQL query
             result = db.execute(
-                text("SELECT article_id, series_id FROM article_on_series")
+                text("SELECT article, series FROM article_on_series")
             ).fetchall()
 
             # Format the results as a list of dictionaries using tuple indices
             article_series_relations = [
-                {"article_id": row[0], "series_id": row[1]} for row in result
+                {"article": row[0], "series": row[1]} for row in result
             ]
 
             return article_series_relations

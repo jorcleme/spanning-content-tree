@@ -54,7 +54,7 @@ async def get_articles(skip: int = 0, limit: int = 50):
 
 
 @router.get("/series/{series_id}", response_model=List[ArticleModel])
-async def get_articles_by_series_id(series_id: str, user=Depends(get_verified_user)):
+async def get_articles_by_series_id(series_id: str):
     return Article_Table.get_articles_by_series_id(series_id)
 
 

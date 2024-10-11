@@ -22,7 +22,7 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 class Series(Base):
     __tablename__ = "series"
 
-    id = Column(String, primary_key=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False, unique=True)
     admin_guide_urls = Column(JSONField, nullable=True)
     datasheet_urls = Column(JSONField, nullable=True)
@@ -44,7 +44,7 @@ class Series(Base):
 
 
 class SeriesModel(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str
     name: str
     admin_guide_urls: List[Any]
     datasheet_urls: List[Any]
@@ -75,23 +75,20 @@ class SeriesTable:
         software_url: str,
     ) -> Optional[SeriesModel]:
         with get_db() as db:
-            series = SeriesModel(
-                **{
-                    "name": name,
-                    "admin_guide_urls": admin_guide_urls,
-                    "datasheet_urls": datasheet_urls,
-                    "cli_guide_urls": cli_guide_urls,
-                    "software_url": software_url,
-                    "created_at": int(time.time()),
-                    "updated_at": int(time.time()),
-                }
+            result = Series(
+                name=name,
+                admin_guide_urls=admin_guide_urls,
+                datasheet_urls=datasheet_urls,
+                cli_guide_urls=cli_guide_urls,
+                software_url=software_url,
+                created_at=int(time.time()),
+                updated_at=int(time.time()),
             )
-            result = Series(**series.model_dump())
             db.add(result)
             db.commit()
             db.refresh(result)
             if result:
-                return series
+                return SeriesModel.model_validate(result)
             else:
                 return None
 
@@ -108,24 +105,12 @@ class SeriesTable:
         try:
             with get_db() as db:
                 series = db.query(Series).filter_by(name=name).first()
-                data = {
-                    "name": series.name,
-                    "admin_guide_urls": series.admin_guide_urls,
-                    "datasheet_urls": series.datasheet_urls,
-                    "cli_guide_urls": series.cli_guide_urls,
-                    "software_url": series.software_url,
-                    "articles": [a.id for a in series.articles],
-                    "created_at": series.created_at,
-                    "updated_at": series.updated_at,
-                }
-                return SeriesModel.model_validate(data)
+                return SeriesModel.model_validate(series)
         except Exception as e:
             log.error(f"Error getting series by name: {e}")
             return None
 
     def get_all_series(self, skip: int = 0, limit: int = 50) -> List[SeriesModel]:
-        import json
-
         try:
             with get_db() as db:
                 series = db.query(Series).offset(skip).limit(limit).all()

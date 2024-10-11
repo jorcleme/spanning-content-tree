@@ -40,7 +40,9 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
 
     @migrator.create_model
     class Series(pw.Model):
-        id = pw.TextField(unique=True, primary_key=True)
+        id = pw.TextField(
+            unique=True, primary_key=True, default=pw.SQL("uuid_generate_v4()")
+        )
         name = pw.TextField(unique=True)
         admin_guide_urls = pw.TextField(null=True)
         datasheet_urls = pw.TextField(null=True)
@@ -50,29 +52,26 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
         created_at = pw.BigIntegerField(null=False)
         updated_at = pw.BigIntegerField(null=False)
 
-        articles = pw.ManyToManyField(
-            pw.DeferredForeignKey("Article"),
-            backref="series",
-            on_delete="CASCADE",
-            on_update="CASCADE",
-        )
+        articles = pw.ManyToManyField(DeferredForeignKey("Article"))
 
         class Meta:
             table_name = "series"
 
     @migrator.create_model
     class Article(pw.Model):
-        id = pw.TextField(unique=True, primary_key=True)
+        id = pw.TextField(
+            unique=True, primary_key=True, default=pw.SQL("uuid_generate_v4()")
+        )
         title = pw.TextField()
-        document_id = pw.TextField(unique=True)
+        document_id = pw.TextField()
         category = pw.TextField()
-        url = pw.TextField(unique=True)
+        url = pw.TextField()
         objective = pw.TextField()
         applicable_devices = pw.TextField()
         introduction = pw.TextField()
         steps = pw.TextField()
 
-        series = pw.ManyToManyField(DeferredForeignKey("Series"), backref="articles")
+        series = pw.ManyToManyField(Series, backref="articles")
 
         created_at = pw.BigIntegerField(null=False)
         updated_at = pw.BigIntegerField(null=False)
@@ -82,18 +81,8 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
 
     @migrator.create_model
     class ArticleOnSeries(pw.Model):
-        article = pw.ForeignKeyField(
-            Article,
-            backref="series",
-            on_delete="CASCADE",
-            lazy_load=True,
-        )
-        series = pw.ForeignKeyField(
-            Series,
-            backref="articles",
-            on_delete="CASCADE",
-            lazy_load=True,
-        )
+        article = pw.ForeignKeyField(Article, backref="series", on_delete="CASCADE")
+        series = pw.ForeignKeyField(Series, backref="articles", on_delete="CASCADE")
 
         class Meta:
             table_name = "article_on_series"

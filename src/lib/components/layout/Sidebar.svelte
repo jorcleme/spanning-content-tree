@@ -400,94 +400,11 @@
 				</div>
 			</button>
 		</div>
-		<div class="px-2.5 flex space-evenly space-x-1 text-gray-600 dark:text-gray-400">
-			<a
-				id="sidebar-new-chat-button"
-				class="flex flex-1 rounded-xl px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-850 transition"
-				href="/"
-				draggable="false"
-				on:click={async () => {
-					selectedChatId = null;
-					await goto('/');
-					const newChatButton = document.getElementById('new-article-support-button');
-					setTimeout(() => {
-						newChatButton?.click();
-						if ($mobile) {
-							showSidebar.set(false);
-						}
-					}, 0);
-				}}
-			>
-				<div class="self-center mr-2">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						id="art"
-						width="80"
-						height="80"
-						viewBox="0 0 80 80"
-						fill="url(#grad1)"
-					>
-						<defs>
-							<linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
-								<stop offset="0%" stop-color="#00BCEB" stop-opacity="1" />
-								<stop offset="100%" stop-color="#63FFF7" stop-opacity="1" />
-							</linearGradient>
-						</defs>
-						<path
-							class="cls-1"
-							d="M40,52.75c-7.03,0-12.75-5.72-12.75-12.75s5.72-12.75,12.75-12.75,12.75,5.72,12.75,12.75-5.72,12.75-12.75,12.75ZM40,28.75c-6.2,0-11.25,5.05-11.25,11.25s5.05,11.25,11.25,11.25,11.25-5.05,11.25-11.25-5.05-11.25-11.25-11.25Z"
-						/>
-						<path
-							class="cls-1"
-							d="M66,20.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM66,12.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
-						/>
-						<path
-							class="cls-1"
-							d="M14,20.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM14,12.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
-						/>
-						<path
-							class="cls-1"
-							d="M66,68.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM66,60.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
-						/>
-						<path
-							class="cls-1"
-							d="M14,68.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM14,60.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
-						/>
-						<path
-							class="cls-1"
-							d="M66,44.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM66,36.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
-						/>
-						<path
-							class="cls-1"
-							d="M14,44.75c-2.62,0-4.75-2.13-4.75-4.75s2.13-4.75,4.75-4.75,4.75,2.13,4.75,4.75-2.13,4.75-4.75,4.75ZM14,36.75c-1.79,0-3.25,1.46-3.25,3.25s1.46,3.25,3.25,3.25,3.25-1.46,3.25-3.25-1.46-3.25-3.25-3.25Z"
-						/>
-						<rect class="cls-1" x="18" y="39.25" width="10" height="1.5" />
-						<rect class="cls-1" x="52" y="39.25" width="10" height="1.5" />
-						<path
-							class="cls-1"
-							d="M20,64.75h-2v-1.5h2c7.31,0,13.25-5.94,13.25-13.25h1.5c0,8.13-6.62,14.75-14.75,14.75Z"
-						/>
-						<path
-							class="cls-1"
-							d="M62,64.75h-2c-8.13,0-14.75-6.62-14.75-14.75h1.5c0,7.31,5.94,13.25,13.25,13.25h2v1.5Z"
-						/>
-						<path
-							class="cls-1"
-							d="M34.75,30h-1.5c0-7.31-5.94-13.25-13.25-13.25h-2v-1.5h2c8.13,0,14.75,6.62,14.75,14.75Z"
-						/>
-						<path
-							class="cls-1"
-							d="M46.75,30h-1.5c0-8.13,6.62-14.75,14.75-14.75h2v1.5h-2c-7.31,0-13.25,5.94-13.25,13.25Z"
-						/>
-					</svg>
-				</div>
-				<div class=" self-center font-medium text-sm text-gray-850 dark:text-white font-primary">Article Support</div>
-			</a>
-		</div>
+
 		{#if $user?.role === 'admin'}
 			<div class="px-2.5 flex justify-center text-gray-800 dark:text-gray-200">
 				<a
-					class="flex-grow flex space-x-3 rounded-xl px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+					class="flex-grow flex rounded-xl px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
 					href="/workspace"
 					on:click={() => {
 						selectedChatId = null;
@@ -499,7 +416,7 @@
 					}}
 					draggable="false"
 				>
-					<div class="self-center">
+					<div class="self-center mr-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -562,7 +479,7 @@
 
 			<div class="px-2 mt-0.5 mb-2 flex justify-center space-x-2">
 				<div class="flex w-full rounded-xl" id="chat-search">
-					<div class="self-center pl-3 py-2 rounded-l-xl bg-transparent">
+					<div class="self-center pl-3 py-2 rounded-l-xl bg-transparent mr-2">
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 							<path
 								fill-rule="evenodd"
@@ -573,7 +490,7 @@
 					</div>
 
 					<input
-						class="w-full rounded-r-xl py-1.5 pl-2.5 pr-4 text-sm bg-transparent dark:text-gray-300 outline-none"
+						class="w-full rounded-xl py-1.5 pl-2.5 pr-4 text-sm bg-transparent dark:text-gray-300 outline-none"
 						placeholder={$i18n.t('Search')}
 						bind:value={search}
 						on:focus={() => {

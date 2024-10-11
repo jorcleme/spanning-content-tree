@@ -1,4 +1,4 @@
-"""Peewee migrations -- 017_add_user_oauth_sub.py.
+"""Peewee migrations -- 018_add_function_is_global.py.
 
 Some examples (model - class or model name)::
 

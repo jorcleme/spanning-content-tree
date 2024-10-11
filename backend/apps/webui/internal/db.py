@@ -53,7 +53,7 @@ else:
 
 # Workaround to handle the peewee migration
 # This is required to ensure the peewee migration is handled before the alembic migration
-def handle_peewee_migration(DATABASE_URL):
+def handle_peewee_migration(DATABASE_URL: str):
     try:
         # Replace the postgresql:// with postgres:// and %40 with @ in the DATABASE_URL
         db = register_connection(
@@ -62,13 +62,6 @@ def handle_peewee_migration(DATABASE_URL):
         migrate_dir = BACKEND_DIR / "apps" / "webui" / "internal" / "migrations"
         router = Router(db, logger=log, migrate_dir=migrate_dir)
         # @Corey, Team: I added this line to handle secondary runs of backend/start.sh script.
-        # Shutting down the app and running again throws migration errors because the migrations have alread been applied.
-        # if os.path.exists(DATA_DIR / "webui.db"):
-        #     log.info("Database has already been migrated. Skipping the migration.")
-        #     db.close()
-        # else:
-        #     router.run()
-        #     db.close()
 
         if os.path.exists(DATA_DIR / "webui.db"):
             pending_migrations = router.diff

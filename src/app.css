@@ -295,10 +295,6 @@ input[type='number'] {
 	background-color: #56949f;
 }
 
-.cisco #chat-search > * {
-	background-color: #dfdad9 !important;
-}
-
 .cisco .svelte-1ee93ns {
 	--primary: #b4637a !important;
 	--secondary: #fffaf3 !important;
