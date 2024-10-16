@@ -779,3 +779,79 @@ export const stripHtml = (text: string) => {
 export const titleizeWords = (str: string) => {
 	return str.replace(/\b\w/g, (char) => char.toUpperCase());
 };
+
+const isStringArray = (arr: any): arr is string[] => {
+	return Array.isArray(arr) && arr.every((item) => typeof item === 'string');
+};
+
+interface FilterSelectParams {
+	filterText: string;
+	items: Array<{ [key: string]: any }> | Array<string>;
+	multiple: boolean;
+	value: Array<{ [key: string]: any }>;
+	itemId: string;
+	filterSelectedItems: boolean;
+	itemFilter: (label: string, filterText: string) => boolean;
+	convertStringItemsToObjects: (items: string[]) => Array<{ [key: string]: any }>;
+	filterGroupedItems: (items: Array<{ [key: string]: any }>) => Array<{ [key: string]: any }>;
+	label: string;
+}
+export const filterSelect = ({
+	filterText,
+	items,
+	multiple,
+	value,
+	itemId,
+	filterSelectedItems,
+	itemFilter,
+	convertStringItemsToObjects,
+	filterGroupedItems,
+	label
+}: FilterSelectParams): Array<{ [key: string]: any }> => {
+	if (!items) return [];
+
+	if (items && items.length > 0 && isStringArray(items)) {
+		items = convertStringItemsToObjects(items);
+	}
+
+	let filterResults = items.filter((item: any) => {
+		let matchesFilter = itemFilter(item[label], filterText);
+		if (matchesFilter && multiple && value?.length) {
+			matchesFilter = !value.some((x: any) => {
+				return filterSelectedItems ? x[itemId] === item[itemId] : false;
+			});
+		}
+
+		return matchesFilter;
+	}) as unknown as { [key: string]: any }[];
+
+	filterResults = filterGroupedItems(filterResults);
+
+	return filterResults;
+};
+
+export const getSelectItems = async ({ dispatch, loadOptions, convertStringItemsToObjects, filterText }: any) => {
+	let res = await loadOptions(filterText).catch((err: unknown) => {
+		console.warn('svelte-select loadOptions error :>> ', err);
+		dispatch('error', { type: 'loadOptions', details: err });
+	});
+
+	if (res && !res.cancelled) {
+		if (res) {
+			if (res && res.length > 0 && typeof res[0] !== 'object') {
+				res = convertStringItemsToObjects(res);
+			}
+
+			dispatch('loaded', { items: res });
+		} else {
+			res = [];
+		}
+
+		return {
+			filteredItems: res,
+			loading: false,
+			focused: true,
+			listOpen: true
+		};
+	}
+};

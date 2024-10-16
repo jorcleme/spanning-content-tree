@@ -7,6 +7,7 @@
 	import _ from 'lodash';
 	import Slide from './common/Slide.svelte';
 	import DeviceSelection from '../gen/CiscoDeviceSelector.svelte';
+	import Select from './common/Select.svelte';
 	import ArticleTopics from '../gen/ArticleTopics.svelte';
 	import GenerateNewArticle from '../gen/GenerateNewArticle.svelte';
 	import { explanationStore, promptStore, variablesStore } from '$lib/stores';
@@ -387,6 +388,28 @@
 			updateFormattedPrompt(template);
 		}
 	}
+
+	interface Device {
+		[key: string]: string;
+	}
+	const devices: Device[] = [
+		{ label: 'Catalyst 1200', value: 'Cisco Catalyst 1200 Series Switches', category: 'Switches' },
+		{ label: 'Catalyst 1300', value: 'Cisco Catalyst 1300 Series Switches', category: 'Switches' },
+		{ label: 'CBS110 Series', value: 'Cisco Business 110 Series Unmanaged Switches', category: 'Switches' },
+		{ label: 'CBS220 Series', value: 'Cisco Business 220 Series Smart Switches', category: 'Switches' },
+		{ label: 'CBS250 Series', value: 'Cisco Business 250 Series Smart Switches', category: 'Switches' },
+		{ label: 'CBS350 Series', value: 'Cisco Business 350 Series Managed Switches', category: 'Switches' },
+		{ label: '350 Series', value: 'Cisco 350 Series Managed Switches', category: 'Switches' },
+		{ label: '350X Series', value: 'Cisco 350X Series Stackable Managed Switches', category: 'Switches' },
+		{ label: '550X Series', value: 'Cisco 550X Series Stackable Managed Switches', category: 'Switches' },
+		{ label: 'RV100 Series', value: 'RV100 Product Family', category: 'Routers' },
+		{ label: 'RV320 Series', value: 'RV320 Product Family', category: 'Routers' },
+		{ label: 'RV340 Series', value: 'RV340 Product Family', category: 'Routers' },
+		{ label: 'RV160 VPN Series', value: 'RV160 VPN Router', category: 'Routers' },
+		{ label: 'RV260 VPN Series', value: 'RV260 VPN Router', category: 'Routers' },
+		{ label: 'CBW-AC', value: 'Cisco Business Wireless AC', category: 'Wireless' },
+		{ label: 'CBW-AX', value: 'Cisco Business Wireless AX', category: 'Wireless' }
+	];
 </script>
 
 <div class="relative overflow-x-scroll h-full p-4" style="background:whitesmoke;">
@@ -396,7 +419,8 @@
 				<div class="slide flex justify-center items-center" transition:fly={{ x: 200, duration: 500 }}>
 					{#if $currentSlide === 0}
 						<Slide currentSlide={0} slideIndex={0}>
-							<DeviceSelection on:confirm={handleDeviceConfirm} />
+							<Select items={devices} on:confirm={handleDeviceConfirm} />
+							<!-- <DeviceSelection on:confirm={handleDeviceConfirm} /> -->
 						</Slide>
 					{:else if $currentSlide === 1}
 						<Slide currentSlide={1} slideIndex={1}>

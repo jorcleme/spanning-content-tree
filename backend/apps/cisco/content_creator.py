@@ -29,12 +29,12 @@ from config import (
     BASE_DIR,
     DATA_DIR,
     CHROMA_CLIENT,
-    CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME,
-    CATALYST_1300_CLI_GUIDE_COLLECTION_NAME,
-    CBS_250_ADMIN_GUIDE_COLLECTION_NAME,
-    CBS_250_CLI_GUIDE_COLLECTION_NAME,
-    CBS_220_ADMIN_GUIDE_COLLECTION_NAME,
-    CBS_220_CLI_GUIDE_COLLECTION_NAME,
+    CATALYST_1300_ADMIN_GUIDE_COLLECTION,
+    CATALYST_1300_CLI_GUIDE_COLLECTION,
+    CBS_250_ADMIN_GUIDE_COLLECTION,
+    CBS_250_CLI_GUIDE_COLLECTION,
+    CBS_220_ADMIN_GUIDE_COLLECTION,
+    CBS_220_CLI_GUIDE_COLLECTION,
     MONGODB_URI,
     MONGODB_USER,
     MONGODB_PASS,
@@ -479,16 +479,16 @@ def retrieve(state: GraphState) -> GraphState:
     datasource = state_dict["datasource"]
 
     if datasource == "ADMIN_GUIDE":
-        vectordb = init_langchain_vectordb(CBS_220_ADMIN_GUIDE_COLLECTION_NAME)
+        vectordb = init_langchain_vectordb(CBS_220_ADMIN_GUIDE_COLLECTION)
         retriever = init_parent_document_retriever(
-            CBS_220_ADMIN_GUIDE_COLLECTION_NAME, vectordb
+            CBS_220_ADMIN_GUIDE_COLLECTION, vectordb
         )
     else:
-        vectordb = init_langchain_vectordb(CBS_220_CLI_GUIDE_COLLECTION_NAME)
+        vectordb = init_langchain_vectordb(CBS_220_CLI_GUIDE_COLLECTION)
         llm = ChatOpenAI(temperature=0, model="gpt-4o")
         document_contents = "Command Line Interface commands, guidelines, syntax, description, parameters, and examples"
         retriever = init_self_query_retriever(
-            llm, vectordb, document_contents, CBS_220_CLI_GUIDE_COLLECTION_NAME
+            llm, vectordb, document_contents, CBS_220_CLI_GUIDE_COLLECTION
         )
 
     documents = decompose_question(question, retriever)

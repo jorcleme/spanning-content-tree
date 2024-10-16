@@ -1379,17 +1379,260 @@ MONGODB_PASS = os.environ.get("MONGODB_APP_PASS", "")
 # NOTE: ALL SWITCHES are loaded into DB @backend/data/vector_db
 # It's paramount we remember to mount this dir to a volume in the docker/docker-compose file
 
-CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME = "catalyst_1300_admin_guide"
-CATALYST_1300_CLI_GUIDE_COLLECTION_NAME = "catalyst_1300_cli_guide"
-CATALYST_1200_ADMIN_GUIDE_COLLECTION_NAME = "catalyst_1200_admin_guide"
-CATALYST_1200_CLI_GUIDE_COLLECTION_NAME = "catalyst_1200_cli_guide"
-CBS_220_ADMIN_GUIDE_COLLECTION_NAME = "cbs_220_admin_guide"
-CBS_220_CLI_GUIDE_COLLECTION_NAME = "cbs_220_cli_guide"
-CBS_250_ADMIN_GUIDE_COLLECTION_NAME = "cbs_250_admin_guide"
-CBS_250_CLI_GUIDE_COLLECTION_NAME = "cbs_250_cli_guide"
-CBS_350_ADMIN_GUIDE_COLLECTION_NAME = "cbs_350_admin_guide"
-CBS_350_CLI_GUIDE_COLLECTION_NAME = "cbs_350_cli_guide"
-CISCO_350_ADMIN_GUIDE_COLLECTION_NAME = "cisco_350_admin_guide"
+
+class OpenAICollections:
+    CATALYST_1300_ADMIN_GUIDE_COLLECTION = "catalyst_1300_admin_guide_openai"
+    CATALYST_1300_CLI_GUIDE_COLLECTION = "catalyst_1300_cli_guide_openai"
+    CATALYST_1200_ADMIN_GUIDE_COLLECTION = "catalyst_1200_admin_guide_openai"
+    CATALYST_1200_CLI_GUIDE_COLLECTION = "catalyst_1200_cli_guide_openai"
+    CBS_220_ADMIN_GUIDE_COLLECTION = "cbs_220_admin_guide_openai"
+    CBS_220_CLI_GUIDE_COLLECTION = "cbs_220_cli_guide_openai"
+    CBS_250_ADMIN_GUIDE_COLLECTION = "cbs_250_admin_guide_openai"
+    CBS_250_CLI_GUIDE_COLLECTION = "cbs_250_cli_guide_openai"
+    CBS_350_ADMIN_GUIDE_COLLECTION = "cbs_350_admin_guide_openai"
+    CBS_350_CLI_GUIDE_COLLECTION = "cbs_350_cli_guide_openai"
+    CISCO_350_ADMIN_GUIDE_COLLECTION = "cisco_350_admin_guide_openai"
+    CISCO_350_CLI_GUIDE_COLLECTION_NAME = "cisco_350_cli_guide_openai"
+    CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_350x_admin_guide_openai"
+    CISCO_350X_CLI_GUIDE_COLLECTION_NAME = "cisco_350x_cli_guide_openai"
+    CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_550x_admin_guide_openai"
+    CISCO_550X_CLI_GUIDE_COLLECTION_NAME = "cisco_550x_cli_guide_openai"
+    PRODUCT_FAMILY_RV100_ADMIN_GUIDE_COLLECTION_NAME = "rv100_admin_guide_openai"
+    PRODUCT_FAMILY_RV100_CLI_GUIDE_COLLECTION_NAME = "rv100_cli_guide_openai"
+    CISCO_RV160_VPN_ADMIN_GUIDE_COLLECTION_NAME = "cisco_rv160_vpn_admin_guide_openai"
+    CISCO_RV260_VPN_ADMIN_GUIDE_COLLECTION_NAME = "cisco_rv260_vpn_admin_guide_openai"
+    PRODUCT_FAMILY_RV320_ADMIN_GUIDE_COLLECTION_NAME = "rv340_admin_guide_openai"
+    PRODUCT_FAMILY_RV320_CLI_GUIDE_COLLECTION_NAME = "rv340_cli_guide_openai"
+    PRODUCT_FAMILY_RV340_ADMIN_GUIDE_COLLECTION_NAME = "rv340_admin_guide_openai"
+    CISCO_BUSINESS_WIRELESS_AC_ADMIN_GUIDE_COLLECTION_NAME = (
+        "cisco_business_wireless_ac_admin_guide_openai"
+    )
+    CISCO_BUSINESS_WIRELESS_AX_ADMIN_GUIDE_COLLECTION_NAME = (
+        "cisco_business_wireless_ax_admin_guide_openai"
+    )
+    CISCO_WAP100_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap100_admin_guide_openai"
+    CISCO_WAP300_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap300_admin_guide_openai"
+    CISCO_WAP500_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap500_admin_guide_openai"
+
+    _collections = {
+        "Cisco Catalyst 1300 Series Switches": (
+            CATALYST_1300_ADMIN_GUIDE_COLLECTION,
+            CATALYST_1300_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Catalyst 1200 Series Switches": (
+            CATALYST_1200_ADMIN_GUIDE_COLLECTION,
+            CATALYST_1200_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 220 Series Smart Switches": (
+            CBS_220_ADMIN_GUIDE_COLLECTION,
+            CBS_220_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 250 Series Smart Switches": (
+            CBS_250_ADMIN_GUIDE_COLLECTION,
+            CBS_250_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 350 Series Managed Switches": (
+            CBS_350_ADMIN_GUIDE_COLLECTION,
+            CBS_350_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco 350 Series Managed Switches": (
+            CISCO_350_ADMIN_GUIDE_COLLECTION,
+            CISCO_350_CLI_GUIDE_COLLECTION_NAME,
+        ),
+        "Cisco 350X Series Stackable Managed Switches": (
+            CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME,
+            CISCO_350X_CLI_GUIDE_COLLECTION_NAME,
+        ),
+        "Cisco 550X Series Stackable Managed Switches": (
+            CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME,
+            CISCO_550X_CLI_GUIDE_COLLECTION_NAME,
+        ),
+    }
+
+    @classmethod
+    def resolve_collection_name(cls, name: str):
+        return cls._collections.get(name, (None, None))
+
+
+class HuggingFaceCollections:
+    CATALYST_1300_ADMIN_GUIDE_COLLECTION = "catalyst_1300_admin_guide_huggingface"
+    CATALYST_1300_CLI_GUIDE_COLLECTION = "catalyst_1300_cli_guide_huggingface"
+    CATALYST_1200_ADMIN_GUIDE_COLLECTION = "catalyst_1200_admin_guide_huggingface"
+    CATALYST_1200_CLI_GUIDE_COLLECTION = "catalyst_1200_cli_guide_huggingface"
+    CBS_220_ADMIN_GUIDE_COLLECTION = "cbs_220_admin_guide_huggingface"
+    CBS_220_CLI_GUIDE_COLLECTION = "cbs_220_cli_guide_huggingface"
+    CBS_250_ADMIN_GUIDE_COLLECTION = "cbs_250_admin_guide_huggingface"
+    CBS_250_CLI_GUIDE_COLLECTION = "cbs_250_cli_guide_huggingface"
+    CBS_350_ADMIN_GUIDE_COLLECTION = "cbs_350_admin_guide_huggingface"
+    CBS_350_CLI_GUIDE_COLLECTION = "cbs_350_cli_guide_huggingface"
+    CISCO_350_ADMIN_GUIDE_COLLECTION = "cisco_350_admin_guide_huggingface"
+    CISCO_350_CLI_GUIDE_COLLECTION_NAME = "cisco_350_cli_guide_huggingface"
+    CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_350x_admin_guide_huggingface"
+    CISCO_350X_CLI_GUIDE_COLLECTION_NAME = "cisco_350x_cli_guide_huggingface"
+    CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_550x_admin_guide_huggingface"
+    CISCO_550X_CLI_GUIDE_COLLECTION_NAME = "cisco_550x_cli_guide_huggingface"
+    PRODUCT_FAMILY_RV100_ADMIN_GUIDE_COLLECTION_NAME = "rv100_admin_guide_huggingface"
+    PRODUCT_FAMILY_RV100_CLI_GUIDE_COLLECTION_NAME = "rv100_cli_guide_huggingface"
+    CISCO_RV160_VPN_ADMIN_GUIDE_COLLECTION_NAME = (
+        "cisco_rv160_vpn_admin_guide_huggingface"
+    )
+    CISCO_RV260_VPN_ADMIN_GUIDE_COLLECTION_NAME = (
+        "cisco_rv260_vpn_admin_guide_huggingface"
+    )
+    PRODUCT_FAMILY_RV320_ADMIN_GUIDE_COLLECTION_NAME = "rv340_admin_guide_huggingface"
+    PRODUCT_FAMILY_RV320_CLI_GUIDE_COLLECTION_NAME = "rv340_cli_guide_huggingface"
+    PRODUCT_FAMILY_RV340_ADMIN_GUIDE_COLLECTION_NAME = "rv340_admin_guide_huggingface"
+    CISCO_BUSINESS_WIRELESS_AC_ADMIN_GUIDE_COLLECTION_NAME = (
+        "cisco_business_wireless_ac_admin_guide_huggingface"
+    )
+    CISCO_BUSINESS_WIRELESS_AX_ADMIN_GUIDE_COLLECTION_NAME = (
+        "cisco_business_wireless_ax_admin_guide_huggingface"
+    )
+    CISCO_WAP100_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap100_admin_guide_huggingface"
+    CISCO_WAP300_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap300_admin_guide_huggingface"
+    CISCO_WAP500_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap500_admin_guide_huggingface"
+
+    _collections = {
+        "Cisco Catalyst 1300 Series Switches": (
+            CATALYST_1300_ADMIN_GUIDE_COLLECTION,
+            CATALYST_1300_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Catalyst 1200 Series Switches": (
+            CATALYST_1200_ADMIN_GUIDE_COLLECTION,
+            CATALYST_1200_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 220 Series Smart Switches": (
+            CBS_220_ADMIN_GUIDE_COLLECTION,
+            CBS_220_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 250 Series Smart Switches": (
+            CBS_250_ADMIN_GUIDE_COLLECTION,
+            CBS_250_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 350 Series Managed Switches": (
+            CBS_350_ADMIN_GUIDE_COLLECTION,
+            CBS_350_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco 350 Series Managed Switches": (
+            CISCO_350_ADMIN_GUIDE_COLLECTION,
+            CISCO_350_CLI_GUIDE_COLLECTION_NAME,
+        ),
+        "Cisco 350X Series Stackable Managed Switches": (
+            CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME,
+            CISCO_350X_CLI_GUIDE_COLLECTION_NAME,
+        ),
+        "Cisco 550X Series Stackable Managed Switches": (
+            CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME,
+            CISCO_550X_CLI_GUIDE_COLLECTION_NAME,
+        ),
+    }
+
+    @classmethod
+    def resolve_collection_name(cls, name: str):
+        return cls._collections.get(name, (None, None))
+
+
+class OllamaCollections:
+    CATALYST_1300_ADMIN_GUIDE_COLLECTION = "catalyst_1300_admin_guide_ollama"
+    CATALYST_1300_CLI_GUIDE_COLLECTION = "catalyst_1300_cli_guide_ollama"
+    CATALYST_1200_ADMIN_GUIDE_COLLECTION = "catalyst_1200_admin_guide_ollama"
+    CATALYST_1200_CLI_GUIDE_COLLECTION = "catalyst_1200_cli_guide_ollama"
+    CBS_220_ADMIN_GUIDE_COLLECTION = "cbs_220_admin_guide_ollama"
+    CBS_220_CLI_GUIDE_COLLECTION = "cbs_220_cli_guide_ollama"
+    CBS_250_ADMIN_GUIDE_COLLECTION = "cbs_250_admin_guide_ollama"
+    CBS_250_CLI_GUIDE_COLLECTION = "cbs_250_cli_guide_ollama"
+    CBS_350_ADMIN_GUIDE_COLLECTION = "cbs_350_admin_guide_ollama"
+    CBS_350_CLI_GUIDE_COLLECTION = "cbs_350_cli_guide_ollama"
+    CISCO_350_ADMIN_GUIDE_COLLECTION = "cisco_350_admin_guide_ollama"
+    CISCO_350_CLI_GUIDE_COLLECTION_NAME = "cisco_350_cli_guide_ollama"
+    CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_350x_admin_guide_ollama"
+    CISCO_350X_CLI_GUIDE_COLLECTION_NAME = "cisco_350x_cli_guide_ollama"
+    CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_550x_admin_guide_ollama"
+    CISCO_550X_CLI_GUIDE_COLLECTION_NAME = "cisco_550x_cli_guide_ollama"
+    PRODUCT_FAMILY_RV100_ADMIN_GUIDE_COLLECTION_NAME = "rv100_admin_guide_ollama"
+    PRODUCT_FAMILY_RV100_CLI_GUIDE_COLLECTION_NAME = "rv100_cli_guide_ollama"
+    CISCO_RV160_VPN_ADMIN_GUIDE_COLLECTION_NAME = "cisco_rv160_vpn_admin_guide_ollama"
+    CISCO_RV260_VPN_ADMIN_GUIDE_COLLECTION_NAME = "cisco_rv260_vpn_admin_guide_ollama"
+    PRODUCT_FAMILY_RV320_ADMIN_GUIDE_COLLECTION_NAME = "rv340_admin_guide_ollama"
+    PRODUCT_FAMILY_RV320_CLI_GUIDE_COLLECTION_NAME = "rv340_cli_guide_ollama"
+    PRODUCT_FAMILY_RV340_ADMIN_GUIDE_COLLECTION_NAME = "rv340_admin_guide_ollama"
+    CISCO_BUSINESS_WIRELESS_AC_ADMIN_GUIDE_COLLECTION_NAME = (
+        "cisco_business_wireless_ac_admin_guide_ollama"
+    )
+    CISCO_BUSINESS_WIRELESS_AX_ADMIN_GUIDE_COLLECTION_NAME = (
+        "cisco_business_wireless_ax_admin_guide_ollama"
+    )
+    CISCO_WAP100_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap100_admin_guide_ollama"
+    CISCO_WAP300_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap300_admin_guide_ollama"
+    CISCO_WAP500_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap500_admin_guide_ollama"
+
+    _collections = {
+        "Cisco Catalyst 1300 Series Switches": (
+            CATALYST_1300_ADMIN_GUIDE_COLLECTION,
+            CATALYST_1300_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Catalyst 1200 Series Switches": (
+            CATALYST_1200_ADMIN_GUIDE_COLLECTION,
+            CATALYST_1200_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 220 Series Smart Switches": (
+            CBS_220_ADMIN_GUIDE_COLLECTION,
+            CBS_220_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 250 Series Smart Switches": (
+            CBS_250_ADMIN_GUIDE_COLLECTION,
+            CBS_250_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco Business 350 Series Managed Switches": (
+            CBS_350_ADMIN_GUIDE_COLLECTION,
+            CBS_350_CLI_GUIDE_COLLECTION,
+        ),
+        "Cisco 350 Series Managed Switches": (
+            CISCO_350_ADMIN_GUIDE_COLLECTION,
+            CISCO_350_CLI_GUIDE_COLLECTION_NAME,
+        ),
+        "Cisco 350X Series Stackable Managed Switches": (
+            CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME,
+            CISCO_350X_CLI_GUIDE_COLLECTION_NAME,
+        ),
+        "Cisco 550X Series Stackable Managed Switches": (
+            CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME,
+            CISCO_550X_CLI_GUIDE_COLLECTION_NAME,
+        ),
+    }
+
+    @classmethod
+    def resolve_collection_name(cls, name: str):
+        return cls._collections.get(name, (None, None))
+
+
+class CollectionFactory:
+    @staticmethod
+    def get_collections(embedding_engine: str):
+        if embedding_engine == "openai":
+            return OpenAICollections
+        elif embedding_engine == "huggingface":
+            return HuggingFaceCollections
+        elif embedding_engine == "ollama":
+            return OllamaCollections
+        else:
+            raise ValueError(f"Unknown embedding engine: {embedding_engine}")
+
+
+CATALYST_1300_ADMIN_GUIDE_COLLECTION_HUGGINGFACE = (
+    "catalyst_1300_admin_guide_huggingface"
+)
+CATALYST_1300_ADMIN_GUIDE_COLLECTION = "catalyst_1300_admin_guide"
+CATALYST_1300_CLI_GUIDE_COLLECTION = "catalyst_1300_cli_guide"
+CATALYST_1200_ADMIN_GUIDE_COLLECTION = "catalyst_1200_admin_guide"
+CATALYST_1200_CLI_GUIDE_COLLECTION = "catalyst_1200_cli_guide"
+CBS_220_ADMIN_GUIDE_COLLECTION = "cbs_220_admin_guide"
+CBS_220_CLI_GUIDE_COLLECTION = "cbs_220_cli_guide"
+CBS_250_ADMIN_GUIDE_COLLECTION = "cbs_250_admin_guide"
+CBS_250_CLI_GUIDE_COLLECTION = "cbs_250_cli_guide"
+CBS_350_ADMIN_GUIDE_COLLECTION = "cbs_350_admin_guide"
+CBS_350_CLI_GUIDE_COLLECTION = "cbs_350_cli_guide"
+CISCO_350_ADMIN_GUIDE_COLLECTION = "cisco_350_admin_guide"
 CISCO_350_CLI_GUIDE_COLLECTION_NAME = "cisco_350_cli_guide"
 CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME = "cisco_350x_admin_guide"
 CISCO_350X_CLI_GUIDE_COLLECTION_NAME = "cisco_350x_cli_guide"
@@ -1411,3 +1654,6 @@ CISCO_BUSINESS_WIRELESS_AX_ADMIN_GUIDE_COLLECTION_NAME = (
 CISCO_WAP100_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap100_admin_guide"
 CISCO_WAP300_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap300_admin_guide"
 CISCO_WAP500_ADMIN_GUIDE_COLLECTION_NAME = "cisco_wap500_admin_guide"
+
+
+CISCO_COLLECTIONS = {"catalyst_1200": ""}

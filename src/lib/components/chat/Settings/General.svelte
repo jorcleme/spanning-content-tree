@@ -139,7 +139,7 @@
 		<div class="">
 			<div class=" mb-1 text-sm font-medium">{$i18n.t('WebUI Settings')}</div>
 
-			<div class="flex w-full justify-between">
+			<div class="flex w-full justify-between mb-2">
 				<div class=" self-center text-xs font-medium">{$i18n.t('Theme')}</div>
 				<div class="flex items-center relative">
 					<select
@@ -160,7 +160,7 @@
 				</div>
 			</div>
 
-			<div class=" flex w-full justify-between">
+			<div class=" flex w-full justify-between mb-2">
 				<div class=" self-center text-xs font-medium">{$i18n.t('Language')}</div>
 				<div class="flex items-center relative">
 					<select

@@ -127,6 +127,7 @@ async def add_new_article(form_data: InsertNewArticleForm):
         introduction=form_data.introduction,
         applicable_devices=form_data.applicable_devices,
         steps=form_data.steps,
+        revision_history=form_data.revision_history,
         series_id=form_data.series_id,
     )
 

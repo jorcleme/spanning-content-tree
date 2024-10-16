@@ -8,6 +8,53 @@ import uuid
 import time
 
 
+def use_pysqlite3():
+    """
+    Swap std-lib sqlite3 with pysqlite3.
+    """
+    import platform
+    import sqlite3
+
+    if platform.system() == "Linux" and sqlite3.sqlite_version_info < (3, 35, 0):
+        try:
+            # According to the Chroma team, this patch only works on Linux
+            import datetime
+            import subprocess
+            import sys
+
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "pysqlite3-binary",
+                    "--quiet",
+                    "--disable-pip-version-check",
+                ]
+            )
+
+            __import__("pysqlite3")
+            sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+
+            # Let the user know what happened.
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
+            print(
+                f"{current_time} [smbdevs] [INFO]",
+                "Swapped std-lib sqlite3 with pysqlite3 for ChromaDb compatibility.",
+                f"Your original version was {sqlite3.sqlite_version}.",
+            )
+        except Exception as e:
+            # Escape all exceptions
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
+            print(
+                f"{current_time} [smbdevs] [ERROR]",
+                "Failed to swap std-lib sqlite3 with pysqlite3 for ChromaDb compatibility.",
+                "Error:",
+                e,
+            )
+
+
 def get_last_user_message_item(messages: List[dict]) -> str:
     for message in reversed(messages):
         if message["role"] == "user":

@@ -2,7 +2,7 @@
 	import { fade } from 'svelte/transition';
 	import { cubicIn } from 'svelte/easing';
 	import { createEventDispatcher } from 'svelte';
-	import { ExpGradeSelected, isSupportWidgetOpen, activeSupportSection } from '$lib/stores';
+	import { ExpGradeSelected, isSupportWidgetOpen, activeSupportSection, hideSupportWidgetBtn } from '$lib/stores';
 
 	$: currentSection = $activeSupportSection;
 
@@ -60,29 +60,31 @@
 	}
 </script>
 
-<div id="buttonContainer">
-	<div>
-		<button class="button support text-base" id="getSupportBtn" on:click={handleClickThenDispatch}
-			><span id="stepNumberBreadcrumb">?</span> Get Support {currentSection}</button
-		>
-	</div>
-	{#each modalityButtons as btn}
+{#if !$hideSupportWidgetBtn}
+	<div id="buttonContainer">
 		<div>
-			{#if btn.name === $ExpGradeSelected}
-				<button class="button text-base rounded-md cursor-pointer" id="toggleBtn" on:click={handleClick}>
-					<div
-						class:hide={$ExpGradeSelected !== btn.name}
-						class={btn.className}
-						in:fade={{ duration: 1000, easing: cubicIn }}
-					>
-						{@html btn.svg}
-						<span>{btn.name}</span>
-					</div>
-				</button>
-			{/if}
+			<button class="button support text-base" id="getSupportBtn" on:click={handleClickThenDispatch}
+				><span id="stepNumberBreadcrumb">?</span> Get Support {currentSection}</button
+			>
 		</div>
-	{/each}
-</div>
+		{#each modalityButtons as btn}
+			<div>
+				{#if btn.name === $ExpGradeSelected}
+					<button class="button text-base rounded-md cursor-pointer" id="toggleBtn" on:click={handleClick}>
+						<div
+							class:hide={$ExpGradeSelected !== btn.name}
+							class={btn.className}
+							in:fade={{ duration: 1000, easing: cubicIn }}
+						>
+							{@html btn.svg}
+							<span>{btn.name}</span>
+						</div>
+					</button>
+				{/if}
+			</div>
+		{/each}
+	</div>
+{/if}
 
 <style>
 	#buttonContainer {

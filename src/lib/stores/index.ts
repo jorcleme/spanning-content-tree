@@ -181,6 +181,7 @@ export const ExpGradeSelected = writable('Fully Guided');
 export const activeSupportSection = writable('Objective');
 export const activeSupportStep = writable(1);
 export const isSupportWidgetOpen = writable(false);
+export const hideSupportWidgetBtn = writable(false);
 export const mostRecentStep = writable(-1);
 export const activeArticle = writable<null | Article>(null);
 

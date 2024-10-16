@@ -45,7 +45,7 @@
 
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import mermaid from 'mermaid';
-	import { queryDoc, queryCollection } from '$lib/apis/rag';
+	import { queryDoc, queryCollection, queryDocWithSmallChunks } from '$lib/apis/rag';
 	import { updateArticleStep } from '$lib/apis/articles';
 	import { synthesizeOpenAISpeech } from '$lib/apis/audio';
 	import { createOpenAITextStream } from '$lib/apis/streaming';
@@ -699,25 +699,28 @@
 			if (needsContextFlag) {
 				const res = await queryCollection(
 					localStorage.token,
-					['catalyst_1200_admin_guide', 'catalyst_1200_cli_guide'],
+					['catalyst_1200_admin_guide_openai', 'catalyst_1200_cli_guide_openai'],
 					question
 				);
+				const test = await queryDocWithSmallChunks(localStorage.token, 'catalyst_1200_admin_guide_openai', question, 2);
+				console.log('test', test);
+				documents = test.documents?.flat(1) ?? null;
+				metadatas = test.metadatas?.flat(1) ?? null;
 				// const res = await queryDoc(localStorage.token, 'catalyst_1200_admin_guide', question, 2);
 				// Flatten these here as this is a recursive method
-				distances = res.distances.flat(1);
-				console.log('Distances are: ', distances);
-				documents = res.documents.flat(1);
-				metadatas = res.metadatas.flat(1);
-				const ragContext = distances
-					.map((dist, i) => {
-						if (dist > 0.75) return documents?.at(i);
-					})
-					.join('\n\n');
-				console.log('context with scores above 0.75 are: ', ragContext);
+				// distances = res.distances.flat(1);
+				// console.log('Distances are: ', distances);
+				// documents = res.documents.flat(1);
+				// metadatas = res.metadatas.flat(1);
+				// const ragContext = distances
+				// 	.map((dist, i) => {
+				// 		if (dist > 0.75) return documents?.at(i);
+				// 	})
+				// 	.join('\n\n');
 				// const ragContext = documents.flat(1).join('\n\n');
-				directions = directions.replace(/\[\[context\]\]/g, ragContext);
+				directions = directions.replace(/\[\[context\]\]/g, documents?.join('\n\n') ?? '');
 			}
-
+			console.log('directions', directions);
 			let systemMessage = {
 				id: 'system-2',
 				role: 'system',
@@ -860,6 +863,7 @@
 							controller.abort('User: Stop Response');
 						}
 						messages = updateMessages(responseMessage);
+						await renderStyling();
 						break;
 					}
 
@@ -1662,6 +1666,7 @@
 													<div
 														class="admin-guide flex flex-col gap-y-2 border-l-4 border-green-500 bg-gray-50 px-2 py-2 rounded-md w-full divide-slate-700"
 													>
+														<div class="divider divider-accent" />
 														<div class="flex flex-row items-center gap-2">
 															<div>
 																<FileText />

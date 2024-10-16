@@ -107,6 +107,7 @@ def rollback(migrator: Migrator, database: pw.Database, *, fake=False):
             "user",
             timestamp=pw.DateField(),
         )
+
     migrator.change_fields(
         "auth",
         password=pw.CharField(max_length=255),

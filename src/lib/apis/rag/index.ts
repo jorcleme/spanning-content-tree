@@ -339,6 +339,42 @@ export const queryDoc = async (
 	return res;
 };
 
+export const queryDocWithSmallChunks = async (
+	token: string,
+	collection_name: string,
+	query: string,
+	k: number | null = null
+): Promise<Partial<_DocumentsResponse>> => {
+	let error = null;
+
+	const res = await fetch(`${RAG_API_BASE_URL}/query/doc/small`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({
+			collection_name: collection_name,
+			query: query,
+			k: k
+		})
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err.detail;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+	return res;
+};
+
 export const queryCollection = async (
 	token: string,
 	collection_names: string[],

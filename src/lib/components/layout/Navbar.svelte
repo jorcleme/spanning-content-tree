@@ -12,7 +12,9 @@
 		showArchivedChats,
 		showSettings,
 		showSidebar,
-		user
+		user,
+		isSupportWidgetOpen,
+		hideSupportWidgetBtn
 	} from '$lib/stores';
 
 	import { slide } from 'svelte/transition';
@@ -112,6 +114,11 @@
 						class=" flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
 						on:click={() => {
 							showControls = !showControls;
+							if (showControls) {
+								hideSupportWidgetBtn.set(true);
+							} else {
+								hideSupportWidgetBtn.set(false);
+							}
 						}}
 					>
 						<div class=" m-auto self-center">

@@ -136,14 +136,14 @@
 				SUPPORTED_FILE_TYPE.includes(file['type']) ||
 				SUPPORTED_FILE_EXTENSIONS.includes(file?.name?.split('.').at(-1) ?? '')
 			) {
-				processFileItem(fileItem);
+				await processFileItem(fileItem);
 			} else {
 				toast.error(
 					$i18n.t(`Unknown file type '{{file_type}}'. Proceeding with the file upload anyway.`, {
 						file_type: file['type']
 					})
 				);
-				processFileItem(fileItem);
+				await processFileItem(fileItem);
 			}
 		}
 	};

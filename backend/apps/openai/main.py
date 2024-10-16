@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response, HTTPException, Depends
+from fastapi import FastAPI, Request, Response, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 
@@ -10,7 +10,7 @@ import logging
 
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
-
+from starlette.middleware.base import BaseHTTPMiddleware
 from apps.webui.models.models import Models
 from apps.webui.models.users import Users
 from constants import ERROR_MESSAGES
@@ -19,10 +19,12 @@ from utils.utils import (
     get_verified_user,
     get_verified_user,
     get_admin_user,
+    get_current_user,
+    get_http_authorization_cred,
 )
 from utils.task import prompt_template
 from utils.misc import add_or_update_system_message
-
+from utils.vector_dimensions import VectorDimensions
 from config import (
     SRC_LOG_LEVELS,
     ENABLE_OPENAI_API,
@@ -65,6 +67,25 @@ app.state.config.OPENAI_API_KEYS = OPENAI_API_KEYS
 app.state.MODELS = {}
 
 
+async def get_body_and_model_and_user(request):
+    # Read the original request body
+    body = await request.body()
+    body_str = body.decode("utf-8")
+    body = json.loads(body_str) if body_str else {}
+
+    model_id = body["model"]
+    if model_id not in app.state.MODELS:
+        raise Exception("Model not found")
+    model = app.state.MODELS[model_id]
+
+    user = get_current_user(
+        request,
+        get_http_authorization_cred(request.headers.get("Authorization")),
+    )
+
+    return body, model, user
+
+
 @app.middleware("http")
 async def check_url(request: Request, call_next):
     if len(app.state.MODELS) == 0:
@@ -74,6 +95,62 @@ async def check_url(request: Request, call_next):
 
     response = await call_next(request)
     return response
+
+
+class ModelEmbeddingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "POST" and any(
+            endpoint in request.url.path
+            for endpoint in [
+                "/openai/chat/questions/completions",
+                "/openai/chat/answers/completions",
+            ]
+        ):
+            log.debug(
+                f"[__ModelEmbeddingMiddleware__] request.url.path: {request.url.path}"
+            )
+
+            try:
+                body = await request.body()
+                body_str = body.decode("utf-8")
+                form_data = json.loads(body_str) if body_str else {}
+
+                model_id = form_data.get("model")
+                if model_id not in app.state.MODELS:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Model not found",
+                    )
+                model_info = Models.get_model_by_id(model_id)
+
+                if model_info:
+                    if model_info.base_model_id:
+                        form_data["model"] = model_info.base_model_id
+
+                app.state.CURRENT_MODEL = app.state.MODELS[model_id]
+                app.state.CURRENT_EMBEDDING_PROVIDER = VectorDimensions.OPENAI
+                app.state.CURRENT_EMBEDDING_LENGTH = (
+                    app.state.CURRENT_EMBEDDING_PROVIDER.value
+                )
+
+                modified_body_bytes = json.dumps(form_data).encode("utf-8")
+                request._body = modified_body_bytes
+                request.headers.__dict__["_list"] = [
+                    (b"content-length", str(len(modified_body_bytes)).encode("utf-8")),
+                    *[
+                        (k, v)
+                        for k, v in request.headers.raw
+                        if k.lower() != b"content-length"
+                    ],
+                ]
+            except Exception as e:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"detail": str(e)},
+                )
+
+        response = await call_next(request)
+        return response
 
 
 @app.get("/config")
@@ -553,11 +630,6 @@ async def generate_answers_chat_completions(
 
 @app.post("/chat/completions")
 @app.post("/chat/completions/{url_idx}")
-@traceable(
-    run_type="llm",
-    name="backend/apps/openai/main.py:generate_chat_completion",
-    project_name="content-spanning-tree",
-)
 async def generate_chat_completion(
     form_data: dict,
     url_idx: Optional[int] = None,

@@ -70,6 +70,7 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
         applicable_devices = pw.TextField()
         introduction = pw.TextField()
         steps = pw.TextField()
+        revision_history = pw.TextField()
 
         series = pw.ManyToManyField(Series, backref="articles")
 

@@ -6,8 +6,10 @@ from fastapi import (
     UploadFile,
     File,
     Form,
+    Request,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import requests
 import os, shutil, logging, re
 from datetime import datetime
@@ -61,6 +63,7 @@ from apps.rag.utils import (
     get_model_path,
     get_embedding_function,
     query_doc,
+    query_doc_with_small_chunks,
     query_doc_with_hybrid_search,
     query_collection,
     query_collection_with_hybrid_search,
@@ -188,6 +191,12 @@ app.state.config.RAG_WEB_SEARCH_RESULT_COUNT = RAG_WEB_SEARCH_RESULT_COUNT
 app.state.config.RAG_WEB_SEARCH_CONCURRENT_REQUESTS = RAG_WEB_SEARCH_CONCURRENT_REQUESTS
 
 
+class SetCollectionNamesMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        rag_embedding_engine = app.state.config.RAG_EMBEDDING_ENGINE
+        rag_embedding_model = app.state.config.RAG_EMBEDDING_MODEL
+
+
 def update_embedding_model(
     embedding_model: str,
     update_model: bool = False,
@@ -239,6 +248,10 @@ app.state.EMBEDDING_FUNCTION = get_embedding_function(
     app.state.config.OPENAI_API_BASE_URL,
     app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE,
 )
+
+log.debug(f"Using embedding function: {app.state.EMBEDDING_FUNCTION}")
+log.debug(f"RAG EMBEDDING MODEL: {app.state.config.RAG_EMBEDDING_MODEL}")
+log.debug(f"RAG EMBEDDING ENGINE: {app.state.config.RAG_EMBEDDING_ENGINE}")
 
 origins = ["*"]
 
@@ -633,6 +646,25 @@ def query_doc_handler(
                 embedding_function=app.state.EMBEDDING_FUNCTION,
                 k=form_data.k if form_data.k else app.state.config.TOP_K,
             )
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(e),
+        )
+
+
+@app.post("/query/doc/small")
+async def query_doc_handler_small_chunks(
+    form_data: QueryDocForm, user=Depends(get_verified_user)
+):
+    try:
+        return query_doc_with_small_chunks(
+            collection_name=form_data.collection_name,
+            query=form_data.query,
+            embedding_engine=app.state.config.RAG_EMBEDDING_ENGINE,
+            k=form_data.k if form_data.k else app.state.config.TOP_K,
+        )
     except Exception as e:
         log.exception(e)
         raise HTTPException(

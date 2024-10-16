@@ -23,8 +23,8 @@ from typing import (
 )
 from config import (
     CHROMA_CLIENT,
-    CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME,
-    CBS_220_ADMIN_GUIDE_COLLECTION_NAME,
+    CATALYST_1300_ADMIN_GUIDE_COLLECTION,
+    CBS_220_ADMIN_GUIDE_COLLECTION,
 )
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.messages import AIMessage
@@ -297,7 +297,7 @@ class ArticleQuestionGenerator:
     def __init__(self, article: Article):
         self.article = article
         self.model = get_llm()
-        retriever_initializer = ParentRetriever(CBS_220_ADMIN_GUIDE_COLLECTION_NAME)
+        retriever_initializer = ParentRetriever(CBS_220_ADMIN_GUIDE_COLLECTION)
         self.retriever = retriever_initializer.init_retriever()
         self.question_generator = QuestionGenerator(self.model, self.retriever)
         self.static_answer_generator = StaticAnswerGenerator(self.model, self.retriever)

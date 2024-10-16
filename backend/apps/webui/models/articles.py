@@ -56,6 +56,7 @@ class Article(Base):
     applicable_devices = Column(JSONField, nullable=True)
     introduction = Column(Text, nullable=True)
     steps = Column(JSONField, nullable=True)
+    revision_history = Column(JSONField, nullable=True)
 
     created_at = Column(BigInteger, nullable=False)
     updated_at = Column(BigInteger, nullable=False)
@@ -80,13 +81,14 @@ class ArticleModel(BaseModel):
     title: str
     document_id: str
     objective: Optional[str] = None
-    category: ArticleCategory
+    category: str
     url: Optional[str] = None
     applicable_devices: Optional[List[Any]] = (
         None  # JSON-encoded list of strings (JSONField)
     )
     introduction: Optional[str] = None
-    steps: Optional[List[Dict[str, Any]]] = (
+    steps: Optional[List[Any]] = None  # JSON-encoded list of dictionaries (JSONField)
+    revision_history: Optional[List[Any]] = (
         None  # JSON-encoded list of dictionaries (JSONField)
     )
     created_at: int
@@ -94,7 +96,7 @@ class ArticleModel(BaseModel):
 
     series_ids: Optional[List[str]] = Field(default_factory=list)
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
 class ArticleResponse(BaseModel):
@@ -107,6 +109,7 @@ class ArticleResponse(BaseModel):
     applicable_devices: Optional[List[Any]]
     introduction: Optional[str]
     steps: Optional[List[Dict[str, Any]]]
+    revision_history: Optional[List[Dict[str, Any]]]
     created_at: int
     updated_at: int
 
@@ -120,6 +123,7 @@ class InsertNewArticleForm(BaseModel):
     applicable_devices: Optional[List[Dict[str, Any]]]
     introduction: Optional[str]
     steps: Optional[List[Dict[str, Any]]]
+    revision_history: Optional[List[Dict[str, Any]]]
     series_id: str
 
 
@@ -233,6 +237,7 @@ class ArticlesTable:
         introduction: Optional[str] = None,
         applicable_devices: Optional[List[str]] = None,
         steps: Optional[List[Dict[str, Any]]] = None,
+        revision_history: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[ArticleModel]:
         from apps.webui.models.series import Series
 
@@ -243,13 +248,15 @@ class ArticlesTable:
                 # Update the article.series if the series is not already associated.
                 series = db.query(Series).filter_by(id=series_id).first()
                 log.info(f"Series: {series}")
-                if series not in list(article.series):
+                if series.id not in [series.id for series in article.series]:
                     article.series.append(series)
                     db.commit()
+                    db.refresh(article)
 
-                # Create a new article model, attach only the series id to the model
+                # Create a new article model (this is not inserted into the DB, just returned to the user with updates), attach only the series id to the model
                 article_model = ArticleModel(
                     **{
+                        "id": article.id,
                         "title": article.title,
                         "document_id": article.document_id,
                         "objective": article.objective,
@@ -258,42 +265,45 @@ class ArticlesTable:
                         "introduction": article.introduction,
                         "applicable_devices": article.applicable_devices,
                         "steps": article.steps,
-                        "series": [series.id],
+                        "revision_history": article.revision_history,
+                        "series_ids": [series.id for series in article.series],
                         "created_at": article.created_at,
                         "updated_at": article.updated_at,
                     }
                 )
                 return ArticleModel.model_validate(article_model)
+            else:
+                # Fetch the series to associate with the article
+                series = db.query(Series).filter_by(id=series_id).first()
+                if not series:
+                    raise ValueError(
+                        f"Series with id {series_id} not found. Articles must be associated with a series."
+                    )
 
-            # Fetch the series to associate with the article
-            series = db.query(Series).filter_by(id=series_id).first()
-            if not series:
-                raise ValueError(f"Series with id {series_id} not found")
+                # Insert the new article into the database
+                result = Article(
+                    title=title,
+                    document_id=document_id,
+                    objective=objective,
+                    category=category,
+                    url=url,
+                    introduction=introduction,
+                    applicable_devices=applicable_devices or [],
+                    steps=steps or [],
+                    revision_history=revision_history or [],
+                    created_at=int(time.time()),
+                    updated_at=int(time.time()),
+                )
+                db.add(result)
+                db.commit()
+                db.refresh(result)
 
-            # Insert the new article into the database
-            result = Article(
-                title=title,
-                document_id=document_id,
-                objective=objective,
-                category=category,
-                url=url,
-                introduction=introduction,
-                applicable_devices=applicable_devices or [],
-                steps=steps or [],
-                created_at=int(time.time()),
-                updated_at=int(time.time()),
-                series=[series],
-            )
-            db.add(result)
-            db.commit()
-            db.refresh(result)
+                # Associate the new article with the series
+                result.series.append(series)
+                db.commit()
 
-            # Associate the new article with the series
-            result.series.append(series)
-            db.commit()
-
-            # Return the newly created article
-            return ArticleModel.model_validate(result)
+                # Return the newly created article
+                return ArticleModel.model_validate(result)
 
     def get_article_by_id(self, id: str) -> Optional[ArticleModel]:
         from apps.webui.models.series import SeriesModel

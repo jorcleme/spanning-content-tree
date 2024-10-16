@@ -27,6 +27,16 @@
 				"title": ["Overcome network issues", "give me troubleshooting tips"],
 				"content": "Could you start by asking me about the specific network issues I'm facing and then give me some troubleshooting tips?"
 			}
-		]
+		],
+		"default_models": "gpt-4o",
+		"user_permissions": {
+			"chat": {
+				"deletion": true
+			}
+		}
+	},
+	"model_filter": {
+		"enable": false,
+		"list": [""]
 	}
 }

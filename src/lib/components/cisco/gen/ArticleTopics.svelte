@@ -41,7 +41,11 @@
 	{#key filteredArticles}
 		<ul>
 			{#each filteredArticles as article}
-				<li>{article.title}</li>
+				<li>
+					<a target="_blank" href={article.url}>{article.title}</a><span class="ml-2 text-sm"
+						>{new Date(article.created_at).toISOString()}</span
+					>
+				</li>
 			{/each}
 		</ul>
 		<button on:click={handleGenerateNewArticle}>Generate New Article</button>

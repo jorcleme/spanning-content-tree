@@ -8,10 +8,16 @@ from apps.ollama.main import (
     generate_ollama_embeddings,
     GenerateEmbeddingsForm,
 )
-
+from chromadb.api.types import GetResult
 from huggingface_hub import snapshot_download
-
+from langchain.retrievers.parent_document_retriever import ParentDocumentRetriever
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.retrievers.multi_vector import SearchType
+from langchain.storage.in_memory import InMemoryStore
 from langchain_core.documents import Document
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers import (
     ContextualCompressionRetriever,
@@ -25,6 +31,22 @@ from config import SRC_LOG_LEVELS, CHROMA_CLIENT
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
+
+
+def convert_to_documents(results: GetResult) -> List[Document]:
+    """
+    Converts results from a database query into a list of Document objects.
+
+    Args:
+        results (GetResult): The results from a database query, containing documents and metadata.
+
+    Returns:
+        List[Document]: A list of Document objects.
+    """
+    return [
+        Document(page_content=doc, metadata=meta)
+        for doc, meta in zip(results["documents"], results["metadatas"])
+    ]
 
 
 def query_doc(
@@ -46,6 +68,48 @@ def query_doc(
         return result
     except Exception as e:
         raise e
+
+
+def query_doc_with_small_chunks(
+    collection_name: str, query: str, embedding_engine, k: int
+):
+    try:
+        collection = CHROMA_CLIENT.get_collection(name=collection_name)
+    except Exception as e:
+        raise ValueError(f"Failed to get collection {collection_name}: {e}")
+
+    if embedding_engine in ["openai"]:
+        embedding_func = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+    elif embedding_engine in ["huggingface"]:
+        embedding_func = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    else:
+        embedding_func = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+    docs = collection.get()
+    ids = [doc["doc_id"] for doc in docs["metadatas"]]
+    store = InMemoryStore()
+    retriever = ParentDocumentRetriever(
+        vectorstore=Chroma(
+            embedding_function=embedding_func,
+            collection_name=collection_name,
+        ),
+        docstore=store,
+        id_key="doc_id",
+        child_splitter=RecursiveCharacterTextSplitter(
+            chunk_size=400, add_start_index=True
+        ),
+        search_kwargs={"k": k},
+        search_type=SearchType.similarity,
+    )
+    lc_documents = convert_to_documents(docs)
+    retriever.add_documents(documents=lc_documents, ids=ids)
+    results = retriever.invoke(query)
+    # convert to documents[][] and metadatas[][] format
+    result = {
+        "distances": [[d.metadata.get("score") for d in results]],
+        "documents": [[d.page_content for d in results]],
+        "metadatas": [[d.metadata for d in results]],
+    }
+    return result
 
 
 def query_doc_with_hybrid_search(

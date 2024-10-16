@@ -16,7 +16,8 @@
 		mountedArticlePreambleDevices,
 		ExpGradeSelected,
 		activeArticleId,
-		activeArticle
+		activeArticle,
+		hideSupportWidgetBtn
 	} from '$lib/stores';
 	import { page } from '$app/stores';
 	import { onMount, getContext } from 'svelte';
@@ -27,6 +28,9 @@
 	import DetailsGetSupportStep from './DetailsGetSupport.svelte';
 	import ArticleStep from './ArticleStep.svelte';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
+	import Controls from '$lib/components/chat/Controls/Controls.svelte';
+	import Modal from '$lib/components/common/Modal.svelte';
+	import ChatControls from '$lib/components/chat/ChatControls.svelte';
 	import lightlyGuidedImage from '$lib/assets/assing-port-to-vlan-dall-e-2.png';
 	import fullyGuidedImage from '$lib/assets/assing-port-to-vlan-dall-e.png';
 
@@ -46,6 +50,7 @@
 	let selectedModels = [''];
 	let atSelectedModel: Model | undefined;
 	let selectedModelIds = [];
+	let largeScreen = false;
 
 	$: selectedModelIds = atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
 	$: console.log('selectedModels', selectedModels);
@@ -104,6 +109,14 @@
 	onMount(() => {
 		window.addEventListener('scroll', getClosestSupportDiv);
 
+		const mediaQuery = window.matchMedia('(min-width: 1024px)');
+		const handleMediaQuery = (e: MediaQueryListEvent) => {
+			largeScreen = e.matches;
+		};
+
+		mediaQuery.addEventListener('change', handleMediaQuery);
+		handleMediaQuery({ matches: mediaQuery.matches } as MediaQueryListEvent);
+
 		if ($settings.models) {
 			selectedModels = $settings.models;
 		} else if ($config?.default_models) {
@@ -127,6 +140,7 @@
 		return () => {
 			// document.body.removeEventListener('scroll', getClosestSupportDiv);
 			window.removeEventListener('scroll', getClosestSupportDiv);
+			mediaQuery.removeEventListener('change', handleMediaQuery);
 		};
 	});
 
@@ -176,6 +190,14 @@
 	$: isStepActive = expandedSteps.has(activeStep);
 
 	$: title = $activeArticle?.title ?? 'Article';
+
+	$: chatControlModels = selectedModelIds.reduce((a, e, i, arr) => {
+		const model = $models.find((m) => m.id === e);
+		if (model) {
+			return [...a, model];
+		}
+		return a;
+	}, [] as Model[]);
 
 	const concatSupportString = (title: string, stepNum: number) => {
 		return `${title} | Step ${stepNum}`;
@@ -338,6 +360,37 @@
 				<slot />
 			</div>
 		</div>
+	{/if}
+	{#if largeScreen}
+		{#if showControls}
+			<div class=" absolute bottom-0 right-0 z-20 h-full pointer-events-none">
+				<div class="pr-4 pt-14 pb-8 w-[24rem] h-full" in:slide={{ duration: 200, axis: 'x' }}>
+					<div
+						class="w-full h-full px-5 py-4 bg-white dark:shadow-lg dark:bg-gray-850 border border-gray-50 dark:border-gray-800 rounded-xl z-50 pointer-events-auto overflow-y-auto scrollbar-hidden"
+					>
+						<Controls
+							on:close={() => {
+								showControls = false;
+								hideSupportWidgetBtn.set(false)
+							}}
+							models={chatControlModels}
+						/>
+					</div>
+				</div>
+			</div>
+		{/if}
+	{:else}
+		<Modal bind:show={showControls}>
+			<div class="px-6 py-4 h-full">
+				<Controls
+					on:close={() => {
+						showControls = false;
+						hideSupportWidgetBtn.set(false)
+					}}
+					models={chatControlModels}
+				/>
+			</div>
+		</Modal>
 	{/if}
 </div>
 

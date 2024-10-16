@@ -207,6 +207,8 @@ app.state.config.TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE = (
 )
 
 app.state.MODELS = {}
+app.state.EMBEDDING_MODEL = None
+app.state.EMBEDDING_LENGTH = None
 
 origins = ["*"]
 
@@ -608,10 +610,11 @@ class ChatCompletionMiddleware(BaseHTTPMiddleware):
             endpoint in request.url.path
             for endpoint in ["/ollama/api/chat", "/chat/completions"]
         ):
-            log.debug(f"request.url.path: {request.url.path}")
+            log.debug(f"[__Chat_Middleware__] request.url.path: {request.url.path}")
 
             try:
                 body, model, user = await get_body_and_model_and_user(request)
+
             except Exception as e:
                 return JSONResponse(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -833,7 +836,7 @@ class PipelineMiddleware(BaseHTTPMiddleware):
             "/ollama/api/chat" in request.url.path
             or "/chat/completions" in request.url.path
         ):
-            log.debug(f"request.url.path: {request.url.path}")
+            log.debug(f"[__Pipeline Middleware__] request.url.path: {request.url.path}")
 
             # Read the original request body
             body = await request.body()
@@ -936,6 +939,8 @@ app.mount("/rag/api/v1", rag_app)
 app.mount("/api/v1", webui_app)
 
 webui_app.state.EMBEDDING_FUNCTION = rag_app.state.EMBEDDING_FUNCTION
+
+log.debug(f"EMBEDDING_FUNCTION: {webui_app.state.EMBEDDING_FUNCTION}")
 
 
 async def get_all_models():
@@ -1113,6 +1118,7 @@ async def generate_chat_completions(form_data: dict, user=Depends(get_verified_u
         return await generate_function_chat_completion(form_data, user=user)
     if model["owned_by"] == "ollama":
         print("generate_ollama_chat_completion")
+
         return await generate_ollama_chat_completion(form_data, user=user)
     else:
         print("generate_openai_chat_completion")

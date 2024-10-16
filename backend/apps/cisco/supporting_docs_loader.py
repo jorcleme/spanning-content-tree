@@ -6,7 +6,18 @@ import logging
 from pathlib import Path
 from bs4 import BeautifulSoup, Tag
 from lxml import etree
-from typing import List, Iterator, Dict, Any, Union, Optional, Literal, Tuple, Type
+from typing import (
+    List,
+    Iterator,
+    Dict,
+    Any,
+    Union,
+    Optional,
+    Literal,
+    Tuple,
+    Type,
+    Callable,
+)
 from langchain_text_splitters import TextSplitter
 from langchain_core.documents import Document
 from langchain_core.document_loaders import BaseLoader
@@ -14,29 +25,49 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from transformers import GPT2Tokenizer
 from config import (
     CHROMA_CLIENT,
-    CATALYST_1200_ADMIN_GUIDE_COLLECTION_NAME,
-    CATALYST_1200_CLI_GUIDE_COLLECTION_NAME,
-    CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME,
-    CATALYST_1300_CLI_GUIDE_COLLECTION_NAME,
-    CBS_220_ADMIN_GUIDE_COLLECTION_NAME,
-    CBS_220_CLI_GUIDE_COLLECTION_NAME,
-    CBS_250_ADMIN_GUIDE_COLLECTION_NAME,
-    CBS_250_CLI_GUIDE_COLLECTION_NAME,
-    CBS_350_ADMIN_GUIDE_COLLECTION_NAME,
-    CBS_350_CLI_GUIDE_COLLECTION_NAME,
-    CISCO_350_ADMIN_GUIDE_COLLECTION_NAME,
+    CATALYST_1200_ADMIN_GUIDE_COLLECTION,
+    CATALYST_1200_CLI_GUIDE_COLLECTION,
+    CATALYST_1300_ADMIN_GUIDE_COLLECTION,
+    CATALYST_1300_CLI_GUIDE_COLLECTION,
+    CBS_220_ADMIN_GUIDE_COLLECTION,
+    CBS_220_CLI_GUIDE_COLLECTION,
+    CBS_250_ADMIN_GUIDE_COLLECTION,
+    CBS_250_CLI_GUIDE_COLLECTION,
+    CBS_350_ADMIN_GUIDE_COLLECTION,
+    CBS_350_CLI_GUIDE_COLLECTION,
+    CISCO_350_ADMIN_GUIDE_COLLECTION,
     CISCO_350_CLI_GUIDE_COLLECTION_NAME,
     CISCO_350X_ADMIN_GUIDE_COLLECTION_NAME,
     CISCO_350X_CLI_GUIDE_COLLECTION_NAME,
     CISCO_550X_ADMIN_GUIDE_COLLECTION_NAME,
     CISCO_550X_CLI_GUIDE_COLLECTION_NAME,
     BASE_DIR,
+    CollectionFactory,
 )
-
+from collections.abc import Callable
 import chromadb.utils.embedding_functions as embedding_functions
 import os
 from dotenv import load_dotenv
+from utils.vector_dimensions import Providers, EmbeddingFunctions, VectorDimensions
 
+try:
+    from chromadb.api.types import EmbeddingFunction, Embeddings
+except RuntimeError:
+    from utils.misc import use_pysqlite3
+
+    use_pysqlite3()
+    from chromadb.api.types import EmbeddingFunction, Embeddings
+
+
+class EmbeddingFunc(EmbeddingFunction):
+    def __init__(self, embedding_fn: Callable[[list[str]], list[str]]):
+        self.embedding_fn = embedding_fn
+
+    def __call__(self, input: Any) -> Embeddings:
+        return self.embedding_fn(input)
+
+
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -452,50 +483,85 @@ class CiscoSupportingDocumentsLoader(BaseLoader):
 # Chunks must be > 8192 tokens
 ######################
 
+FAMILIES = {
+    # "Cisco Business 220 Series Smart Switches": {
+    #     "ag": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbss/CBS220/Adminstration-Guide/cbs-220-admin-guide.html",
+    #     "cli": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbss/CBS220/CLI-Guide/b_220CLI.html",
+    # },
+    # "Cisco Business 250 Series Smart Switches": {
+    #     "ag": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-250-ag.html",
+    #     "cli": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/CLI/cbs-250-cli.html",
+    # },
+    # "Cisco Business 350 Series Managed Switches": {
+    #     "ag": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350.html",
+    #     "cli": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/CLI/cbs-350-cli-.html",
+    # },
+    # "Cisco 350 Series Managed Switches": {
+    #     "ag": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/350xseries/2_5_7/Administration/tesla-350-550.html",
+    #     "cli": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/CLI/cbs-350-cli-.html",
+    # },
+    # "Cisco 350X Series Stackable Managed Switches": {
+    #     "ag": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/350xseries/2_5_7/Administration/tesla-350-550.html",
+    #     "cli": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/CLI/cbs-350-cli-.html",
+    # },
+    # "Cisco 550X Series Stackable Managed Switches": {
+    #     "ag": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/350xseries/2_5_7/Administration/tesla-350-550.html",
+    #     "cli": "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/CLI/cbs-350-cli-.html",
+    # },
+    "Cisco Catalyst 1200 Series Switches": {
+        "ag": "https://www.cisco.com/c/en/us/td/docs/switches/campus-lan-switches-access/Catalyst-1200-and-1300-Switches/Admin-Guide/catalyst-1200-admin-guide.html",
+        "cli": "https://www.cisco.com/c/en/us/td/docs/switches/campus-lan-switches-access/Catalyst-1200-and-1300-Switches/cli/C1200-cli.html",
+    },
+    "Cisco Catalyst 1300 Series Switches": {
+        "ag": "https://www.cisco.com/c/en/us/td/docs/switches/campus-lan-switches-access/Catalyst-1200-and-1300-Switches/Admin-Guide/catalyst-1300-admin-guide.html",
+        "cli": "https://www.cisco.com/c/en/us/td/docs/switches/campus-lan-switches-access/Catalyst-1200-and-1300-Switches/cli/C1300-cli.html",
+    },
+}
+
 SERIES_DOCUMENT_MAP: SourceMap = {
     "Cisco Business 220 Series Smart Switches": {
         "ag": (
-            CBS_220_ADMIN_GUIDE_COLLECTION_NAME,
+            CBS_220_ADMIN_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbss/CBS220/Adminstration-Guide/cbs-220-admin-guide.html",
         ),
         "cli": (
-            CBS_220_CLI_GUIDE_COLLECTION_NAME,
+            CBS_220_CLI_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbss/CBS220/CLI-Guide/b_220CLI.html",
         ),
     },
     "Cisco Business 250 Series Smart Switches": {
         "ag": (
-            CBS_250_ADMIN_GUIDE_COLLECTION_NAME,
+            CBS_250_ADMIN_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-250-ag.html",
         ),
         "cli": (
-            CBS_250_CLI_GUIDE_COLLECTION_NAME,
+            CBS_250_CLI_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/CLI/cbs-250-cli.html",
         ),
     },
     "Cisco Business 350 Series Managed Switches": {
         "ag": (
-            CBS_350_ADMIN_GUIDE_COLLECTION_NAME,
+            CBS_350_ADMIN_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350.html",
         ),
         "cli": (
-            CBS_350_CLI_GUIDE_COLLECTION_NAME,
+            CBS_350_CLI_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/CLI/cbs-350-cli-.html",
         ),
     },
     "Cisco Business 350 Series Managed Switches": {
         "ag": (
-            CBS_350_ADMIN_GUIDE_COLLECTION_NAME,
+            CBS_350_ADMIN_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350.html",
         ),
         "cli": (
-            CBS_350_CLI_GUIDE_COLLECTION_NAME,
+            CBS_350_CLI_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/CLI/cbs-350-cli-.html",
         ),
     },
     "Cisco 350 Series Managed Switches": {
         "ag": (
-            CISCO_350_ADMIN_GUIDE_COLLECTION_NAME,
+            CISCO_350_ADMIN_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/350xseries/2_5_7/Administration/tesla-350-550.html",
         ),
         "cli": (
@@ -525,7 +591,7 @@ SERIES_DOCUMENT_MAP: SourceMap = {
     },
     "Cisco 350 Series Managed Switches": {
         "ag": (
-            CISCO_350_ADMIN_GUIDE_COLLECTION_NAME,
+            CISCO_350_ADMIN_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/350xseries/2_5_7/Administration/tesla-350-550.html",
         ),
         "cli": (
@@ -535,21 +601,21 @@ SERIES_DOCUMENT_MAP: SourceMap = {
     },
     "Cisco Catalyst 1200 Series Switches": {
         "ag": (
-            CATALYST_1200_ADMIN_GUIDE_COLLECTION_NAME,
+            CATALYST_1200_ADMIN_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/campus-lan-switches-access/Catalyst-1200-and-1300-Switches/Admin-Guide/catalyst-1200-admin-guide.html",
         ),
         "cli": (
-            CATALYST_1200_CLI_GUIDE_COLLECTION_NAME,
+            CATALYST_1200_CLI_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/campus-lan-switches-access/Catalyst-1200-and-1300-Switches/cli/C1200-cli.html",
         ),
     },
     "Cisco Catalyst 1300 Series Switches": {
         "ag": (
-            CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME,
+            CATALYST_1300_ADMIN_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/campus-lan-switches-access/Catalyst-1200-and-1300-Switches/Admin-Guide/catalyst-1300-admin-guide.html",
         ),
         "cli": (
-            CATALYST_1300_CLI_GUIDE_COLLECTION_NAME,
+            CATALYST_1300_CLI_GUIDE_COLLECTION,
             "https://www.cisco.com/c/en/us/td/docs/switches/campus-lan-switches-access/Catalyst-1200-and-1300-Switches/cli/C1300-cli.html",
         ),
     },
@@ -593,25 +659,46 @@ def process_documents(docs: List[Document], doc_type: str):
         doc.metadata["doc_type"] = doc_type
 
 
-def process_and_insert_documents(url: str, collection_name: str, doc_type: str):
-    file_path = f"{BASE_DIR}/backend/data/cisco/documents/{collection_name}.json"
+def process_and_insert_documents(
+    url: str, collection_name: str, doc_type: str, embedding_func: str
+):
+    if collection_name.endswith("_openai"):
+        name = collection_name[:-7]
+    elif collection_name.endswith("_huggingface"):
+        name = collection_name[:-13]
+    else:
+        name = collection_name
+
+    file_path = f"{BASE_DIR}/backend/data/cisco/documents/{name}.json"
     loader = CiscoSupportingDocumentsLoader.from_file(file_path, url)
     docs = load_documents(loader)
     process_documents(docs, doc_type)
-    loader.dump_json(file_path)
-    load_docs_chroma(docs, collection_name)
+    loader.dump_json(f"{BASE_DIR}/backend/data/cisco/documents/{collection_name}.json")
+    load_docs_chroma(docs, collection_name, embedding_func)
 
 
-def load_docs_chroma(documents, collection_name):
+def load_docs_chroma(documents, collection_name, embedding_func: str):
     docs = documents
     print(f"Loaded {len(docs)} documents from {collection_name}.json")
     content: list[str] = [doc.page_content for doc in docs]  # Langchain Document Schema
     ids: list[str] = [doc.metadata["doc_id"] for doc in docs]
     metadatas = [doc.metadata for doc in docs]
 
-    collection = CHROMA_CLIENT.get_or_create_collection(
-        name=collection_name, embedding_function=openai_embeddings
-    )
+    if embedding_func == "openai":
+        collection = CHROMA_CLIENT.get_or_create_collection(
+            name=collection_name, embedding_function=openai_embeddings
+        )
+    elif embedding_func == "huggingface":
+        collection = CHROMA_CLIENT.get_or_create_collection(
+            name=collection_name,
+            embedding_function=sentence_all_MiniLM_V6_v2_embeddings,
+        )
+    else:
+        raise ValueError("Invalid embedding function")
+
+    # collection = CHROMA_CLIENT.get_or_create_collection(
+    #     name=collection_name, embedding_function=openai_embeddings
+    # )
 
     for doc_id, doc_content, metadata in zip(ids, content, metadatas):
         if count_tokens(doc_content) > MAX_TOKENS:
@@ -622,60 +709,164 @@ def load_docs_chroma(documents, collection_name):
             logger.info(
                 f"Document {doc_id} has more than {MAX_TOKENS} tokens. Truncated content to {len(truncated_content)} tokens."
             )
-            collection.add(
-                ids=[doc_id],
-                documents=split_text(truncated_content),
-                metadatas=[metadata],
-            )
+            try:
+                collection.add(
+                    ids=[doc_id],
+                    documents=split_text(truncated_content),
+                    metadatas=[metadata],
+                )
+            except ValueError as e:
+                logger.warning(f"Most likely found a duplicate ID: {e}")
+                new_id = str(uuid.uuid4())
+                collection.add(
+                    ids=[new_id],
+                    documents=split_text(truncated_content),
+                    metadatas=[metadata],
+                )
         else:
-            collection.add(ids=[doc_id], documents=[doc_content], metadatas=[metadata])
+            try:
+                collection.add(
+                    ids=[doc_id], documents=[doc_content], metadatas=[metadata]
+                )
+            except ValueError as e:
+                logger.warning(f"Most likely found a duplicate ID: {e}")
+                new_id = str(uuid.uuid4())
+                collection.add(
+                    ids=[new_id], documents=[doc_content], metadatas=[metadata]
+                )
 
 
-def create_collections():
-    for series, sources in SERIES_DOCUMENT_MAP.items():
-        print(f"Processing for {series} assets")
-        ag_collection_name, ag_url = sources["ag"]
-        cli_collection_name, cli_url = sources["cli"]
-
-        try:
-            ag_collection = CHROMA_CLIENT.get_collection(ag_collection_name)
-            cli_collection = CHROMA_CLIENT.get_collection(cli_collection_name)
-
-            if ag_collection and cli_collection:
+def get_or_create_collections(admin_guide, cli_guide):
+    try:
+        admin_guide_collection = CHROMA_CLIENT.get_collection(admin_guide)
+        cli_guide_collection = CHROMA_CLIENT.get_collection(cli_guide)
+        ag_docs = admin_guide_collection.get()
+        cli_docs = cli_guide_collection.get()
+        if admin_guide_collection and cli_guide_collection:
+            if len(ag_docs) > 0 and len(cli_docs) > 0:
                 # move to next iteration
                 logger.info(
-                    f"Collection for {ag_collection_name} and {cli_collection_name} already exists. Skipping."
+                    f"Collection for {admin_guide} and {cli_guide} already exists. Skipping."
                 )
-                continue
-        except ValueError:
-            logger.info(
-                f"Error retrieving collection for {ag_collection_name} or {cli_collection_name}. Creating new collections."
+                return True
+            else:
+                logger.info(
+                    f"Collection for {admin_guide} and {cli_guide} exists but is empty. Proceeding to load documents."
+                )
+                CHROMA_CLIENT.delete_collection(admin_guide)
+                CHROMA_CLIENT.delete_collection(cli_guide)
+                CHROMA_CLIENT.get_or_create_collection(admin_guide)
+                CHROMA_CLIENT.get_or_create_collection(cli_guide)
+                return False
+    except ValueError:
+        logger.info(
+            f"Error retrieving collection for {admin_guide} or {cli_guide}. Creating new collections."
+        )
+
+        CHROMA_CLIENT.get_or_create_collection(admin_guide)
+        CHROMA_CLIENT.get_or_create_collection(cli_guide)
+        return False
+        # do nothing
+
+
+def prepare_collections():
+    for series, sources in FAMILIES.items():
+        print(f"Processing for {series} assets...")
+        ag_url = sources["ag"]
+        cli_url = sources["cli"]
+
+        openai_collections_class = CollectionFactory.get_collections("openai")
+        openai_admin_guide_coll, openai_cli_guide_coll = (
+            openai_collections_class.resolve_collection_name(series)
+        )
+        huggingface_collections_class = CollectionFactory.get_collections("huggingface")
+        huggingface_admin_guide_coll, huggingface_cli_guide_coll = (
+            huggingface_collections_class.resolve_collection_name(series)
+        )
+
+        if openai_admin_guide_coll and openai_cli_guide_coll:
+            already_exists = get_or_create_collections(
+                openai_admin_guide_coll, openai_cli_guide_coll
             )
+            if already_exists:
+                continue
+        if huggingface_admin_guide_coll and huggingface_cli_guide_coll:
+            already_exists = get_or_create_collections(
+                huggingface_admin_guide_coll, huggingface_cli_guide_coll
+            )
+            if already_exists:
+                continue
+        process_and_insert_documents(
+            ag_url, openai_admin_guide_coll, "AdminGuide", "openai"
+        )
+        process_and_insert_documents(
+            cli_url, openai_cli_guide_coll, "CLIGuide", "openai"
+        )
+        process_and_insert_documents(
+            ag_url, huggingface_admin_guide_coll, "AdminGuide", "huggingface"
+        )
+        process_and_insert_documents(
+            cli_url, huggingface_cli_guide_coll, "CLIGuide", "huggingface"
+        )
 
-            CHROMA_CLIENT.get_or_create_collection(ag_collection_name)
-            CHROMA_CLIENT.get_or_create_collection(cli_collection_name)
-            # do nothing
+    # for series, sources in SERIES_DOCUMENT_MAP.items():
+    #     print(f"Processing for {series} assets")
+    #     ag_collection_name, ag_url = sources["ag"]
+    #     cli_collection_name, cli_url = sources["cli"]
 
-        process_and_insert_documents(ag_url, ag_collection_name, "AdminGuide")
-        process_and_insert_documents(cli_url, cli_collection_name, "CLIGuide")
+    #     try:
+    #         ag_collection = CHROMA_CLIENT.get_collection(ag_collection_name)
+    #         cli_collection = CHROMA_CLIENT.get_collection(cli_collection_name)
+
+    #         if ag_collection and cli_collection:
+    #             # move to next iteration
+    #             logger.info(
+    #                 f"Collection for {ag_collection_name} and {cli_collection_name} already exists. Skipping."
+    #             )
+    #             continue
+    #     except ValueError:
+    #         logger.info(
+    #             f"Error retrieving collection for {ag_collection_name} or {cli_collection_name}. Creating new collections."
+    #         )
+
+    #         CHROMA_CLIENT.get_or_create_collection(ag_collection_name)
+    #         CHROMA_CLIENT.get_or_create_collection(cli_collection_name)
+    #         # do nothing
+
+    #     process_and_insert_documents(ag_url, ag_collection_name, "AdminGuide")
+    #     process_and_insert_documents(cli_url, cli_collection_name, "CLIGuide")
 
 
 def run():
-    create_collections()
+    prepare_collections()
 
 
 def query_collection(query: str):
     from langchain_openai.embeddings import OpenAIEmbeddings
+    from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
     try:
-        collection = CHROMA_CLIENT.get_collection(
-            CATALYST_1300_ADMIN_GUIDE_COLLECTION_NAME
+        openai_collection = CHROMA_CLIENT.get_collection(
+            "catalyst_1300_admin_guide_openai"
         )
-        embeddings = OpenAIEmbeddings(api_key=os.environ.get("OPENAI_API_KEY"))
-        query = embeddings.embed_query(query)
-        results = collection.query(query)
-        logger.info(f"Query: {query}\nResults: {results}")
-        return results
+        openai_embeddings = OpenAIEmbeddings(api_key=os.environ.get("OPENAI_API_KEY"))
+        openai_query = openai_embeddings.embed_query(query)
+        openai_results = openai_collection.query(openai_query)
+        logger.info(f"Query: {query}\nResults: {openai_results}")
+
+        hf_collection = CHROMA_CLIENT.get_collection(
+            "catalyst_1300_admin_guide_huggingface"
+        )
+        e = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        hf_query = e.embed_query(query)
+        # Add debugging statements
+        logger.debug(f"Type of hf_query: {type(hf_query)}")
+        logger.debug(f"Content of hf_query: {hf_query}")
+        hf_results = hf_collection.query(
+            query_embeddings=hf_query,
+            include=["embeddings", "metadatas", "documents", "distances"],
+        )
+        logger.info(f"Query: {query}\nResults: {hf_results}")
     except Exception as e:
         logger.error(f"An error occurred while querying the collection: {e}")
         return None
@@ -685,6 +876,3 @@ if __name__ == "__main__":
     # run()
     query = "RADIUS and Duo Authentication"
     results = query_collection(query)
-    if results:
-        for result in results["documents"]:
-            print(result)

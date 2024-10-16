@@ -43,7 +43,7 @@
 <div class="flex flex-col space-y-2">
 	<h2 class="text-slate-800 text-center">Select your device</h2>
 	<select
-		class="border-0 cursor-pointer rounded-full drop-shadow-md bg-sky-200 duration-300 focus:ring-0 text-white"
+		class="border-current inline-flex cursor-pointer select-none appearance-none select select-primary min-w-80 max-w-xs"
 		bind:value={selectedDevice}
 	>
 		{#each Object.entries(devices) as [category, deviceList]}
