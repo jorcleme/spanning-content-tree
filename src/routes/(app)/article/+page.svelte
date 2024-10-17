@@ -9,7 +9,7 @@
 	import { IsSupportingArticle } from '$lib/stores';
 	import type { Article as _Article } from '$lib/types';
 
-	let articleId = '6863d3d2-fba4-4ef2-a622-aafe9dc1f678';
+	let articleId = '019d2492-ec50-46f6-ae64-f06423ca7452';
 	onMount(async () => {
 		window.history.replaceState({}, '', `/article/${articleId}`);
 		activeArticle.set(await getArticleById(localStorage.token, articleId));

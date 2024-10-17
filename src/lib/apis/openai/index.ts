@@ -374,6 +374,7 @@ export const generateOpenAIChatCompletionQuestions = async (
 	return res.choices[0].message.content
 		.split(/[\n;]|1\.\s*|2\.\s*|3\.\s*/)
 		.filter((x) => x)
+		.map((x) => x.replace(/^-+\s*/, ''))
 		.slice(0, 3);
 };
 

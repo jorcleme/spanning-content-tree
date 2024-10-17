@@ -185,6 +185,86 @@
 		console.log('stopResponse');
 	};
 
+	const continueGeneration = async (messageId: string) => {
+		console.log('continueGeneration');
+		const message = messages.find((m) => m.id === messageId);
+		let modelId;
+
+		if (message && message.done) {
+			message.done = false;
+			await tick();
+
+			const model = $models.filter((m) => m.id === message.model).at(0);
+
+			if (model) {
+				modelId = model.id;
+				let systemMessage = messages.find((m) => {
+					if (m.role === 'system') {
+						const id = m.id.split('_').at(-1);
+						return id && id.trim() === messageId.trim();
+					}
+				});
+				if (systemMessage) {
+					let responseMessage: _CiscoArticleMessage;
+					if (model.owned_by === 'openai') {
+						responseMessage = await sendPromptOpenAI(systemMessage, {
+							model: model,
+							question: message.associatedQuestion ?? currentQuestion,
+							metadatas: message.sources?.map((source) => source.metadata) ?? undefined,
+							documents: message.sources?.map((source) => source.content as string) ?? undefined
+						});
+					} else if (model.owned_by === 'ollama') {
+						responseMessage = await sendPromptOllama(systemMessage, {
+							model: model,
+							question: message.associatedQuestion ?? currentQuestion,
+							metadatas: message.sources?.map((source) => source.metadata) ?? undefined,
+							documents: message.sources?.map((source) => source.content as string) ?? undefined
+						});
+					}
+					const updatedArticle = await updateArticleStep(localStorage.token, $activeArticleId, {
+						step_index: index,
+						step: $activeArticle
+							? {
+									...$activeArticle.steps[index],
+									qna_pairs: $activeArticle.steps.at(index)?.qna_pairs?.map((pair) => {
+										if (pair.question.trim().toLowerCase() === message.associatedQuestion?.trim().toLowerCase()) {
+											return {
+												...pair,
+												answer: responseMessage.content === '' ? null : responseMessage.content,
+												sources: message.sources,
+												model: model.id
+											};
+										}
+										return pair;
+									})
+							  }
+							: {
+									...step,
+									qna_pairs: step.qna_pairs?.map((pair) => {
+										if (pair.id.trim().toLowerCase() === message.associatedQuestion?.trim().toLowerCase()) {
+											return {
+												...pair,
+												answer: responseMessage.content === '' ? null : responseMessage.content,
+												sources: message.sources,
+												model: model.id
+											};
+										}
+										return pair;
+									})
+							  }
+					});
+					activeArticle.set(updatedArticle);
+					console.log('updated article', updatedArticle);
+				} else {
+					toast.error($i18n.t('System message not found'));
+				}
+			}
+		} else {
+			const model = selectedModelIds.at(0) ?? selectedModels.at(0) ?? atSelectedModel?.id ?? modelId;
+			toast.error($i18n.t(`Model {{modelId}} not found`, { modelId: model }));
+		}
+	};
+
 	const editMessageHandler = async (content: string) => {
 		edit = true;
 		editedContent = content;
@@ -330,7 +410,7 @@
 		}
 	};
 
-	const updateArticle = async (updatedMessage: _CiscoArticleMessage, btnId?: string) => {
+	const sendUpdateArticle = async (updatedMessage: _CiscoArticleMessage, btnId?: string) => {
 		// Use mountedArticleSteps as its a derived store and will always be up to date each time activeArticle changes
 		const updatedArticle = await updateArticleStep(localStorage.token, $activeArticleId, {
 			step_index: index,
@@ -380,7 +460,7 @@
 				content
 			};
 			messages = updateMessages(updatedMessage);
-			await updateArticle(updatedMessage);
+			await sendUpdateArticle(updatedMessage);
 		}
 	};
 
@@ -414,7 +494,7 @@
 				annotation: message.annotation ? { ...message.annotation, rating } : { rating }
 			};
 			messages = updateMessages(updatedMessage);
-			await updateArticle(updatedMessage);
+			await sendUpdateArticle(updatedMessage);
 		}
 	};
 
@@ -704,25 +784,14 @@
 				);
 				const test = await queryDocWithSmallChunks(localStorage.token, 'catalyst_1200_admin_guide_openai', question, 2);
 				console.log('test', test);
-				documents = test.documents?.flat(1) ?? null;
-				metadatas = test.metadatas?.flat(1) ?? null;
-				// const res = await queryDoc(localStorage.token, 'catalyst_1200_admin_guide', question, 2);
-				// Flatten these here as this is a recursive method
-				// distances = res.distances.flat(1);
-				// console.log('Distances are: ', distances);
-				// documents = res.documents.flat(1);
-				// metadatas = res.metadatas.flat(1);
-				// const ragContext = distances
-				// 	.map((dist, i) => {
-				// 		if (dist > 0.75) return documents?.at(i);
-				// 	})
-				// 	.join('\n\n');
-				// const ragContext = documents.flat(1).join('\n\n');
+				distances = res.distances?.flat(1) ?? null;
+				documents = res.documents?.flat(1) ?? null;
+				metadatas = res.metadatas?.flat(1) ?? null;
 				directions = directions.replace(/\[\[context\]\]/g, documents?.join('\n\n') ?? '');
 			}
 			console.log('directions', directions);
 			let systemMessage = {
-				id: 'system-2',
+				id: `system_${userMessageId}`,
 				role: 'system',
 				content: directions,
 				timestamp: Math.floor(Date.now() / 1000),
@@ -733,8 +802,18 @@
 			console.log('messages after system message', messages);
 			// wait for messages to update
 			await tick();
-			let responseMessage: _CiscoArticleMessage;
+
 			if (model) {
+				const assistantMessageId = uuidv4();
+				let responseMessage: _CiscoArticleMessage = {
+					id: assistantMessageId,
+					role: 'assistant',
+					content: '',
+					timestamp: Math.floor(Date.now() / 1000),
+					model: model.id,
+					associatedQuestion: question,
+					sources: metadatas?.map((m, i) => ({ ...m, content: documents?.at(i) }))
+				};
 				const data = {
 					model,
 					question,
@@ -751,6 +830,7 @@
 				await tick();
 				console.log('response message', responseMessage);
 				messages = updateMessages(responseMessage);
+				await sendUpdateArticle(responseMessage, id);
 				const updatedArticle = await updateArticleStep(localStorage.token, $activeArticleId, {
 					step_index: index,
 					step: $activeArticle
@@ -806,11 +886,11 @@
 		model: Model;
 		question: string;
 		metadatas?: Record<string, any>[] | null;
-		documents: string[] | null;
+		documents?: string[] | null;
 	};
 
 	const sendPromptOpenAI = async (
-		message: _CiscoArticleMessage,
+		sysMsg: _CiscoArticleMessage,
 		{ model, question, metadatas = null, documents = null }: SendPromptOptions
 	) => {
 		const assistantMessageId = uuidv4();
@@ -834,7 +914,7 @@
 									include_usage: true
 							  }
 							: undefined,
-					messages: [message].map((m) => ({ role: m.role, content: m.content })),
+					messages: [sysMsg].map((m) => ({ role: m.role, content: m.content })),
 					temperature: 0,
 					session_id: $socket?.id
 				},
@@ -894,6 +974,8 @@
 		} catch (error) {
 			await handleOpenAIError(error, null, model, responseMessage);
 		}
+		await tick();
+		_stopResponseFlag = false;
 		scrollToBottom();
 		messages = updateMessages(responseMessage);
 		return responseMessage;
@@ -1032,8 +1114,8 @@
 			responseMessage.done = true;
 			messages = updateMessages(responseMessage);
 		}
-		_stopResponseFlag = false;
 		await tick();
+		_stopResponseFlag = false;
 		isLoading = false;
 		return responseMessage;
 	};
@@ -1136,9 +1218,9 @@
 		});
 	});
 
-	afterUpdate(() => {
-		renderStyling();
-	});
+	// afterUpdate(() => {
+	// 	renderStyling();
+	// });
 
 	$: if (messages.length > 2) {
 		ciscoArticleMessages.set(messages);
@@ -1442,74 +1524,6 @@
 												</Tooltip>
 											{/if}
 										{/key}
-										<!-- <Tooltip content={$i18n.t('Good Response')} placement="bottom">
-												<button
-													class="{isLastMessage
-														? 'visible'
-														: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg {(message
-														.annotation?.rating ?? null) === 1
-														? 'bg-gray-100 dark:bg-gray-800'
-														: ''} dark:hover:text-white hover:text-black transition"
-													on:click={async () => {
-														await rateMessage(message.id, 1);
-														document.getElementById(`message-thumbs-up-feedback--${message.id}`)?.click();
-
-														window.setTimeout(() => {
-															document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
-														}, 0);
-													}}
-												>
-													<svg
-														stroke="currentColor"
-														fill="none"
-														stroke-width="2.3"
-														viewBox="0 0 24 24"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														class="w-4 h-4"
-														xmlns="http://www.w3.org/2000/svg"
-														><path
-															d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"
-														/></svg
-													>
-												</button>
-											</Tooltip>
-
-											<Tooltip content={$i18n.t('Bad Response')} placement="bottom">
-												<button
-													class="{isLastMessage
-														? 'visible'
-														: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg {(message
-														?.annotation?.rating ?? null) === -1
-														? 'bg-gray-100 dark:bg-gray-800'
-														: ''} dark:hover:text-white hover:text-black transition"
-													on:click={async () => {
-														await rateMessage(message.id, -1);
-														const element = document.getElementById(`message-thumbs-down-feedback--${message.id}`);
-														if (element) {
-															element.click();
-														}
-														window.setTimeout(() => {
-															document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
-														}, 0);
-													}}
-												>
-													<svg
-														stroke="currentColor"
-														fill="none"
-														stroke-width="2.3"
-														viewBox="0 0 24 24"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														class="w-4 h-4"
-														xmlns="http://www.w3.org/2000/svg"
-														><path
-															d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"
-														/></svg
-													>
-												</button>
-											</Tooltip> -->
-
 										{#if isLastMessage}
 											<Tooltip content={$i18n.t('Continue Response')} placement="bottom">
 												<button
@@ -1518,9 +1532,24 @@
 														? 'visible'
 														: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition regenerate-response-button"
 													on:click={() => {
-														// continueGeneration();
+														continueGeneration(message.id);
 													}}
 												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke-width="1.5"
+														stroke="currentColor"
+														class="size-6"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															d="m12.75 15 3-3m0 0-3-3m3 3h-7.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+														/>
+													</svg>
+													<!-- 												  
 													<svg
 														xmlns="http://www.w3.org/2000/svg"
 														fill="none"
@@ -1539,7 +1568,7 @@
 															stroke-linejoin="round"
 															d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z"
 														/>
-													</svg>
+													</svg> -->
 												</button>
 											</Tooltip>
 											{#if !readOnly}
@@ -1666,7 +1695,6 @@
 													<div
 														class="admin-guide flex flex-col gap-y-2 border-l-4 border-green-500 bg-gray-50 px-2 py-2 rounded-md w-full divide-slate-700"
 													>
-														<div class="divider divider-accent" />
 														<div class="flex flex-row items-center gap-2">
 															<div>
 																<FileText />
@@ -1786,7 +1814,7 @@
 							bind:show
 							btnText={currentQuestion}
 							on:submit={async () => {
-								await updateArticle(message);
+								await sendUpdateArticle(message);
 							}}
 						/>
 					{/if}

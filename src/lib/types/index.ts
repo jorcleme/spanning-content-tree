@@ -54,7 +54,7 @@ interface StatusHistory {
 export interface BaseMessage {
 	role: string;
 	content: string;
-};
+}
 
 export interface EditedMessage extends Message {}
 
@@ -100,8 +100,6 @@ export interface Message extends BaseMessage {
 // url: "/api/v1/files/362ec854-789f-4563-8981-92c0f196cd47"
 // -------------------
 
-
-
 export interface ClientFile {
 	collection_name?: string;
 	error?: string;
@@ -121,7 +119,7 @@ export interface MessageHistory {
 	};
 	currentId: Nullable<string>;
 	state?: any;
-};
+}
 
 export interface Chat extends BaseEntity, TimestampEntity {
 	title: string;
@@ -177,7 +175,13 @@ interface ApplicableDevice {
 	software?: string;
 	datasheet_link?: string;
 	software_link?: string | null;
-};
+}
+
+interface RevisionHistory {
+	revision: number; // e.g. 1.0, 1.1, 1.2, etc.
+	publish_date: string; // e.g. 2021-01-01
+	comments: string;
+}
 
 export interface ArticleStep {
 	section: string;
@@ -202,7 +206,7 @@ export interface ArticleStep {
 		};
 		model?: string;
 	}>;
-};
+}
 
 export interface Article {
 	id: string;
@@ -214,6 +218,7 @@ export interface Article {
 	applicable_devices: ApplicableDevice[];
 	introduction: string;
 	steps: ArticleStep[];
+	revision_history: RevisionHistory[];
 	created_at: number;
 	updated_at: number;
 }

@@ -107,7 +107,7 @@
 		console.log('input.value: ', input.value.trim());
 		console.log('activeValue: ', activeValue);
 
-		const series = await getSeriesByName(localStorage.token, 'Cisco Catalyst 1200 Series Switches');
+		const series = await getSeriesByName(localStorage.token, value.value.trim());
 		if (series) {
 			dispatch('confirm', { device: series.id, name: series.name });
 		}
@@ -597,8 +597,8 @@
 			!listOpen &&
 			!focused &&
 			container &&
-			!container.contains(event.currentTarget as unknown as Node) &&
-			!list?.contains(event.currentTarget as unknown as Node)
+			!container.contains(event.target as unknown as Node) &&
+			!list?.contains(event.target as unknown as Node)
 		) {
 			handleBlur();
 		}
@@ -711,7 +711,7 @@
 <svelte:window on:click={handleClickOutside} on:keydown={handleKeyDown} />
 
 <div
-	class="svelte-select"
+	class="svelte-select min-w-80"
 	class:multi={multiple}
 	class:disabled
 	class:focused
@@ -1177,7 +1177,7 @@
 		overflow-y: auto;
 		background: var(--list-background, #fff);
 		position: var(--list-position, absolute);
-		z-index: var(--list-z-index, 2);
+		z-index: var(--list-z-index, 9999);
 		border: var(--list-border);
 	}
 

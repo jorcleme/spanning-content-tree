@@ -3,7 +3,7 @@
 	export let slideIndex: number;
 </script>
 
-<div class="slide" class:active={currentSlide === slideIndex}>
+<div class="slide space-y-3 w-full" class:active={currentSlide === slideIndex}>
 	{#if currentSlide === slideIndex}
 		<slot />
 	{/if}

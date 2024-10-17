@@ -32,6 +32,17 @@ from config import SRC_LOG_LEVELS, CHROMA_CLIENT
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
 
+store = InMemoryStore()
+
+
+def get_lc_embedding_function(embedding_engine: str):
+    if embedding_engine in ["openai"]:
+        return OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+    elif embedding_engine in ["huggingface"]:
+        return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    else:
+        return OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 def convert_to_documents(results: GetResult) -> List[Document]:
     """
@@ -78,15 +89,9 @@ def query_doc_with_small_chunks(
     except Exception as e:
         raise ValueError(f"Failed to get collection {collection_name}: {e}")
 
-    if embedding_engine in ["openai"]:
-        embedding_func = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
-    elif embedding_engine in ["huggingface"]:
-        embedding_func = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    else:
-        embedding_func = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+    embedding_func = get_lc_embedding_function(embedding_engine)
     docs = collection.get()
     ids = [doc["doc_id"] for doc in docs["metadatas"]]
-    store = InMemoryStore()
     retriever = ParentDocumentRetriever(
         vectorstore=Chroma(
             embedding_function=embedding_func,
@@ -98,7 +103,7 @@ def query_doc_with_small_chunks(
             chunk_size=400, add_start_index=True
         ),
         search_kwargs={"k": k},
-        search_type=SearchType.similarity,
+        search_type=SearchType.mmr,
     )
     lc_documents = convert_to_documents(docs)
     retriever.add_documents(documents=lc_documents, ids=ids)
@@ -120,6 +125,7 @@ def query_doc_with_hybrid_search(
     reranking_function,
     r: float,
 ):
+    log.debug("Running query_doc_with_hybrid_search")
     try:
         collection = CHROMA_CLIENT.get_collection(name=collection_name)
         documents = collection.get()  # get all documents
