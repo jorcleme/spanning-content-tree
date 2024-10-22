@@ -1,6 +1,8 @@
+import type { Func } from '$lib/stores';
+import type { Nullable } from '$lib/types';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 
-export const createNewFunction = async (token: string, func: object) => {
+export const createNewFunction = async (token: string, func: object): Promise<Nullable<Func>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/create`, {
@@ -31,7 +33,7 @@ export const createNewFunction = async (token: string, func: object) => {
 	return res;
 };
 
-export const getFunctions = async (token: string = '') => {
+export const getFunctions = async (token: string = ''): Promise<Func[]> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/`, {
@@ -62,7 +64,7 @@ export const getFunctions = async (token: string = '') => {
 	return res;
 };
 
-export const exportFunctions = async (token: string = '') => {
+export const exportFunctions = async (token: string = ''): Promise<Func[]> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/export`, {
@@ -93,7 +95,7 @@ export const exportFunctions = async (token: string = '') => {
 	return res;
 };
 
-export const getFunctionById = async (token: string, id: string) => {
+export const getFunctionById = async (token: string, id: string): Promise<Nullable<Func>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}`, {
@@ -125,7 +127,7 @@ export const getFunctionById = async (token: string, id: string) => {
 	return res;
 };
 
-export const updateFunctionById = async (token: string, id: string, func: object) => {
+export const updateFunctionById = async (token: string, id: string, func: object): Promise<Nullable<Func>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/update`, {
@@ -160,7 +162,7 @@ export const updateFunctionById = async (token: string, id: string, func: object
 	return res;
 };
 
-export const deleteFunctionById = async (token: string, id: string) => {
+export const deleteFunctionById = async (token: string, id: string): Promise<boolean> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/delete`, {
@@ -192,7 +194,7 @@ export const deleteFunctionById = async (token: string, id: string) => {
 	return res;
 };
 
-export const toggleFunctionById = async (token: string, id: string) => {
+export const toggleFunctionById = async (token: string, id: string): Promise<Func> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/toggle`, {
@@ -224,7 +226,7 @@ export const toggleFunctionById = async (token: string, id: string) => {
 	return res;
 };
 
-export const toggleGlobalById = async (token: string, id: string) => {
+export const toggleGlobalById = async (token: string, id: string): Promise<Func> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/toggle/global`, {
@@ -256,7 +258,14 @@ export const toggleGlobalById = async (token: string, id: string) => {
 	return res;
 };
 
-export const getFunctionValvesById = async (token: string, id: string) => {
+interface FunctionValve {
+	show_status: boolean;
+	html_filename: string;
+	OPENIA_KEY: string;
+	OPENIA_URL: string;
+}
+
+export const getFunctionValvesById = async (token: string, id: string): Promise<Nullable<FunctionValve>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves`, {
@@ -288,7 +297,7 @@ export const getFunctionValvesById = async (token: string, id: string) => {
 	return res;
 };
 
-export const getFunctionValvesSpecById = async (token: string, id: string) => {
+export const getFunctionValvesSpecById = async (token: string, id: string): Promise<Nullable<FunctionValve>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/spec`, {
@@ -320,7 +329,11 @@ export const getFunctionValvesSpecById = async (token: string, id: string) => {
 	return res;
 };
 
-export const updateFunctionValvesById = async (token: string, id: string, valves: object) => {
+export const updateFunctionValvesById = async (
+	token: string,
+	id: string,
+	valves: object
+): Promise<Nullable<FunctionValve>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/update`, {
@@ -355,7 +368,7 @@ export const updateFunctionValvesById = async (token: string, id: string, valves
 	return res;
 };
 
-export const getUserValvesById = async (token: string, id: string) => {
+export const getUserValvesById = async (token: string, id: string): Promise<Nullable<FunctionValve>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/user`, {
@@ -368,10 +381,7 @@ export const getUserValvesById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -387,7 +397,7 @@ export const getUserValvesById = async (token: string, id: string) => {
 	return res;
 };
 
-export const getUserValvesSpecById = async (token: string, id: string) => {
+export const getUserValvesSpecById = async (token: string, id: string): Promise<Record<string, any>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/user/spec`, {
@@ -400,10 +410,7 @@ export const getUserValvesSpecById = async (token: string, id: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;
@@ -419,7 +426,7 @@ export const getUserValvesSpecById = async (token: string, id: string) => {
 	return res;
 };
 
-export const updateUserValvesById = async (token: string, id: string, valves: object) => {
+export const updateUserValvesById = async (token: string, id: string, valves: object): Promise<Record<string, any>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/user/update`, {
@@ -435,10 +442,7 @@ export const updateUserValvesById = async (token: string, id: string, valves: ob
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err.detail;

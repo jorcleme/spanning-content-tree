@@ -191,12 +191,6 @@ app.state.config.RAG_WEB_SEARCH_RESULT_COUNT = RAG_WEB_SEARCH_RESULT_COUNT
 app.state.config.RAG_WEB_SEARCH_CONCURRENT_REQUESTS = RAG_WEB_SEARCH_CONCURRENT_REQUESTS
 
 
-class SetCollectionNamesMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        rag_embedding_engine = app.state.config.RAG_EMBEDDING_ENGINE
-        rag_embedding_model = app.state.config.RAG_EMBEDDING_MODEL
-
-
 def update_embedding_model(
     embedding_model: str,
     update_model: bool = False,
@@ -673,12 +667,75 @@ async def query_doc_handler_small_chunks(
         )
 
 
+@app.post("/query/doc/cisco")
+async def query_doc_handler_cisco(
+    form_data: QueryDocForm, user=Depends(get_verified_user)
+):
+    try:
+        if app.state.config.ENABLE_RAG_HYBRID_SEARCH:
+            return query_doc_with_hybrid_search(
+                collection_name=form_data.collection_name,
+                query=form_data.query,
+                embedding_function=app.state.sentence_transformer_ef,
+                k=form_data.k if form_data.k else app.state.config.TOP_K,
+                reranking_function=app.state.sentence_transformer_rf,
+                r=(
+                    form_data.r if form_data.r else app.state.config.RELEVANCE_THRESHOLD
+                ),
+            )
+        else:
+            return query_doc(
+                collection_name=form_data.collection_name,
+                query=form_data.query,
+                embedding_function=app.state.sentence_transformer_ef,
+                k=form_data.k if form_data.k else app.state.config.TOP_K,
+            )
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(e),
+        )
+
+
 class QueryCollectionsForm(BaseModel):
     collection_names: List[str]
     query: str
     k: Optional[int] = None
     r: Optional[float] = None
     hybrid: Optional[bool] = None
+
+
+@app.post("/query/collection/cisco")
+async def query_collection_handler_cisco(
+    form_data: QueryCollectionsForm, user=Depends(get_verified_user)
+):
+    try:
+        if app.state.config.ENABLE_RAG_HYBRID_SEARCH:
+            return query_collection_with_hybrid_search(
+                collection_names=form_data.collection_names,
+                query=form_data.query,
+                embedding_function=app.state.sentence_transformer_ef,
+                k=form_data.k if form_data.k else app.state.config.TOP_K,
+                reranking_function=app.state.sentence_transformer_rf,
+                r=(
+                    form_data.r if form_data.r else app.state.config.RELEVANCE_THRESHOLD
+                ),
+            )
+        else:
+            return query_collection(
+                collection_names=form_data.collection_names,
+                query=form_data.query,
+                embedding_function=app.state.sentence_transformer_ef,
+                k=form_data.k if form_data.k else app.state.config.TOP_K,
+            )
+
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(e),
+        )
 
 
 @app.post("/query/collection")
@@ -1448,21 +1505,6 @@ def reset(user=Depends(get_admin_user)) -> bool:
         log.exception(e)
 
     return True
-
-
-from apps.cisco.supporting_docs_loader import CiscoSupportingDocumentsLoader
-
-
-class CiscoPageRetrieveForm(BaseModel):
-    url: str
-    doc_type: str
-
-
-@app.post("/cisco/page/retrieve")
-async def retrieve_cisco_page(form_data: CiscoPageRetrieveForm):
-    if form_data.doc_type == "cli":
-        loader = CiscoSupportingDocumentsLoader(form_data.url, schema="cli")
-        documents = loader.load()
 
 
 class SafeWebBaseLoader(WebBaseLoader):

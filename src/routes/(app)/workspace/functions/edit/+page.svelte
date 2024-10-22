@@ -1,4 +1,7 @@
-<script>
+<script lang="ts">
+	import type { Func } from '$lib/stores';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { toast } from 'svelte-sonner';
 	import { onMount, getContext } from 'svelte';
 
@@ -13,42 +16,41 @@
 	import { compareVersion, extractFrontmatter } from '$lib/utils';
 	import { WEBUI_VERSION } from '$lib/constants';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
-	let func = null;
+	let func: Func | null = null;
 
-	const saveHandler = async (data) => {
+	const saveHandler = async (data: Record<string, any>) => {
 		console.log(data);
 
 		const manifest = extractFrontmatter(data.content);
 		if (compareVersion(manifest?.required_open_webui_version ?? '0.0.0', WEBUI_VERSION)) {
 			console.log('Version is lower than required');
 			toast.error(
-				$i18n.t(
-					'Open WebUI version (v{{OPEN_WEBUI_VERSION}}) is lower than required version (v{{REQUIRED_VERSION}})',
-					{
-						OPEN_WEBUI_VERSION: WEBUI_VERSION,
-						REQUIRED_VERSION: manifest?.required_open_webui_version ?? '0.0.0'
-					}
-				)
+				$i18n.t('Open WebUI version (v{{OPEN_WEBUI_VERSION}}) is lower than required version (v{{REQUIRED_VERSION}})', {
+					OPEN_WEBUI_VERSION: WEBUI_VERSION,
+					REQUIRED_VERSION: manifest?.required_open_webui_version ?? '0.0.0'
+				})
 			);
 			return;
 		}
 
-		const res = await updateFunctionById(localStorage.token, func.id, {
-			id: data.id,
-			name: data.name,
-			meta: data.meta,
-			content: data.content
-		}).catch((error) => {
-			toast.error(error);
-			return null;
-		});
+		if (func) {
+			const res = await updateFunctionById(localStorage.token, func.id, {
+				id: data.id,
+				name: data.name,
+				meta: data.meta,
+				content: data.content
+			}).catch((error) => {
+				toast.error(error);
+				return null;
+			});
 
-		if (res) {
-			toast.success($i18n.t('Function updated successfully'));
-			functions.set(await getFunctions(localStorage.token));
-			models.set(await getModels(localStorage.token));
+			if (res) {
+				toast.success($i18n.t('Function updated successfully'));
+				functions.set(await getFunctions(localStorage.token));
+				models.set(await getModels(localStorage.token));
+			}
 		}
 	};
 

@@ -29,25 +29,28 @@
 	import Prompts from './MessageInput/PromptCommands.svelte';
 	import Suggestions from './MessageInput/Suggestions.svelte';
 	import AddFilesPlaceholder from '../AddFilesPlaceholder.svelte';
+
 	import Documents from './MessageInput/Documents.svelte';
 	import Models from './MessageInput/Models.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
 	import InputMenu from './MessageInput/InputMenu.svelte';
 	import Headphone from '../icons/Headphone.svelte';
+	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
 	import VoiceRecording from './MessageInput/VoiceRecording.svelte';
 	import { transcribeAudio } from '$lib/apis/audio';
 	import FileItem from '../common/FileItem.svelte';
 	import FilesOverlay from './MessageInput/FilesOverlay.svelte';
+	import GuideMeMenu from '../cisco/gen/GuideMeMenu.svelte';
 	import type { ClientFile } from '$lib/types';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
 
-	// @svelte-ignore
-	export let transparentBackground: string | boolean = false;
+	export const transparentBackground: string | boolean = false;
 
 	export let submitPrompt: Function;
 	export let stopResponse: Function;
+	export let openConfigAssistant: () => void;
 
 	export let autoScroll = true;
 
@@ -448,6 +451,10 @@
 			atSelectedModel = undefined;
 		}
 	};
+
+	const onClose = (e: CustomEvent) => {
+		console.log(e);
+	};
 </script>
 
 <FilesOverlay show={dragged} />
@@ -720,8 +727,16 @@
 										</button>
 									</InputMenu>
 								</div>
+								<GuideMeMenu {openConfigAssistant} {handleGeneratePromptClick} onClose={() => {}}>
+									<button
+										class="self-center w-fit text-sm p-1.5 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
+										type="button"
+									>
+										<EllipsisHorizontal className="size-5" />
+									</button>
+								</GuideMeMenu>
 
-								<button class="generate-btn" on:click|preventDefault={handleGeneratePromptClick}>
+								<!-- <button class="generate-btn" on:click|preventDefault={handleGeneratePromptClick}>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="24"
@@ -794,7 +809,7 @@
 										</defs>
 									</svg>
 									<span style="width: max-content; padding-left:1rem;"> Guide me </span>
-								</button>
+								</button> -->
 
 								<textarea
 									on:input={handleTextareaInput}

@@ -5,6 +5,7 @@
 	import type { Model, _CiscoArticleMessage } from '$lib/stores';
 	import type { MarkedOptions, TokensList } from 'marked';
 	import type { Instance } from 'tippy.js';
+
 	import tippy from 'tippy.js';
 	import { ThumbsUp, ThumbsDown, FileText, FileCode, SquareCode } from 'lucide-svelte';
 	import dayjs from 'dayjs';
@@ -34,6 +35,7 @@
 		isErrorAsString,
 		replaceTokens,
 		sanitizeResponseContent,
+		revertSanitizedResponseContent,
 		isErrorWithDetail,
 		isErrorWithMessage,
 		stripHtml,
@@ -55,6 +57,8 @@
 	import ProfileImage from '$lib/components/chat/Messages/ProfileImage.svelte';
 	import Name from '$lib/components/chat/Messages/Name.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Skeleton from '$lib/components/chat/Messages/Skeleton.svelte';
+	import CodeBlock from '$lib/components/chat/Messages/CodeBlock.svelte';
 
 	export let currentStepStr: string;
 	export let index: number;
@@ -63,11 +67,12 @@
 	export let readOnly: boolean = true;
 	export let selectedModels: string[];
 
+	const i18n: Writable<i18nType> = getContext('i18n');
+	const dispatch = createEventDispatcher();
+	const renderer = new marked.Renderer();
+
 	const STATIC_IDS = ['static_1', 'static_2', 'static_3'];
 	const DYNAMIC_IDS = ['dynamic_1', 'dynamic_2', 'dynamic_3'];
-	const i18n: Writable<i18nType> = getContext('i18n');
-	const renderer = new marked.Renderer();
-	const dispatch = createEventDispatcher();
 
 	let history: { messages: { [id: string]: Record<string, any> }; currentId: string | null } = {
 		messages: {},
@@ -187,6 +192,7 @@
 
 	const continueGeneration = async (messageId: string) => {
 		console.log('continueGeneration');
+		console.log('messages at continueGeneration', messages);
 		const message = messages.find((m) => m.id === messageId);
 		let modelId;
 
@@ -205,20 +211,18 @@
 					}
 				});
 				if (systemMessage) {
-					let responseMessage: _CiscoArticleMessage;
+					let responseMessage: _CiscoArticleMessage = {
+						...message
+					};
 					if (model.owned_by === 'openai') {
 						responseMessage = await sendPromptOpenAI(systemMessage, {
-							model: model,
-							question: message.associatedQuestion ?? currentQuestion,
-							metadatas: message.sources?.map((source) => source.metadata) ?? undefined,
-							documents: message.sources?.map((source) => source.content as string) ?? undefined
+							model,
+							responseMessage
 						});
 					} else if (model.owned_by === 'ollama') {
 						responseMessage = await sendPromptOllama(systemMessage, {
-							model: model,
-							question: message.associatedQuestion ?? currentQuestion,
-							metadatas: message.sources?.map((source) => source.metadata) ?? undefined,
-							documents: message.sources?.map((source) => source.content as string) ?? undefined
+							model,
+							responseMessage
 						});
 					}
 					const updatedArticle = await updateArticleStep(localStorage.token, $activeArticleId, {
@@ -227,7 +231,7 @@
 							? {
 									...$activeArticle.steps[index],
 									qna_pairs: $activeArticle.steps.at(index)?.qna_pairs?.map((pair) => {
-										if (pair.question.trim().toLowerCase() === message.associatedQuestion?.trim().toLowerCase()) {
+										if (pair.id.trim().toLowerCase() === message.qnaBtnId?.trim().toLowerCase()) {
 											return {
 												...pair,
 												answer: responseMessage.content === '' ? null : responseMessage.content,
@@ -262,6 +266,76 @@
 		} else {
 			const model = selectedModelIds.at(0) ?? selectedModels.at(0) ?? atSelectedModel?.id ?? modelId;
 			toast.error($i18n.t(`Model {{modelId}} not found`, { modelId: model }));
+		}
+	};
+
+	const regenerateResponse = async (message: _CiscoArticleMessage) => {
+		const { id, qnaBtnId, associatedQuestion } = message;
+		const btnIndex = questions.findIndex((q) => q.id === qnaBtnId);
+		if (btnIndex === -1 || !qnaBtnId || !associatedQuestion) {
+			toast.error($i18n.t('Oops! Something went wrong. Please try your request again.'));
+			return;
+		}
+
+		if (!$activeArticle) {
+			toast.error($i18n.t('Article not found'));
+			return;
+		}
+
+		activeArticle.update((article) => {
+			if (!article) {
+				return article;
+			}
+
+			const qnaBtn = article.steps[index].qna_pairs?.find((pair) => pair.id === qnaBtnId);
+			if (qnaBtn) {
+				qnaBtn.answer = null;
+			}
+
+			article.steps[index] = step;
+			return article;
+		});
+		await tick();
+		await generateLLMAnswer(btnIndex, qnaBtnId, associatedQuestion);
+
+		// Find the associated system message in messages
+		let systemMessage = messages.find((m) => m.id.trim() === `system_${id.trim()}`);
+		if (systemMessage) {
+			systemMessage = {
+				...systemMessage,
+				content: `You are being asked to regenerate your response to the following question: '${associatedQuestion}'. The user is confused or doesn't understand. Compare your original response and make any necessary changes. Do not ask the user questions or how it turned out.\n\n<original>\n\t${systemMessage.content}\n</original>\n\nEvaluate the original response and make any necessary changes.`,
+				timestamp: Math.floor(Date.now() / 1000)
+			};
+			const selectedModelId = selectedModelIds.at(0) ?? selectedModels.at(0) ?? atSelectedModel?.id ?? model?.id;
+			if (selectedModelId) {
+				const model = $models.find((m) => m.id === selectedModelId);
+				if (model) {
+					let responseMessage: _CiscoArticleMessage = {
+						...message,
+						role: 'assistant',
+						originalContent: message.content,
+						content: '',
+						done: false,
+						timestamp: Math.floor(Date.now() / 1000),
+						model: model.id
+					};
+					messages = updateMessages(responseMessage);
+					await tick();
+					responseMessage.id = uuidv4();
+					if (model.owned_by === 'openai') {
+						responseMessage = await sendPromptOpenAI(systemMessage, {
+							model,
+							responseMessage
+						});
+					} else if (model.owned_by === 'ollama') {
+						responseMessage = await sendPromptOllama(systemMessage, {
+							model,
+							responseMessage
+						});
+					}
+					await sendUpdateArticle(responseMessage, qnaBtnId);
+				}
+			}
 		}
 	};
 
@@ -419,7 +493,7 @@
 				qna_pairs: $mountedArticleSteps.at(index)?.qna_pairs?.map((pair) => {
 					const id = btnId
 						? btnId
-						: pair.question.trim().toLowerCase() === updatedMessage.associatedQuestion?.trim().toLowerCase()
+						: pair.id.trim().toLowerCase() === updatedMessage.qnaBtnId?.trim().toLowerCase()
 						? pair.id
 						: null;
 					if (id && id.trim().toLowerCase() === pair.id.trim().toLowerCase()) {
@@ -437,7 +511,6 @@
 			}
 		});
 		if (updatedArticle) {
-			// activeArticle.update((a) => updatedArticle);
 			activeArticle.set(updatedArticle);
 		}
 	};
@@ -519,7 +592,7 @@
 		if (index > -1 && Array.isArray($mountedArticleSteps)) {
 			const stepsText = generateContext();
 
-			return `Below you will be provided with the objective, the devices, and the configuration steps in between XML-Style tags. Please review these steps to understand the actions taken up to this point. Based on the latest step provided, return 3 questions a user might have about the latest step. Return only these 3 questions. No other text is necessary.\n\n<objective>\n\t${$mountedArticlePreambleObjective}\n</objective>\n\n<devices>\n\t${$mountedArticlePreambleDevices}\n</devices>\n\n<steps>\n\t${stepsText}\n</steps>\n\nRemember, the user is focused on the latest step. Return only the questions a user may have about the latest step. No other text is necessary.`;
+			return `Below you will be provided with an network article objective, the applicable devices, and the configuration steps in between XML-Style tags. Please review these steps to understand the actions taken up to this point. Based on the latest step provided, return 3 questions a user might have about the latest step. Return only these 3 questions.\n\n<objective>\n\t${$mountedArticlePreambleObjective}\n</objective>\n\n<devices>\n\t${$mountedArticlePreambleDevices}\n</devices>\n\n<steps>\n\t${stepsText}\n</steps>\n\nRemember, the user is focused on the latest step. Return only the questions a user may have about the latest step. No other text is necessary.`;
 		}
 		return null;
 	};
@@ -706,7 +779,9 @@
 		});
 	};
 
-	const generateLLMAnswer = async (i: number, id: string, question: string) => {
+	const buildSystemMessage = async () => {};
+
+	const generateLLMAnswer = async (i: number, btnId: string, question: string) => {
 		isLoading = true;
 		// If the user had opened the feedback form, close it
 		if (show) {
@@ -720,9 +795,8 @@
 			questions = questions.map((q) => (q.id === questions[i].id ? { ...q, clicked: true } : q));
 		}
 		currentQuestion = question.slice(0);
-		const userMessageId = uuidv4();
 		messages = updateMessages({
-			id: userMessageId,
+			id: uuidv4(),
 			role: 'user',
 			content: question,
 			timestamp: Math.floor(Date.now() / 1000),
@@ -732,7 +806,7 @@
 
 		if ($activeArticle && $activeArticle.steps.at(index)?.qna_pairs) {
 			const pairs = $activeArticle.steps.at(index)?.qna_pairs ?? [];
-			const match = pairs.find((pair) => pair.id === id);
+			const match = pairs.find((pair) => pair.id.trim().toLowerCase() === btnId.trim().toLowerCase());
 			if (match && match.answer !== null) {
 				await tick();
 
@@ -744,6 +818,7 @@
 					model: model?.id ?? selectedModels.at(0)!,
 					sources: match.sources,
 					associatedQuestion: question,
+					qnaBtnId: btnId,
 					done: true
 				});
 				isLoading = false;
@@ -782,29 +857,30 @@
 					['catalyst_1200_admin_guide_openai', 'catalyst_1200_cli_guide_openai'],
 					question
 				);
-				const test = await queryDocWithSmallChunks(localStorage.token, 'catalyst_1200_admin_guide_openai', question, 2);
-				console.log('test', test);
+				// const test = await queryDocWithSmallChunks(localStorage.token, 'catalyst_1200_cli_guide_openai', question);
+				// console.log('test', test);
 				distances = res.distances?.flat(1) ?? null;
 				documents = res.documents?.flat(1) ?? null;
 				metadatas = res.metadatas?.flat(1) ?? null;
 				directions = directions.replace(/\[\[context\]\]/g, documents?.join('\n\n') ?? '');
 			}
-			console.log('directions', directions);
-			let systemMessage = {
-				id: `system_${userMessageId}`,
-				role: 'system',
-				content: directions,
-				timestamp: Math.floor(Date.now() / 1000),
-				model: model?.id ?? model!.name,
-				associatedQuestion: null
-			};
-			messages = updateMessages(systemMessage);
-			console.log('messages after system message', messages);
-			// wait for messages to update
-			await tick();
 
 			if (model) {
+				console.log('directions', directions);
 				const assistantMessageId = uuidv4();
+				let systemMessage = {
+					id: `system_${assistantMessageId}`,
+					role: 'system',
+					content: directions,
+					timestamp: Math.floor(Date.now() / 1000),
+					model: model.id,
+					associatedQuestion: null
+				};
+				messages = updateMessages(systemMessage);
+				console.log('messages after system message', messages);
+				// wait for messages to update
+				await tick();
+				// Keep responseMessage here as if user stops generation, then continues, we can use the same responseMessage
 				let responseMessage: _CiscoArticleMessage = {
 					id: assistantMessageId,
 					role: 'assistant',
@@ -812,32 +888,27 @@
 					timestamp: Math.floor(Date.now() / 1000),
 					model: model.id,
 					associatedQuestion: question,
+					qnaBtnId: btnId,
 					sources: metadatas?.map((m, i) => ({ ...m, content: documents?.at(i) }))
 				};
-				const data = {
-					model,
-					question,
-					metadatas,
-					documents
-				};
 				if (model.owned_by === 'openai') {
-					responseMessage = await sendPromptOpenAI(systemMessage, data);
+					responseMessage = await sendPromptOpenAI(systemMessage, { model, responseMessage });
 				} else if (model.owned_by === 'ollama') {
-					responseMessage = await sendPromptOllama(systemMessage, data);
+					responseMessage = await sendPromptOllama(systemMessage, { model, responseMessage });
 				} else {
-					responseMessage = await sendPromptOllama(systemMessage, data);
+					responseMessage = await sendPromptOllama(systemMessage, { model, responseMessage });
 				}
 				await tick();
 				console.log('response message', responseMessage);
 				messages = updateMessages(responseMessage);
-				await sendUpdateArticle(responseMessage, id);
+				// await sendUpdateArticle(responseMessage, id);
 				const updatedArticle = await updateArticleStep(localStorage.token, $activeArticleId, {
 					step_index: index,
 					step: $activeArticle
 						? {
 								...$activeArticle.steps[index],
 								qna_pairs: $activeArticle.steps.at(index)?.qna_pairs?.map((pair) => {
-									if (pair.id.trim().toLowerCase() === id.trim().toLowerCase()) {
+									if (pair.id.trim().toLowerCase() === btnId.trim().toLowerCase()) {
 										return {
 											...pair,
 											answer: responseMessage.content === '' ? null : responseMessage.content,
@@ -851,7 +922,7 @@
 						: {
 								...step,
 								qna_pairs: step.qna_pairs?.map((pair) => {
-									if (pair.id.trim().toLowerCase() === id.trim().toLowerCase()) {
+									if (pair.id.trim().toLowerCase() === btnId.trim().toLowerCase()) {
 										return {
 											...pair,
 											answer: responseMessage.content === '' ? null : responseMessage.content,
@@ -884,24 +955,10 @@
 
 	type SendPromptOptions = {
 		model: Model;
-		question: string;
-		metadatas?: Record<string, any>[] | null;
-		documents?: string[] | null;
+		responseMessage: _CiscoArticleMessage;
 	};
 
-	const sendPromptOpenAI = async (
-		sysMsg: _CiscoArticleMessage,
-		{ model, question, metadatas = null, documents = null }: SendPromptOptions
-	) => {
-		const assistantMessageId = uuidv4();
-		let responseMessage: _CiscoArticleMessage = {
-			id: assistantMessageId,
-			role: 'assistant',
-			content: '',
-			timestamp: Math.floor(Date.now() / 1000),
-			model: model.id,
-			associatedQuestion: question
-		};
+	const sendPromptOpenAI = async (sysMsg: _CiscoArticleMessage, { model, responseMessage }: SendPromptOptions) => {
 		try {
 			const [res, controller] = await generateOpenAIChatCompletion(
 				localStorage.token,
@@ -950,15 +1007,11 @@
 					if (responseMessage.content == '' && value == '\n') {
 						continue;
 					} else {
-						// First chunk means we have a response, stop loading
+						// First chunk means we have a response, stop whowing Spinner and stream
 						isLoading = false;
 						responseMessage.content += value;
 						messages = updateMessages(responseMessage);
 					}
-				}
-
-				if (metadatas && documents) {
-					responseMessage.sources = metadatas.map((m, i) => ({ ...m, content: documents.at(i) }));
 				}
 
 				if ($settings.notificationEnabled && !document.hasFocus()) {
@@ -981,10 +1034,7 @@
 		return responseMessage;
 	};
 
-	const sendPromptOllama = async (
-		message: _CiscoArticleMessage,
-		{ model, question, metadatas = null, documents = null }: SendPromptOptions
-	) => {
+	const sendPromptOllama = async (message: _CiscoArticleMessage, { model, responseMessage }: SendPromptOptions) => {
 		const [res, controller] = await generateChatCompletion(localStorage.token, {
 			stream: true,
 			model: model.id,
@@ -1002,15 +1052,7 @@
 		}
 		await tick();
 		scrollToBottom();
-		const assistantMessageId = uuidv4();
-		let responseMessage: _CiscoArticleMessage = {
-			id: assistantMessageId,
-			role: 'assistant',
-			content: '',
-			timestamp: Math.floor(Date.now() / 1000),
-			model: model.id,
-			associatedQuestion: question
-		};
+
 		if (res && res.ok && res.body) {
 			const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 			while (true) {
@@ -1088,9 +1130,6 @@
 				} finally {
 					isLoading = false;
 				}
-			}
-			if (metadatas && documents) {
-				responseMessage.sources = metadatas.map((m, i) => ({ ...m, content: documents.flat(1).at(i) }));
 			}
 		} else {
 			if (res !== null) {
@@ -1218,10 +1257,6 @@
 		});
 	});
 
-	// afterUpdate(() => {
-	// 	renderStyling();
-	// });
-
 	$: if (messages.length > 2) {
 		ciscoArticleMessages.set(messages);
 	}
@@ -1329,12 +1364,38 @@
 							id="message-{message.id}"
 							class="message-{message.id} {message.role} dark:prose-invert bg-slate-100 rounded-lg p-4 text-gray-700 ml-2 w-fit mb-1 space-y-1 whitespace-pre-line flex flex-col"
 						>
-							{@html marked.parse(message.content, {
+							{#if message.content === '' && !message.error}
+								<Skeleton />
+							{:else if message.content && message.error !== true}
+								<!-- always show message contents even if there's an error -->
+								<!-- unless message.error === true which is legacy error handling, where the error message is stored in message.content -->
+								{#each tokens as token, tokenIdx}
+									{#if token.type === 'code'}
+										{#if token.lang === 'mermaid'}
+											<pre class="mermaid">{revertSanitizedResponseContent(token.text)}</pre>
+										{:else}
+											<CodeBlock
+												id={`${message.id}-${tokenIdx}`}
+												lang={token?.lang ?? ''}
+												code={revertSanitizedResponseContent(token?.text ?? '')}
+											/>
+										{/if}
+									{:else}
+										{@html marked.parse(token.raw, {
+											...defaults,
+											gfm: true,
+											breaks: true,
+											renderer
+										})}
+									{/if}
+								{/each}
+							{/if}
+							<!-- {@html marked.parse(message.content, {
 								...defaults,
 								gfm: true,
 								breaks: true,
 								renderer
-							})}
+							})} -->
 							{#if message.error}
 								<div
 									class="flex mt-2 mb-4 space-x-2 border px-4 py-3 border-red-800 bg-red-800/30 font-medium rounded-lg"
@@ -1537,38 +1598,17 @@
 												>
 													<svg
 														xmlns="http://www.w3.org/2000/svg"
-														fill="none"
 														viewBox="0 0 24 24"
-														stroke-width="1.5"
+														fill="none"
+														class="w-4 h-4"
 														stroke="currentColor"
-														class="size-6"
 													>
 														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															d="m12.75 15 3-3m0 0-3-3m3 3h-7.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+															fill-rule="evenodd"
+															d="M15.97 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H7.5a.75.75 0 0 1 0-1.5h11.69l-3.22-3.22a.75.75 0 0 1 0-1.06Zm-7.94 9a.75.75 0 0 1 0 1.06l-3.22 3.22H16.5a.75.75 0 0 1 0 1.5H4.81l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 0Z"
+															clip-rule="evenodd"
 														/>
 													</svg>
-													<!-- 												  
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke-width="2.3"
-														stroke="currentColor"
-														class="w-4 h-4"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-														/>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z"
-														/>
-													</svg> -->
 												</button>
 											</Tooltip>
 											{#if !readOnly}
@@ -1578,9 +1618,9 @@
 														class="{isLastMessage
 															? 'visible'
 															: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition regenerate-response-button"
-														on:click={() => {
+														on:click={async () => {
 															show = false;
-															// regenerateResponse(message);
+															await regenerateResponse(message);
 														}}
 													>
 														<svg
@@ -1788,8 +1828,8 @@
 								</div>
 							{/if}
 							{#if !message.done}
-								<div class="flex justify-end w-full">
-									<div class="flex items-center mb-1.5">
+								<div class="relative flex justify-end w-full">
+									<div class="absolute bottom-0 right-0 flex items-center mb-1.5">
 										<button
 											class="bg-white hover:bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-1.5"
 											on:click={() => {
@@ -1843,10 +1883,11 @@
 							animate:flip={{ duration: 200 }}
 							on:click={async () => await generateLLMAnswer(i, btn.id, btn.text)}
 							disabled={btn.clicked}
-							class="button text-base py-2 px-4 rounded-md hover:cursor-pointer"
+							class="button text-base py-2 px-4 rounded-md hover:cursor-pointer qna-button-{i}"
 							class:clicked={btn.clicked}
 							id={btn.id}
 							tabindex="0"
+							data-index={i}
 							data-clicked={btn.clicked}>{btn.text}</button
 						>
 					{/each}

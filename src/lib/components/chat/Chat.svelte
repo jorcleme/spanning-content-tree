@@ -7,6 +7,8 @@
 	import { page } from '$app/stores';
 	import type { Writable } from 'svelte/store';
 	import { type i18n as i18nType } from 'i18next';
+	import { writable } from 'svelte/store';
+	import { fly } from 'svelte/transition';
 	import { OLLAMA_API_BASE_URL, OPENAI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import {
 		chatId,
@@ -49,7 +51,6 @@
 	import { queryMemory } from '$lib/apis/memories';
 	import { getAndUpdateUserLocation, getUserSettings } from '$lib/apis/users';
 	import { chatCompleted, generateTitle, generateSearchQuery, chatAction } from '$lib/apis';
-
 	import Banner from '../common/Banner.svelte';
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
 	import Messages from '$lib/components/chat/Messages.svelte';
@@ -58,10 +59,16 @@
 	import ChatControls from './ChatControls.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import ClarificationCard from './Messages/ClarificationCard.svelte';
+	import Slide from '../cisco/components/common/Slide.svelte';
+	import Select from '../cisco/components/common/Select.svelte';
+	import ArticleTopics from '../cisco/gen/ArticleTopics.svelte';
+	import GenerateNewArticle from '../cisco/gen/GenerateNewArticle.svelte';
 	import type { ChatResponse, Message, MessageHistory, ClientFile, ChatTagListResponse, Article } from '$lib/types';
 	import { isErrorWithDetail } from '$lib/utils';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
+
+	let currentSlide = writable(0);
 
 	export let chatIdProp = '';
 	let loaded = false;
@@ -683,10 +690,8 @@
 
 	let originalUserPrompt = '';
 	export let showPromptTemplate: boolean = false;
-	export let variables: Record<string, string> = {};
 	export let showPromptIntro = false;
 	export let generatedPrompt = '';
-	export let promptNotIncluded = [];
 	let messageInputComponent;
 
 	let explanationText = '';
@@ -697,6 +702,7 @@
 
 	//dispatch
 	import { createEventDispatcher } from 'svelte';
+	import About from './Settings/About.svelte';
 	const dispatch = createEventDispatcher();
 
 	async function generatePrompt(existingText: string = '') {
@@ -869,21 +875,21 @@
 		// const { name, value } = event.detail;
 		// variablesStore.update((vars) => ({ ...vars, [name]: value }));
 	}
-	function handleGeneratePromptClick(event) {
+	function handleGeneratePromptClick(event: CustomEvent<{ existingText: string }>) {
 		const { existingText } = event.detail;
 		generatePrompt(existingText);
 	}
-	function handleGeneratePromptFromChild(event) {
+	function handleGeneratePromptFromChild(event: CustomEvent<{ existingText: string }>) {
 		const { existingText } = event.detail;
 		showPromptTemplate = true;
 		showPromptTemplateGenerator = true;
 		// Any other necessary logic
 	}
-	function setVariables(variables) {
-		const variablesObject = variables.reduce((acc, varName) => {
+	function setVariables(variables: string[]) {
+		const variablesObject: { [key: string]: string } = variables.reduce((acc, varName) => {
 			acc[varName] = ''; // Initialize with empty string
 			return acc;
-		}, {});
+		}, {} as Record<string, string>);
 
 		variablesStore.set(variablesObject);
 	}
@@ -2371,10 +2377,82 @@
 		} catch (error: unknown) {
 			return [];
 		}
-		// return await getTagsById(localStorage.token, $chatId).catch(async (error) => {
-		// 	return [];
-		// });
 	};
+
+	const openConfigAssistant = async () => {
+		showConfigAssistant = true;
+		// Create user message
+		let assistantId = uuidv4();
+		let userMessage = {
+			id: assistantId,
+			parentId: messages.length !== 0 ? messages.at(-1)!.id : null,
+			childrenIds: [],
+			role: 'assistant',
+			content: `<div class="flex flex-col items-center justify-center space-y-4">
+				<h1 class="text-2xl font-bold">Configure Assistant</h1>
+				<p class="text-sm text-gray-500">Select a device to configure</p>
+				`,
+			files: _files.length > 0 ? _files : undefined,
+			timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
+			models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx)
+		};
+
+		// Add message to history and Set currentId to messageId
+		history.messages[assistantId] = userMessage;
+		history.currentId = assistantId;
+
+		// Append messageId to childrenIds of parent message
+		if (messages.length !== 0 && messages.at(-1)) {
+			history.messages[messages.at(-1)!.id].childrenIds!.push(assistantId);
+		}
+
+		// Wait until history/message have been updated
+		await tick();
+	};
+
+	let showConfigAssistant = false;
+	let seriesId = '';
+
+	function handleDeviceConfirm(event: CustomEvent<{ device: string; name: string }>) {
+		// Move to the next slide
+		currentSlide.set(1);
+		const { device, name } = event.detail;
+		console.log('Device selected:', device, name);
+		seriesId = device;
+		variablesStore.update((vars) => ({ ...vars, device: name }));
+	}
+
+	function handleGenerateNewArticle() {
+		// Move to the generate new article slide
+		currentSlide.set(2);
+	}
+
+	function handleArticleSubmit(event: CustomEvent<{ input: string }>) {
+		// Handle article submission
+		console.log('Article submitted:', event.detail.input);
+	}
+
+	interface Device {
+		[key: string]: string;
+	}
+	const devices: Device[] = [
+		{ label: 'Catalyst 1200', value: 'Cisco Catalyst 1200 Series Switches', category: 'Switches' },
+		{ label: 'Catalyst 1300', value: 'Cisco Catalyst 1300 Series Switches', category: 'Switches' },
+		{ label: 'CBS110 Series', value: 'Cisco Business 110 Series Unmanaged Switches', category: 'Switches' },
+		{ label: 'CBS220 Series', value: 'Cisco Business 220 Series Smart Switches', category: 'Switches' },
+		{ label: 'CBS250 Series', value: 'Cisco Business 250 Series Smart Switches', category: 'Switches' },
+		{ label: 'CBS350 Series', value: 'Cisco Business 350 Series Managed Switches', category: 'Switches' },
+		{ label: '350 Series', value: 'Cisco 350 Series Managed Switches', category: 'Switches' },
+		{ label: '350X Series', value: 'Cisco 350X Series Stackable Managed Switches', category: 'Switches' },
+		{ label: '550X Series', value: 'Cisco 550X Series Stackable Managed Switches', category: 'Switches' },
+		{ label: 'RV100 Series', value: 'RV100 Product Family', category: 'Routers' },
+		{ label: 'RV320 Series', value: 'RV320 Product Family', category: 'Routers' },
+		{ label: 'RV340 Series', value: 'RV340 Product Family', category: 'Routers' },
+		{ label: 'RV160 VPN Series', value: 'RV160 VPN Router', category: 'Routers' },
+		{ label: 'RV260 VPN Series', value: 'RV260 VPN Router', category: 'Routers' },
+		{ label: 'CBW-AC', value: 'Cisco Business Wireless AC', category: 'Wireless' },
+		{ label: 'CBW-AX', value: 'Cisco Business Wireless AX', category: 'Wireless' }
+	];
 </script>
 
 <svelte:head>
@@ -2392,14 +2470,14 @@
 	input={eventConfirmationInput}
 	inputPlaceholder={eventConfirmationInputPlaceholder}
 	on:confirm={(e) => {
-		if (e.detail) {
+		if (e.detail && eventCallback) {
 			eventCallback(e.detail);
 		} else {
-			eventCallback(true);
+			if (eventCallback) eventCallback(true);
 		}
 	}}
 	on:cancel={() => {
-		eventCallback(false);
+		if (eventCallback) eventCallback(false);
 	}}
 />
 
@@ -2525,6 +2603,7 @@
 					{generatePrompt}
 					{submitPrompt}
 					{stopResponse}
+					{openConfigAssistant}
 				/>
 			</div>
 		</div>
@@ -2561,5 +2640,44 @@
 			bind:params
 			bind:valves
 		/>
+	</div>
+{/if}
+{#if showConfigAssistant}
+	<div
+		transition:fly={{ x: 200, duration: 800 }}
+		class="h-screen max-h-[100dvh] {$showSidebar
+			? 'md:max-w-[calc(100%-260px)]'
+			: ''} w-full max-w-full flex flex-col absolute right-0 z-50 flex items-center justify-center bg-gray-900/[0.6]"
+	>
+		<div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 w-full max-w-3xl">
+			<div class="flex justify-between items-center mb-4">
+				<h2 class="text-lg font-semibold">Config Assistant</h2>
+				<button
+					class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+					on:click={() => (showConfigAssistant = false)}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+			<div class="overflow-y-auto max-h-[70vh]">
+				<div class="slide flex justify-center items-center">
+					{#if $currentSlide === 0}
+						<Slide currentSlide={0} slideIndex={0}>
+							<Select items={devices} on:confirm={handleDeviceConfirm} />
+						</Slide>
+					{:else if $currentSlide === 1}
+						<Slide currentSlide={1} slideIndex={1}>
+							<ArticleTopics {seriesId} on:generateNewArticle={handleGenerateNewArticle} />
+						</Slide>
+					{:else if $currentSlide === 2}
+						<Slide currentSlide={2} slideIndex={2}>
+							<GenerateNewArticle on:submit={handleArticleSubmit} />
+						</Slide>
+					{/if}
+				</div>
+			</div>
+		</div>
 	</div>
 {/if}

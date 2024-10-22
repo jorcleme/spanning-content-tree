@@ -1,4 +1,7 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { Func } from '$lib/stores';
 	import { toast } from 'svelte-sonner';
 	import fileSaver from 'file-saver';
 	const { saveAs } = fileSaver;
@@ -30,21 +33,21 @@
 	import Heart from '../icons/Heart.svelte';
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	let functionsImportInputElement: HTMLInputElement;
-	let importFiles;
+	let importFiles: FileList;
 
 	let showConfirm = false;
 	let query = '';
 
 	let showManifestModal = false;
 	let showValvesModal = false;
-	let selectedFunction = null;
+	let selectedFunction: Func | null = null;
 
 	let showDeleteConfirm = false;
 
-	const shareHandler = async (func) => {
+	const shareHandler = async (func: Func) => {
 		const item = await getFunctionById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -57,10 +60,10 @@
 		const tab = await window.open(`${url}/functions/create`, '_blank');
 
 		// Define the event handler function
-		const messageHandler = (event) => {
+		const messageHandler = (event: MessageEvent) => {
 			if (event.origin !== url) return;
 			if (event.data === 'loaded') {
-				tab.postMessage(JSON.stringify(item), '*');
+				tab?.postMessage(JSON.stringify(item), '*');
 
 				// Remove the event listener after handling the message
 				window.removeEventListener('message', messageHandler);
@@ -71,7 +74,7 @@
 		console.log(item);
 	};
 
-	const cloneHandler = async (func) => {
+	const cloneHandler = async (func: Func) => {
 		const _function = await getFunctionById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -87,7 +90,7 @@
 		}
 	};
 
-	const exportHandler = async (func) => {
+	const exportHandler = async (func: Func) => {
 		const _function = await getFunctionById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -101,7 +104,7 @@
 		}
 	};
 
-	const deleteHandler = async (func) => {
+	const deleteHandler = async (func: Func) => {
 		const res = await deleteFunctionById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -115,7 +118,7 @@
 		}
 	};
 
-	const toggleGlobalHandler = async (func) => {
+	const toggleGlobalHandler = async (func: Func) => {
 		const res = await toggleGlobalById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 		});
@@ -135,6 +138,32 @@
 			models.set(await getModels(localStorage.token));
 		}
 	};
+
+	const onUploadFunction = async () => {
+		const reader = new FileReader();
+		reader.onload = async (event) => {
+			const _functions = JSON.parse(event.target?.result as string);
+			console.log(_functions);
+
+			for (const func of _functions) {
+				const data = {
+					id: func.id,
+					name: func.name ?? func.function?.name,
+					meta: func.meta ?? func.function?.meta,
+					content: func.content ?? func.function?.content
+				};
+				await createNewFunction(localStorage.token, data).catch((error) => {
+					toast.error(error);
+				});
+			}
+
+			toast.success($i18n.t('Functions imported successfully'));
+			functions.set(await getFunctions(localStorage.token));
+			models.set(await getModels(localStorage.token));
+		};
+
+		reader.readAsText(importFiles[0]);
+	};
 </script>
 
 <svelte:head>
@@ -150,12 +179,7 @@
 <div class=" flex w-full space-x-2">
 	<div class="flex flex-1">
 		<div class=" self-center ml-1 mr-3">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 20 20"
-				fill="currentColor"
-				class="w-4 h-4"
-			>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 				<path
 					fill-rule="evenodd"
 					d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
@@ -175,12 +199,7 @@
 			class=" px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-600 dark:border-0 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 transition font-medium text-sm flex items-center space-x-1"
 			href="/workspace/functions/create"
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 16 16"
-				fill="currentColor"
-				class="w-4 h-4"
-			>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 				<path
 					d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
 				/>
@@ -191,12 +210,10 @@
 <hr class=" dark:border-gray-850 my-2.5" />
 
 <div class="my-3 mb-5">
-	{#each $functions.filter((f) => query === '' || f.name
+	{#each $functions.filter((f) => query === '' || f.name.toLowerCase().includes(query.toLowerCase()) || f.id
 				.toLowerCase()
-				.includes(query.toLowerCase()) || f.id.toLowerCase().includes(query.toLowerCase())) as func}
-		<div
-			class=" flex space-x-4 cursor-pointer w-full px-3 py-2 dark:hover:bg-white/5 hover:bg-black/5 rounded-xl"
-		>
+				.includes(query.toLowerCase())) as func}
+		<div class=" flex space-x-4 cursor-pointer w-full px-3 py-2 dark:hover:bg-white/5 hover:bg-black/5 rounded-xl">
 			<a
 				class=" flex flex-1 space-x-3.5 cursor-pointer w-full"
 				href={`/workspace/functions/edit?id=${encodeURIComponent(func.id)}`}
@@ -271,20 +288,12 @@
 								stroke-linejoin="round"
 								d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"
 							/>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-							/>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
 						</svg>
 					</button>
 				</Tooltip>
 
 				<FunctionMenu
-					{func}
-					editHandler={() => {
-						goto(`/workspace/functions/edit?id=${encodeURIComponent(func.id)}`);
-					}}
 					shareHandler={() => {
 						shareHandler(func);
 					}}
@@ -297,11 +306,6 @@
 					deleteHandler={async () => {
 						selectedFunction = func;
 						showDeleteConfirm = true;
-					}}
-					toggleGlobalHandler={() => {
-						if (['filter', 'action'].includes(func.type)) {
-							toggleGlobalHandler(func);
-						}
 					}}
 					onClose={() => {}}
 				>
@@ -359,12 +363,7 @@
 			<div class=" self-center mr-2 font-medium line-clamp-1">{$i18n.t('Import Functions')}</div>
 
 			<div class=" self-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 16 16"
-					fill="currentColor"
-					class="w-4 h-4"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 					<path
 						fill-rule="evenodd"
 						d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm4 9.5a.75.75 0 0 1-.75-.75V8.06l-.72.72a.75.75 0 0 1-1.06-1.06l2-2a.75.75 0 0 1 1.06 0l2 2a.75.75 0 1 1-1.06 1.06l-.72-.72v2.69a.75.75 0 0 1-.75.75Z"
@@ -393,12 +392,7 @@
 			<div class=" self-center mr-2 font-medium line-clamp-1">{$i18n.t('Export Functions')}</div>
 
 			<div class=" self-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 16 16"
-					fill="currentColor"
-					class="w-4 h-4"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 					<path
 						fill-rule="evenodd"
 						d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm4 3.5a.75.75 0 0 1 .75.75v2.69l.72-.72a.75.75 0 1 1 1.06 1.06l-2 2a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 0 1 1.06-1.06l.72.72V6.25A.75.75 0 0 1 8 5.5Z"
@@ -447,12 +441,14 @@
 	bind:show={showDeleteConfirm}
 	title={$i18n.t('Delete function?')}
 	on:confirm={() => {
-		deleteHandler(selectedFunction);
+		if (selectedFunction) deleteHandler(selectedFunction);
 	}}
 >
-	<div class=" text-sm text-gray-500">
-		{$i18n.t('This will delete')} <span class="  font-semibold">{selectedFunction.name}</span>.
-	</div>
+	{#if selectedFunction}
+		<div class=" text-sm text-gray-500">
+			{$i18n.t('This will delete')} <span class="  font-semibold">{selectedFunction.name}</span>.
+		</div>
+	{/if}
 </DeleteConfirmDialog>
 
 <ManifestModal bind:show={showManifestModal} manifest={selectedFunction?.meta?.manifest ?? {}} />
@@ -466,29 +462,7 @@
 	}}
 />
 
-<ConfirmDialog
-	bind:show={showConfirm}
-	on:confirm={() => {
-		const reader = new FileReader();
-		reader.onload = async (event) => {
-			const _functions = JSON.parse(event.target.result);
-			console.log(_functions);
-
-			for (const func of _functions) {
-				const res = await createNewFunction(localStorage.token, func).catch((error) => {
-					toast.error(error);
-					return null;
-				});
-			}
-
-			toast.success($i18n.t('Functions imported successfully'));
-			functions.set(await getFunctions(localStorage.token));
-			models.set(await getModels(localStorage.token));
-		};
-
-		reader.readAsText(importFiles[0]);
-	}}
->
+<ConfirmDialog bind:show={showConfirm} on:confirm={async () => await onUploadFunction()}>
 	<div class="text-sm text-gray-500">
 		<div class=" bg-yellow-500/20 text-yellow-700 dark:text-yellow-200 rounded-lg px-4 py-3">
 			<div>Please carefully review the following warnings:</div>

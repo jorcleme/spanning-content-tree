@@ -1,5 +1,52 @@
 import { RAG_API_BASE_URL } from '$lib/constants';
 
+type DocumentsResponse = {
+	distances: number[][];
+	documents: string[][];
+	metadatas: Record<string, any>[][];
+};
+
+type OpenAIConfigForm = {
+	url: string;
+	key: string;
+	batch_size: number;
+};
+
+type EmbeddingModelUpdateForm = {
+	openai_config?: OpenAIConfigForm;
+	embedding_engine: string;
+	embedding_model: string;
+};
+
+type ChunkConfigForm = {
+	chunk_size: number;
+	chunk_overlap: number;
+};
+
+type ContentExtractConfigForm = {
+	engine: string;
+	tika_server_url: string | null;
+};
+
+type YoutubeConfigForm = {
+	language: string[];
+	translation?: string | null;
+};
+
+type RAGConfigForm = {
+	pdf_extract_images?: boolean;
+	chunk?: ChunkConfigForm;
+	content_extraction?: ContentExtractConfigForm;
+	web_loader_ssl_verification?: boolean;
+	youtube?: YoutubeConfigForm;
+};
+
+export interface SearchDocument {
+	status: boolean;
+	collection_name: string;
+	filenames: string[];
+}
+
 export const getRAGConfig = async (token: string) => {
 	let error = null;
 
@@ -25,29 +72,6 @@ export const getRAGConfig = async (token: string) => {
 	}
 
 	return res;
-};
-
-type ChunkConfigForm = {
-	chunk_size: number;
-	chunk_overlap: number;
-};
-
-type ContentExtractConfigForm = {
-	engine: string;
-	tika_server_url: string | null;
-};
-
-type YoutubeConfigForm = {
-	language: string[];
-	translation?: string | null;
-};
-
-type RAGConfigForm = {
-	pdf_extract_images?: boolean;
-	chunk?: ChunkConfigForm;
-	content_extraction?: ContentExtractConfigForm;
-	web_loader_ssl_verification?: boolean;
-	youtube?: YoutubeConfigForm;
 };
 
 export const updateRAGConfig = async (token: string, payload: RAGConfigForm) => {
@@ -296,18 +320,12 @@ export const uploadYoutubeTranscriptionToVectorDB = async (token: string, url: s
 	return res;
 };
 
-type _DocumentsResponse = {
-	distances: number[][];
-	documents: string[][];
-	metadatas: Record<string, any>[][];
-};
-
 export const queryDoc = async (
 	token: string,
 	collection_name: string,
 	query: string,
 	k: number | null = null
-): Promise<_DocumentsResponse> => {
+): Promise<DocumentsResponse> => {
 	let error = null;
 
 	const res = await fetch(`${RAG_API_BASE_URL}/query/doc`, {
@@ -344,7 +362,7 @@ export const queryDocWithSmallChunks = async (
 	collection_name: string,
 	query: string,
 	k: number | null = null
-): Promise<Partial<_DocumentsResponse>> => {
+): Promise<Partial<DocumentsResponse>> => {
 	let error = null;
 
 	const res = await fetch(`${RAG_API_BASE_URL}/query/doc/small`, {
@@ -380,7 +398,7 @@ export const queryCollection = async (
 	collection_names: string[],
 	query: string,
 	k: number | null = null
-): Promise<_DocumentsResponse> => {
+): Promise<DocumentsResponse> => {
 	let error = null;
 
 	const res = await fetch(`${RAG_API_BASE_URL}/query/collection`, {
@@ -402,6 +420,72 @@ export const queryCollection = async (
 		})
 		.catch((err) => {
 			error = err.detail;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const queryDocForCiscoDocs = async (
+	token: string,
+	collection_name: string,
+	query: string,
+	k: number | null = null
+): Promise<DocumentsResponse> => {
+	let error = null;
+
+	const res = await fetch(`${RAG_API_BASE_URL}/query/doc/cisco`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ collection_name, query, k })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const queryCollectionForCiscoDocs = async (
+	token: string,
+	collection_names: string[],
+	query: string,
+	k: number | null = null
+): Promise<DocumentsResponse> => {
+	let error = null;
+
+	const res = await fetch(`${RAG_API_BASE_URL}/query/collection/cisco`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ collection_names, query, k })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
 			return null;
 		});
 
@@ -515,18 +599,6 @@ export const getEmbeddingConfig = async (token: string) => {
 	}
 
 	return res;
-};
-
-type OpenAIConfigForm = {
-	url: string;
-	key: string;
-	batch_size: number;
-};
-
-type EmbeddingModelUpdateForm = {
-	openai_config?: OpenAIConfigForm;
-	embedding_engine: string;
-	embedding_model: string;
 };
 
 export const updateEmbeddingConfig = async (token: string, payload: EmbeddingModelUpdateForm) => {
@@ -654,9 +726,3 @@ export const runWebSearch = async (
 
 	return res;
 };
-
-export interface SearchDocument {
-	status: boolean;
-	collection_name: string;
-	filenames: string[];
-}

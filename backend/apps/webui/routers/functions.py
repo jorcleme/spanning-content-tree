@@ -18,6 +18,8 @@ from constants import ERROR_MESSAGES
 
 from importlib import util
 import os
+import uuid
+import re
 from pathlib import Path
 
 from config import DATA_DIR, CACHE_DIR, FUNCTIONS_DIR
@@ -30,7 +32,7 @@ router = APIRouter()
 ############################
 
 
-@router.get("/", response_model=List[FunctionResponse])
+@router.get("/", response_model=List[FunctionModel])
 async def get_functions(user=Depends(get_verified_user)):
     return Functions.get_functions()
 
@@ -54,11 +56,10 @@ async def get_functions(user=Depends(get_admin_user)):
 async def create_new_function(
     request: Request, form_data: FunctionForm, user=Depends(get_admin_user)
 ):
-    if not form_data.id.isidentifier():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only alphanumeric characters and underscores are allowed in the id",
-        )
+    VALID_ID_PATTERN = re.compile(r"^[\w-]+$")
+
+    if not VALID_ID_PATTERN.match(form_data.id):
+        form_data.id = str(uuid.uuid4())
 
     form_data.id = form_data.id.lower()
 

@@ -1,4 +1,7 @@
-<script>
+<script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { Func } from '$lib/stores';
 	import { toast } from 'svelte-sonner';
 	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -10,35 +13,32 @@
 	import { compareVersion, extractFrontmatter } from '$lib/utils';
 	import { WEBUI_VERSION } from '$lib/constants';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	let mounted = false;
 	let clone = false;
-	let func = null;
+	let func: Func | null = null;
 
-	const saveHandler = async (data) => {
+	const saveHandler = async (data: Record<string, any>) => {
 		console.log(data);
 
 		const manifest = extractFrontmatter(data.content);
 		if (compareVersion(manifest?.required_open_webui_version ?? '0.0.0', WEBUI_VERSION)) {
 			console.log('Version is lower than required');
 			toast.error(
-				$i18n.t(
-					'Open WebUI version (v{{OPEN_WEBUI_VERSION}}) is lower than required version (v{{REQUIRED_VERSION}})',
-					{
-						OPEN_WEBUI_VERSION: WEBUI_VERSION,
-						REQUIRED_VERSION: manifest?.required_open_webui_version ?? '0.0.0'
-					}
-				)
+				$i18n.t('Open WebUI version (v{{OPEN_WEBUI_VERSION}}) is lower than required version (v{{REQUIRED_VERSION}})', {
+					OPEN_WEBUI_VERSION: WEBUI_VERSION,
+					REQUIRED_VERSION: manifest?.required_open_webui_version ?? '0.0.0'
+				})
 			);
 			return;
 		}
 
 		const res = await createNewFunction(localStorage.token, {
 			id: data.id,
-			name: data.name,
-			meta: data.meta,
-			content: data.content
+			name: data.name ?? data.function?.name,
+			meta: data.meta ?? data.function?.meta,
+			content: data.content ?? data.function?.content
 		}).catch((error) => {
 			toast.error(error);
 			return null;
@@ -55,11 +55,7 @@
 
 	onMount(() => {
 		window.addEventListener('message', async (event) => {
-			if (
-				!['https://openwebui.com', 'https://www.openwebui.com', 'http://localhost:9999'].includes(
-					event.origin
-				)
-			)
+			if (!['https://openwebui.com', 'https://www.openwebui.com', 'http://localhost:9999'].includes(event.origin))
 				return;
 
 			func = JSON.parse(event.data);

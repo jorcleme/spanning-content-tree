@@ -5,11 +5,6 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { sanitizeResponseContent } from '$lib/utils';
 	import _ from 'lodash';
-	import Slide from './common/Slide.svelte';
-	import DeviceSelection from '../gen/CiscoDeviceSelector.svelte';
-	import Select from './common/Select.svelte';
-	import ArticleTopics from '../gen/ArticleTopics.svelte';
-	import GenerateNewArticle from '../gen/GenerateNewArticle.svelte';
 	import { explanationStore, promptStore, variablesStore } from '$lib/stores';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import {
@@ -50,41 +45,6 @@
 	export let originalUserPrompt;
 	export let isGeneratingPrompt: boolean;
 
-	let currentSlide = writable(0);
-
-	const slides: { component: any; props: Record<string, any> }[] = [
-		{
-			component: DeviceSelection,
-			props: { onConfirm: handleDeviceConfirm }
-		},
-		{
-			component: ArticleTopics,
-			props: { onGenerateNewArticle: handleGenerateNewArticle }
-		},
-		{
-			component: GenerateNewArticle,
-			props: { onSubmit: handleArticleSubmit }
-		}
-	];
-
-	function handleDeviceConfirm(event: CustomEvent<{ device: string; name: string }>) {
-		// Move to the next slide
-		currentSlide.set(1);
-		const { device, name } = event.detail;
-		console.log('Device selected:', device, name);
-		seriesId = device;
-		variablesStore.update((vars) => ({ ...vars, device: name }));
-	}
-
-	function handleGenerateNewArticle() {
-		// Move to the generate new article slide
-		currentSlide.set(2);
-	}
-
-	function handleArticleSubmit(event) {
-		// Handle article submission
-		console.log('Article submitted:', event.detail.input);
-	}
 	let lastCaretPosition = { node: null, offset: 0 };
 
 	let editablePrompt = '';
@@ -389,49 +349,12 @@
 		}
 	}
 
-	interface Device {
-		[key: string]: string;
-	}
-	const devices: Device[] = [
-		{ label: 'Catalyst 1200', value: 'Cisco Catalyst 1200 Series Switches', category: 'Switches' },
-		{ label: 'Catalyst 1300', value: 'Cisco Catalyst 1300 Series Switches', category: 'Switches' },
-		{ label: 'CBS110 Series', value: 'Cisco Business 110 Series Unmanaged Switches', category: 'Switches' },
-		{ label: 'CBS220 Series', value: 'Cisco Business 220 Series Smart Switches', category: 'Switches' },
-		{ label: 'CBS250 Series', value: 'Cisco Business 250 Series Smart Switches', category: 'Switches' },
-		{ label: 'CBS350 Series', value: 'Cisco Business 350 Series Managed Switches', category: 'Switches' },
-		{ label: '350 Series', value: 'Cisco 350 Series Managed Switches', category: 'Switches' },
-		{ label: '350X Series', value: 'Cisco 350X Series Stackable Managed Switches', category: 'Switches' },
-		{ label: '550X Series', value: 'Cisco 550X Series Stackable Managed Switches', category: 'Switches' },
-		{ label: 'RV100 Series', value: 'RV100 Product Family', category: 'Routers' },
-		{ label: 'RV320 Series', value: 'RV320 Product Family', category: 'Routers' },
-		{ label: 'RV340 Series', value: 'RV340 Product Family', category: 'Routers' },
-		{ label: 'RV160 VPN Series', value: 'RV160 VPN Router', category: 'Routers' },
-		{ label: 'RV260 VPN Series', value: 'RV260 VPN Router', category: 'Routers' },
-		{ label: 'CBW-AC', value: 'Cisco Business Wireless AC', category: 'Wireless' },
-		{ label: 'CBW-AX', value: 'Cisco Business Wireless AX', category: 'Wireless' }
-	];
 </script>
 
 <div class="relative overflow-x-scroll h-full p-4" style="background:whitesmoke;">
 	<div>
 		<div class="flex flex-col h-full">
 			{#if showPromptIntro}
-				<div class="slide flex justify-center items-center" transition:fly={{ x: 200, duration: 500 }}>
-					{#if $currentSlide === 0}
-						<Slide currentSlide={0} slideIndex={0}>
-							<Select items={devices} on:confirm={handleDeviceConfirm} />
-							<!-- <DeviceSelection on:confirm={handleDeviceConfirm} /> -->
-						</Slide>
-					{:else if $currentSlide === 1}
-						<Slide currentSlide={1} slideIndex={1}>
-							<ArticleTopics {seriesId} on:generateNewArticle={handleGenerateNewArticle} />
-						</Slide>
-					{:else if $currentSlide === 2}
-						<Slide currentSlide={2} slideIndex={2}>
-							<GenerateNewArticle on:submit={handleArticleSubmit} />
-						</Slide>
-					{/if}
-				</div>
 				<div class="text-black p-10 max-w-5xl w-full" transition:slide={{ duration: 500, easing: cubicOut }}>
 					<div class="flex justify-between items-center mb-8">
 						<h2 class="text-3xl font-semibold">Describe your learning goal</h2>

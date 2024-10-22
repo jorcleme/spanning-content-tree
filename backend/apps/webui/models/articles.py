@@ -3,7 +3,7 @@ from langchain.schema import Document
 from typing import Optional, List, TypedDict, Literal, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict, HttpUrl
 from sqlalchemy import String, Column, Text, Enum, ForeignKey, BigInteger, Table, text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped
 from enum import Enum as PyEnum
 import uuid
 import json

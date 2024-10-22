@@ -40,8 +40,6 @@
 
 	export let id: string | null = null;
 	export let name: string | null = null;
-	export let container: HTMLDivElement;
-	export let input: HTMLInputElement;
 	export let multiple = false;
 	export let multiFullItemClearable = false;
 	export let disabled = false;
@@ -73,7 +71,8 @@
 	const getFilteredItems = () => {
 		return filteredItems;
 	};
-
+	let container: HTMLDivElement;
+	let input: HTMLInputElement;
 	let searchable = true;
 	let inputStyles = '';
 	let clearable = true;

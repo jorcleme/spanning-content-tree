@@ -18,7 +18,6 @@
 	import Tags from '$lib/components/common/Tags.svelte';
 	import Knowledge from '$lib/components/workspace/Models/Knowledge.svelte';
 	import ToolsSelector from '$lib/components/workspace/Models/ToolsSelector.svelte';
-	import { stringify } from 'postcss';
 	import { parseFile } from '$lib/utils/characters';
 	import FiltersSelector from '$lib/components/workspace/Models/FiltersSelector.svelte';
 

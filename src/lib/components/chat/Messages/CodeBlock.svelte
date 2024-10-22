@@ -21,6 +21,11 @@
 
 	let copied = false;
 
+	onMount(() => {
+		// Register HTML language
+		hljs.registerLanguage('html', html);
+	});
+
 	const copyCode = async () => {
 		copied = true;
 		await copyToClipboard(code);
@@ -64,8 +69,6 @@
 		// If none of the above conditions met, it's probably not Python code
 		return false;
 	};
-	// Register HTML language
-	hljs.registerLanguage('html', html);
 
 	const executePython = async (code: string) => {
 		if (!code.includes('input') && !code.includes('matplotlib')) {
@@ -214,8 +217,10 @@ __builtins__.input = input`);
 		// Function to perform the code highlighting
 		const highlightCode = () => {
 			if (lang.toLowerCase() === 'html' || lang.toLowerCase() === 'xml') {
+				console.log('Highlighting HTML code');
 				highlightedCode = hljs.highlight(code, { language: 'html' }).value; // Use 'html' for highlight.js
 			} else {
+				console.log('Highlighting Other Lang code');
 				highlightedCode = hljs.highlightAuto(code, hljs.getLanguage(lang)?.aliases).value || code;
 			}
 			// highlightedCode = hljs.highlightAuto(code, hljs.getLanguage(lang)?.aliases).value || code;
@@ -254,7 +259,11 @@ __builtins__.input = input`);
 	</div>
 	{#if lang.toLowerCase() === 'html' || lang.toLowerCase() === 'xml'}
 		<div class="hljs p-4 px-5 overflow-x-auto">
-			{code}
+			{#if highlightedCode}
+				{@html highlightedCode}
+			{:else}
+				{code}
+			{/if}
 		</div>
 	{:else}
 		<pre

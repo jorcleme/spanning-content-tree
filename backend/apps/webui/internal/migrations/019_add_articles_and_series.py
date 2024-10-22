@@ -52,8 +52,6 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
         created_at = pw.BigIntegerField(null=False)
         updated_at = pw.BigIntegerField(null=False)
 
-        articles = pw.ManyToManyField(DeferredForeignKey("Article"))
-
         class Meta:
             table_name = "series"
 

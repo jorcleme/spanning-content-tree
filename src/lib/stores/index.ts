@@ -37,7 +37,7 @@ export const prompts: Writable<Prompt[]> = writable([]);
 export const documents: Writable<Document[]> = writable([]);
 
 export const tools = writable<Tool[]>([]);
-export const functions = writable([]);
+export const functions = writable<Func[]>([]);
 
 export const banners: Writable<Banner[]> = writable([]);
 
@@ -49,10 +49,21 @@ export const showArchivedChats = writable(false);
 export const showChangelog = writable(false);
 export const showCallOverlay = writable(false);
 
-type CiscoPromptVariable = {
-	subject?: string;
-} & {
-	[key: string]: string;
+type FuncMeta = {
+	description: string;
+} & { [key: string]: any };
+
+export type Func = {
+	id: string;
+	user_id: string;
+	type: string;
+	name: string;
+	meta: FuncMeta;
+	content: string;
+	is_active: boolean;
+	is_global: boolean;
+	updated_at: number;
+	created_at: number;
 };
 
 type ToolMeta = {
@@ -171,6 +182,11 @@ export type Settings = {
 };
 
 // Cisco Defined Types
+type CiscoPromptVariable = {
+	subject?: string;
+} & {
+	[key: string]: string;
+};
 export const IsSupportingArticle = derived([page], ([$page]) => {
 	if ($page.route.id === '/(app)/article') {
 		return true;
@@ -229,6 +245,7 @@ export interface _CiscoArticleMessage {
 	model: string;
 	sources?: Record<string, any>[];
 	associatedQuestion?: string | null;
+	qnaBtnId?: string;
 	error?: any;
 	done?: boolean;
 	info?: Record<string, any>;

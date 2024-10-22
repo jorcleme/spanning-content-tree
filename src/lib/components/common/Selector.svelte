@@ -37,7 +37,7 @@
 	}}
 	selected={items.find((item) => item.value === value)}
 	onSelectedChange={(selectedItem) => {
-		value = selectedItem.value;
+		if (selectedItem) value = selectedItem.value;
 	}}
 >
 	<Select.Trigger class="relative w-full" aria-label={placeholder}>
@@ -84,9 +84,7 @@
 					</Select.Item>
 				{:else}
 					<div>
-						<div class="block px-5 py-2 text-sm text-gray-700 dark:text-gray-100">
-							No results found
-						</div>
+						<div class="block px-5 py-2 text-sm text-gray-700 dark:text-gray-100">No results found</div>
 					</div>
 				{/each}
 			</div>

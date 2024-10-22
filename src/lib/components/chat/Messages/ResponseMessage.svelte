@@ -184,39 +184,14 @@
 						: 'N/A';
 
 				tooltipContent = `response_token/s: ${responseTokens}<br/>
-													prompt_token/s: ${promptTokens}<br/>
-													total_duration: ${totalDuration}<br/>
-													load_duration: ${loadDuration}<br/>
-													prompt_eval_count: ${message.info.prompt_eval_count ?? 'N/A'}<br/>
-													prompt_eval_duration: ${promptEvalDuration}<br/>
-													eval_count: ${message.info.eval_count ?? 'N/A'}<br/>
-													eval_duration: ${evalDuration}<br/>
-													approximate_total: ${approximateToHumanReadable(message.info?.total_duration ?? 0)}`;
-				// tooltipContent = `response_token/s: ${
-				// 	`${
-				// 		Math.round(((message.info.eval_count ?? 0) / (message.info.eval_duration / 1000000000)) * 100) / 100
-				// 	} tokens` ?? 'N/A'
-				// }<br/>
-				// 	prompt_token/s: ${
-				// 		Math.round(
-				// 			((message.info.prompt_eval_count ?? 0) / (message.info.prompt_eval_duration / 1000000000)) * 100
-				// 		) / 100 ?? 'N/A'
-				// 	} tokens<br/>
-				//     total_duration: ${
-				// 							Math.round(((message.info.total_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
-				// 						}ms<br/>
-				//     load_duration: ${
-				// 							Math.round(((message.info.load_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
-				// 						}ms<br/>
-				//     prompt_eval_count: ${message.info.prompt_eval_count ?? 'N/A'}<br/>
-				//     prompt_eval_duration: ${
-				// 							Math.round(((message.info.prompt_eval_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
-				// 						}ms<br/>
-				//     eval_count: ${message.info.eval_count ?? 'N/A'}<br/>
-				//     eval_duration: ${
-				// 							Math.round(((message.info.eval_duration ?? 0) / 1000000) * 100) / 100 ?? 'N/A'
-				// 						}ms<br/>
-				//     approximate_total: ${approximateToHumanReadable(message.info?.total_duration)}`;
+									prompt_token/s: ${promptTokens}<br/>
+									total_duration: ${totalDuration}<br/>
+									load_duration: ${loadDuration}<br/>
+									prompt_eval_count: ${message.info.prompt_eval_count ?? 'N/A'}<br/>
+									prompt_eval_duration: ${promptEvalDuration}<br/>
+									eval_count: ${message.info.eval_count ?? 'N/A'}<br/>
+									eval_duration: ${evalDuration}<br/>
+									approximate_total: ${approximateToHumanReadable(message.info?.total_duration ?? 0)}`;
 			}
 			tooltipInstance = tippy(`#info-${message.id}`, {
 				content: `<span class="text-xs" id="tooltip-${message.id}">${tooltipContent}</span>`,
@@ -227,30 +202,6 @@
 			});
 		}
 	};
-
-	// const renderLatex = () => {
-	// 	let chatMessageElements = document
-	// 		.getElementById(`message-${message.id}`)
-	// 		?.getElementsByClassName('chat-assistant');
-
-	// 	if (chatMessageElements) {
-	// 		for (const element of chatMessageElements) {
-	// 			auto_render(element, {
-	// 				// customised options
-	// 				// • auto-render specific keys, e.g.:
-	// 				delimiters: [
-	// 					{ left: '$$', right: '$$', display: false },
-	// 					{ left: '$ ', right: ' $', display: false },
-	// 					{ left: '\\(', right: '\\)', display: false },
-	// 					{ left: '\\[', right: '\\]', display: false },
-	// 					{ left: '[ ', right: ' ]', display: false }
-	// 				],
-	// 				// • rendering keys, e.g.:
-	// 				throwOnError: false
-	// 			});
-	// 		}
-	// 	}
-	// };
 
 	const playAudio = (idx: number): Promise<Event> => {
 		return new Promise((res) => {

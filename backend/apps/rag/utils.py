@@ -89,16 +89,16 @@ def query_doc_with_small_chunks(
     except Exception as e:
         raise ValueError(f"Failed to get collection {collection_name}: {e}")
 
-    embedding_func = get_lc_embedding_function(embedding_engine)
     docs = collection.get()
-    ids = [doc["doc_id"] for doc in docs["metadatas"]]
+    ids = [doc.get("doc_id") for doc in docs.get("metadatas")]
+    embedding_func = get_lc_embedding_function(embedding_engine)
     retriever = ParentDocumentRetriever(
         vectorstore=Chroma(
             embedding_function=embedding_func,
             collection_name=collection_name,
         ),
         docstore=store,
-        id_key="doc_id",
+        id_key="parent_id",
         child_splitter=RecursiveCharacterTextSplitter(
             chunk_size=400, add_start_index=True
         ),
