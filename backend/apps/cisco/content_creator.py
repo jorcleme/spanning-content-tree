@@ -4,11 +4,14 @@ import uuid
 import json
 import logging
 import markdown
+import operator
 from dotenv import load_dotenv, find_dotenv
 from pprint import pprint
-from typing import Dict, List, Any, Optional, Literal
+from typing import Dict, List, Any, Optional, Literal, Sequence
 from datetime import datetime
 from chromadb.api.types import GetResult
+from chromadb import Collection as Coll
+from huggingface_hub import snapshot_download
 import pymongo.errors
 from apps.webui.models.articles import (
     CreatedArticle,
@@ -17,6 +20,7 @@ from apps.webui.models.articles import (
     GraphState,
     Steps,
     Grader,
+    Step,
 )
 from apps.cisco.examples import create_decomposition_search_examples
 
@@ -36,12 +40,10 @@ from config import (
 )
 from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain.storage.in_memory import InMemoryStore
-from langchain.schema import Document
 from langchain.retrievers.parent_document_retriever import ParentDocumentRetriever
 from langchain.retrievers.multi_vector import SearchType
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.chains.query_constructor.base import AttributeInfo
-from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -53,11 +55,17 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores.chroma import Chroma
 from langgraph.graph import END, StateGraph
 import pymongo
 from pymongo import MongoClient
 import sys
+from langchain_core.documents import BaseDocumentCompressor, Document
+from langchain_core.callbacks import Callbacks
+from langchain_community.retrievers import BM25Retriever
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.retrievers import EnsembleRetriever
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -66,6 +74,166 @@ logger.info(f"Logger level: {logger.level}")
 logger.info(f"Module: {__name__}")
 
 load_dotenv(find_dotenv(filename=".env"))
+
+
+class RerankCompressor(BaseDocumentCompressor):
+    embedding_function: Any
+    top_n: int
+    reranking_function: Any
+    r_score: float
+
+    class Config:
+        extra = "forbid"
+        arbitrary_types_allowed = True
+
+    def compress_documents(
+        self,
+        documents: Sequence[Document],
+        query: str,
+        callbacks: Optional[Callbacks] = None,
+    ) -> Sequence[Document]:
+        reranking = self.reranking_function is not None
+
+        if reranking:
+            scores = self.reranking_function.predict(
+                [(query, doc.page_content) for doc in documents]
+            )
+        else:
+            from sentence_transformers import util
+
+            query_embedding = self.embedding_function(query)
+            document_embedding = self.embedding_function(
+                [doc.page_content for doc in documents]
+            )
+            scores = util.cos_sim(query_embedding, document_embedding)[0]
+
+        docs_with_scores = list(zip(documents, scores.tolist()))
+        if self.r_score:
+            docs_with_scores = [
+                (d, s) for d, s in docs_with_scores if s >= self.r_score
+            ]
+
+        result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
+        final_results = []
+        for doc, doc_score in result[: self.top_n]:
+            metadata = doc.metadata
+            metadata["score"] = doc_score
+            doc = Document(
+                page_content=doc.page_content,
+                metadata=metadata,
+            )
+            final_results.append(doc)
+        return final_results
+
+
+class ChromaRetriever(BaseRetriever):
+    collection: Coll
+    embedding_function: Any
+    top_n: int
+
+    def _get_relevant_documents(
+        self,
+        query: str,
+        *,
+        run_manager: CallbackManagerForRetrieverRun,
+    ) -> List[Document]:
+        query_embeddings = self.embedding_function(query)
+
+        results = self.collection.query(
+            query_embeddings=[query_embeddings],
+            n_results=self.top_n,
+        )
+
+        ids = results["ids"][0]
+        metadatas = results["metadatas"][0]
+        documents = results["documents"][0]
+
+        results = []
+        for idx in range(len(ids)):
+            results.append(
+                Document(
+                    metadata=metadatas[idx],
+                    page_content=documents[idx],
+                )
+            )
+        return results
+
+
+def get_model_path(model: str, update_model: bool = False):
+    # Construct huggingface_hub kwargs with local_files_only to return the snapshot path
+    cache_dir = os.getenv("SENTENCE_TRANSFORMERS_HOME")
+
+    local_files_only = not update_model
+
+    snapshot_kwargs = {
+        "cache_dir": cache_dir,
+        "local_files_only": local_files_only,
+    }
+
+    logger.debug(f"model: {model}")
+    logger.debug(f"snapshot_kwargs: {snapshot_kwargs}")
+
+    # Inspiration from upstream sentence_transformers
+    if (
+        os.path.exists(model)
+        or ("\\" in model or model.count("/") > 1)
+        and local_files_only
+    ):
+        # If fully qualified path exists, return input, else set repo_id
+        return model
+    elif "/" not in model:
+        # Set valid repo_id for model short-name
+        model = "sentence-transformers" + "/" + model
+
+    snapshot_kwargs["repo_id"] = model
+
+    # Attempt to query the huggingface_hub library to determine the local path and/or to update
+    try:
+        model_repo_path = snapshot_download(**snapshot_kwargs)
+        logger.debug(f"model_repo_path: {model_repo_path}")
+        return model_repo_path
+    except Exception as e:
+        logger.exception(f"Cannot determine model snapshot path: {e}")
+        return model
+
+
+def query_doc_with_hybrid_search(
+    collection_name: str,
+    query: str,
+    embedding_function=HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    ),
+    k: int = 5,
+    reranking_function=None,
+    r: float = 0.0,
+):
+    logger.debug("Running query_doc_with_hybrid_search")
+    try:
+        collection = CHROMA_CLIENT.get_collection(name=collection_name)
+        documents = collection.get()  # get all documents
+
+        bm25_retriever = BM25Retriever.from_texts(
+            texts=documents.get("documents"),
+            metadatas=documents.get("metadatas"),
+        )
+        bm25_retriever.k = k
+
+        chroma = Chroma(
+            collection_name=collection_name, embedding_function=embedding_function
+        )
+        chroma_retriever = chroma.as_retriever(search_kwargs={"k": k})
+        ensemble_retriever = EnsembleRetriever(
+            retrievers=[bm25_retriever, chroma_retriever], weights=[0.5, 0.5]
+        )
+
+        result = ensemble_retriever.invoke(query)
+
+        logger.info(f"query_doc_with_hybrid_search:result {result}")
+        return result
+    except Exception as e:
+        raise e
+
+
 print(f"MONDODB_URI: {MONGODB_URI}")
 try:
     mongo_client = MongoClient(
@@ -454,7 +622,7 @@ def determine_datasource(state: GraphState) -> str:
     chain = prompt | model | PydanticToolsParser(tools=[DataSourceType])
     answer = chain.invoke({"question": question})
     logger.info(f"Datasource: {answer}")
-    datasource = answer[0].datasource if isinstance(answer, list) else answer
+    datasource = answer[0].datasource if isinstance(answer, list) else answer.datasource
     state["keys"].update({"datasource": datasource})
     return state
 
@@ -474,13 +642,13 @@ def retrieve(state: GraphState) -> GraphState:
 
     if datasource == "ADMIN_GUIDE":
         collection_name = CollectionFactory.get_admin_guide_collection(
-            "Cisco Business 220 Series Smart Switches"
+            "Cisco Catalyst 1200 Series Switches"
         )
         vectordb = init_langchain_vectordb(collection_name)
         retriever = init_parent_document_retriever(collection_name, vectordb)
     else:
         collection_name = CollectionFactory.get_cli_guide_collection(
-            "Cisco Business 220 Series Smart Switches"
+            "Cisco Catalyst 1200 Series Switches"
         )
         vectordb = init_langchain_vectordb(collection_name)
         llm = ChatOpenAI(temperature=0, model="gpt-4o")
@@ -491,6 +659,13 @@ def retrieve(state: GraphState) -> GraphState:
 
     documents = decompose_question(question, retriever)
     # filter out documents with same metadata doc_id
+    article_collection_name = CollectionFactory.get_article_collection(
+        "Cisco Catalyst 1200 Series Switches"
+    )
+    retrieved_documents = query_doc_with_hybrid_search(
+        article_collection_name, question
+    )
+    documents.extend(retrieved_documents)
     filtered_docs = list({doc.metadata["doc_id"]: doc for doc in documents}.values())
     state["keys"].update({"documents": filtered_docs})
     return state
@@ -597,8 +772,6 @@ def generate_article_title(state: GraphState):
 def generate_article_objective(state: GraphState):
     state_dict = state["keys"]
     question = state_dict["question"]
-    article_examples = state_dict["db_articles"]
-    article_objective = article_examples[0]["objective"]
 
     template = """You are a world class writer specializing in network and network design. Write a concise objective for the article given the question. Follow the rules strictly.
     
@@ -629,10 +802,11 @@ def generate_article_intro(state: GraphState):
     template = """You are Cisco Support Agent whose an expert in language and communication. You know everything there is to know about network and network design. Write an introduction for the article given the question. Follow the rules strictly.
     
     <rules>
-        1. Write a 3-10 sentence introduction explaining the configuration, its features, and the benefits.
-        2. The introduction must be clear, concise, and accurately reflect the content of the article.
-        3. If some information is better presented as a list, number them and separate them by new lines.
-        4. Return only the introduction as a string and nothing else.
+        1. Use Markdown to format the introduction.
+        2. Write a 3-10 sentence introduction explaining the configuration, its features, and the benefits.
+        3. Use lists, tables, or code blocks to enhance the introduction if necessary.
+        4. The introduction must be clear, concise, and accurately reflect the content of the article.
+        5. Return only the introduction as a string and nothing else.
     </rules>
     
     <question>
@@ -646,12 +820,14 @@ def generate_article_intro(state: GraphState):
     model = get_llm()
     prompt = ChatPromptTemplate.from_template(template)
     chain = prompt | model | StrOutputParser()
-    intro = chain.invoke(
+    response = chain.invoke(
         {
             "question": question,
             "context": format_docs(documents),
         }
     )
+    pattern = r"```(?:\w+\n)?([\s\S]*?)```"
+    intro = re.findall(pattern, response)[0]
     state["keys"]["article_pieces"]["intro"] = intro
     return state
 
@@ -662,7 +838,7 @@ def select_article_steps_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"
     
     Your task is to generate a step-by-step guide for configuring a specific feature on a Cisco device. Use the question as the configuration topic.
     
-    Only use the context to generate the article.
+    Only use the context to generate the article. Ensure the article step text is written in Markdown format.
     
     Follow the rules stricly.
     
@@ -713,7 +889,7 @@ def select_article_steps_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"
     
     Your task is to generate a step-by-step guide for configuring a specific feature on a Cisco device. Use the question as the configuration topic.
     
-    Only use the context as a database to improve the quality of the article.
+    Only use the context as a database to improve the quality of the article. Ensure the article step text is written in Markdown format.
     
     Follow the rules stricly.
     
@@ -792,7 +968,11 @@ def grade_documents(state: GraphState):
         score = chain.invoke({"context": doc.page_content, "question": question})
         grade = score[0].binary_score if isinstance(score, list) else score.binary_score
         if grade == "yes":
-            logger.info(f"Document: {doc.metadata['topic']} is relevant.")
+            logger.info(
+                f"Document: {doc.metadata['topic']} is relevant."
+                if "topic" in doc.metadata
+                else {doc.metadata.get("title", "Document is relevant.")}
+            )
             filtered_docs.append(doc)
     db_videos = []
     for source in other_sources:
@@ -858,27 +1038,31 @@ def generate_article_steps(state: GraphState):
             "context": context,
         }
     )
-    state["keys"]["article_pieces"]["steps"] = steps
+    logger.info(f"Steps: {steps}")
+    state["keys"]["article_pieces"]["steps"] = steps[0].steps
     return state
 
 
 def generate_article(state: GraphState):
+
     state_dict = state["keys"]
     title = state_dict["article_pieces"]["title"]
     objective = state_dict["article_pieces"]["objective"]
     intro = state_dict["article_pieces"]["intro"]
-    steps = state_dict["article_pieces"]["steps"][0]
+    steps = state_dict["article_pieces"]["steps"]
     logger.info(f"Steps: {steps}")
     logger.info(f"{type(steps)}")
-    steps_dict = {"steps": steps.steps}
-    steps = Steps.parse_obj(steps_dict)
+    # steps_dict = {"steps": steps.steps}
+    validated_steps = [Step.model_validate(step.model_dump()) for step in steps]
+    # steps = Steps.parse_obj(steps_dict)
     article = {
         "title": title,
         "objective": objective,
         "introduction": intro,
-        "steps": steps.steps,
+        "steps": validated_steps,
     }
-    article = CreatedArticle.parse_obj(article)
+    logger.info(f"Validated Steps: {steps}")
+    article = CreatedArticle.model_validate(article)
 
     state["keys"].update({"article": [article]})
     return state
@@ -886,7 +1070,7 @@ def generate_article(state: GraphState):
 
 def refine_article_steps(state: GraphState):
     state_dict = state["keys"]
-    article = state_dict["article"][0].dict()
+    article = state_dict["article"][0].model_dump()
 
     template = """
     You are an AI copy editor with a keen eye for detail and a deep understanding of language, style, and grammar.
@@ -898,7 +1082,7 @@ def refine_article_steps(state: GraphState):
         1. Carefully review the entire JSON List of Steps, focusing on both the 'section' and 'text' of each step.
 
         2. Create logical groupings of steps and assign appropriate section headers. Develop new, concise section values that accurately describe a group of related steps.
-           Steps within the same logical group should share the same section value.
+           Steps within the same logical group share the same section value.
            When the step content no longer fits the current section, create a new section header for the next group of steps.
 
         3. Adjust step numbering. When a new section begins, reset the step_number to 1.
@@ -908,7 +1092,7 @@ def refine_article_steps(state: GraphState):
 
            Follow the example provided in <examples> to understand how to group steps into sections and reorganize the steps.
 
-        5. Maintain the original order of steps. Do not change the sequence of steps provided in the JSON List. Only re-organize them by sub-objectives.
+        5. Maintain the original order of steps.
     </guidelines>
 
     <examples>
@@ -974,7 +1158,7 @@ def refine_article_steps(state: GraphState):
 
 def add_article_metadata(state: GraphState):
     state_dict = state["keys"]
-    article = state_dict["article"][0].dict()
+    article = state_dict["article"][0].model_dump()
     article["document_id"] = str(uuid.uuid4())
     revision_history = []
     revision = {
@@ -985,7 +1169,8 @@ def add_article_metadata(state: GraphState):
     revision_history.append(revision)
     article["revision_history"] = revision_history
     # We need to construct this back to Pydantic Model without validation
-    article = CreatedArticle.construct(**article)
+    steps = [Step.model_construct(**step) for step in article.get("steps")]
+    article = CreatedArticle.model_construct(**{**article, "steps": steps})
     state["keys"].update({"article": [article]})
     return state
 
@@ -1001,13 +1186,13 @@ def build_html_for_admin_guide_sources(state: GraphState):
         state: The final state of the agent.
     """
     state_dict = state["keys"]
-    article = state_dict["article"][0].dict()
+    article = state_dict["article"][0].model_dump()
     article_intro = convert_markdown_to_html(article["introduction"])
     article_steps = article["steps"]
     steps_html = ""
     current_section = None
     for step in article_steps:
-        text = step["text"]
+        text = convert_markdown_to_html(step["text"])
         note = step.get("note", None)
         section: str = step["section"]
 
@@ -1238,7 +1423,7 @@ graph.add_edge("build_html_for_admin_guide_sources", END)
 graph.add_edge("build_html_for_cli_guide_sources", END)
 
 ARTICLE_BUILDER = graph.compile()
-question = "Auto Surveillance VLAN in Catalyst 1200 and 1300 Switches"
+question = "Configure PVST, PVST Vlan Settings, and PVST Vlan Interface on Catalyst 1200 Switches"
 
 
 # This function will be used as the export function for the agent. Import to FastAPI and use it in a route.
@@ -1246,6 +1431,8 @@ def build_article(question: str):
     inputs: dict[str, GraphState] = {"keys": {"question": question}}
     article = None
     html = None
+
+    state = ARTICLE_BUILDER.invoke(inputs)
 
     for output in ARTICLE_BUILDER.stream(inputs):
         for key, value in output.items():
@@ -1258,7 +1445,7 @@ def build_article(question: str):
                     article = value["keys"]["article"]
             if "html" in value["keys"]:
                 html = value["keys"]["html"]
-    return article, html
+    return article
 
 
 inputs: dict[str, GraphState] = {"keys": {"question": question}}

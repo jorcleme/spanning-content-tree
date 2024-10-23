@@ -52,15 +52,13 @@
 			<div class="snap-center shrink-0">
 				<button
 					class="flex flex-col flex-1 shrink-0 w-64 justify-between h-36 p-5 px-6 bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 rounded-3xl transition group"
-					on:click={() => {
-						submitPrompt(prompt.content);
+					on:click={async () => {
+						await submitPrompt(prompt.content);
 					}}
 				>
 					<div class="flex flex-col text-left">
 						{#if prompt.title && prompt.title[0] !== ''}
-							<div
-								class="  font-medium dark:text-gray-300 dark:group-hover:text-gray-200 transition"
-							>
+							<div class="  font-medium dark:text-gray-300 dark:group-hover:text-gray-200 transition">
 								{prompt.title[0]}
 							</div>
 							<div class="text-sm text-gray-600 font-normal line-clamp-2">{prompt.title[1]}</div>
@@ -83,12 +81,7 @@
 						<div
 							class="self-end p-1 rounded-lg text-gray-300 group-hover:text-gray-800 dark:text-gray-700 dark:group-hover:text-gray-100 transition"
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 16 16"
-								fill="currentColor"
-								class="size-4"
-							>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
 								<path
 									fill-rule="evenodd"
 									d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z"

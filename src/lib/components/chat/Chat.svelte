@@ -59,10 +59,6 @@
 	import ChatControls from './ChatControls.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import ClarificationCard from './Messages/ClarificationCard.svelte';
-	import Slide from '../cisco/components/common/Slide.svelte';
-	import Select from '../cisco/components/common/Select.svelte';
-	import ArticleTopics from '../cisco/gen/ArticleTopics.svelte';
-	import GenerateNewArticle from '../cisco/gen/GenerateNewArticle.svelte';
 	import type { ChatResponse, Message, MessageHistory, ClientFile, ChatTagListResponse, Article } from '$lib/types';
 	import { isErrorWithDetail } from '$lib/utils';
 
@@ -2379,50 +2375,199 @@
 		}
 	};
 
+	let slides = [];
+
 	const openConfigAssistant = async () => {
 		showConfigAssistant = true;
-		// Create user message
-		let assistantId = uuidv4();
-		let userMessage = {
-			id: assistantId,
-			parentId: messages.length !== 0 ? messages.at(-1)!.id : null,
-			childrenIds: [],
-			role: 'assistant',
-			content: `<div class="flex flex-col items-center justify-center space-y-4">
-				<h1 class="text-2xl font-bold">Configure Assistant</h1>
-				<p class="text-sm text-gray-500">Select a device to configure</p>
-				`,
-			files: _files.length > 0 ? _files : undefined,
-			timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
-			models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx)
-		};
 
-		// Add message to history and Set currentId to messageId
-		history.messages[assistantId] = userMessage;
-		history.currentId = assistantId;
+		let _responses: string[] = [];
+		console.log('openConfig -> chatId', $chatId);
+		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
 
-		// Append messageId to childrenIds of parent message
-		if (messages.length !== 0 && messages.at(-1)) {
-			history.messages[messages.at(-1)!.id].childrenIds!.push(assistantId);
+		if (selectedModels.includes('')) {
+			toast.error($i18n.t('Model not selected'));
+		} else if (messages.length != 0 && messages.at(-1)?.done != true) {
+			// Response not done
+			console.log('wait');
+		} else if (messages.length != 0 && messages.at(-1)?.error) {
+			// Error in response
+			toast.error($i18n.t(`Oops! There was an error in the previous response. Please try again or contact admin.`));
+		} else if (
+			files.length > 0 &&
+			files.filter((file) => file.type !== 'image' && file.status !== 'processed').length > 0
+		) {
+			// Upload not done
+			toast.error(
+				$i18n.t(
+					`Oops! Hold tight! Your files are still in the processing oven. We're cooking them up to perfection. Please be patient and we'll let you know once they're ready.`
+				)
+			);
+		} else {
+			// Reset chat input textarea
+			const chatTextAreaElement = document.getElementById('chat-textarea') as unknown as HTMLTextAreaElement;
+
+			if (chatTextAreaElement) {
+				chatTextAreaElement.value = '';
+				chatTextAreaElement.style.height = '';
+			}
+
+			const _files: ClientFile[] = JSON.parse(JSON.stringify(files));
+			console.log('[submitPrompt:Chat.svelte] -> _files: ', _files);
+			chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type as string)));
+			chatFiles = chatFiles.filter(
+				// Remove duplicates
+				(item, index, array) => array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
+			);
+
+			// Reset files
+			files = [];
+			// Reset prompt
+			prompt = '';
+
+			// Create user message
+			let assistantId = uuidv4();
+			let assistantMessage = {
+				id: assistantId,
+				parentId: messages.length !== 0 ? messages.at(-1)!.id : null,
+				childrenIds: [],
+				role: 'assistant',
+				type: 'device-selector',
+				content: '',
+				files: _files.length > 0 ? _files : undefined,
+				timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
+				models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx),
+				model: $models.filter((m) => m.id === selectedModels.at(0)).at(0)?.id,
+				done: true
+			};
+
+			// Add message to history and Set currentId to messageId
+			history.messages[assistantId] = assistantMessage;
+			history.currentId = assistantId;
+
+			// Append messageId to childrenIds of parent message
+			if (messages.length !== 0 && messages.at(-1)) {
+				history.messages[messages.at(-1)!.id].childrenIds!.push(assistantId);
+			}
+
+			// Wait until history/message have been updated
+			await tick();
+			// _responses = await sendPrompt(userPrompt, userMessageId, { newChat: true });
 		}
-
-		// Wait until history/message have been updated
-		await tick();
+		// if (messages.length == 2) {
+		// 	if ($settings.saveChatHistory ?? true) {
+		// 		chat = await createNewChat(localStorage.token, {
+		// 			id: $chatId,
+		// 			title: $i18n.t('New Chat'),
+		// 			models: selectedModels,
+		// 			system: $settings.system ?? undefined,
+		// 			params: params,
+		// 			messages: messages,
+		// 			history: history,
+		// 			tags: [],
+		// 			timestamp: Date.now()
+		// 		});
+		// 		chats.set(await getChatList(localStorage.token));
+		// 		if (chat) chatId.set(chat.id);
+		// 	} else {
+		// 		chatId.set('local');
+		// 	}
+		// 	await tick();
+		// }
+		return _responses;
 	};
 
 	let showConfigAssistant = false;
 	let seriesId = '';
+	let seriesName = '';
 
-	function handleDeviceConfirm(event: CustomEvent<{ device: string; name: string }>) {
+	async function handleDeviceConfirm(event: CustomEvent<{ device: string; name: string }>) {
 		// Move to the next slide
+		let _responses: string[] = [];
 		currentSlide.set(1);
 		const { device, name } = event.detail;
 		console.log('Device selected:', device, name);
 		seriesId = device;
+		seriesName = name;
 		variablesStore.update((vars) => ({ ...vars, device: name }));
+
+		showConfigAssistant = true;
+
+		console.log('openConfig -> chatId', $chatId);
+		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
+
+		if (selectedModels.includes('')) {
+			toast.error($i18n.t('Model not selected'));
+		} else if (messages.length != 0 && messages.at(-1)?.done != true) {
+			// Response not done
+			console.log('wait');
+		} else if (messages.length != 0 && messages.at(-1)?.error) {
+			// Error in response
+			toast.error($i18n.t(`Oops! There was an error in the previous response. Please try again or contact admin.`));
+		} else if (
+			files.length > 0 &&
+			files.filter((file) => file.type !== 'image' && file.status !== 'processed').length > 0
+		) {
+			// Upload not done
+			toast.error(
+				$i18n.t(
+					`Oops! Hold tight! Your files are still in the processing oven. We're cooking them up to perfection. Please be patient and we'll let you know once they're ready.`
+				)
+			);
+		} else {
+			// Reset chat input textarea
+			const chatTextAreaElement = document.getElementById('chat-textarea') as unknown as HTMLTextAreaElement;
+
+			if (chatTextAreaElement) {
+				chatTextAreaElement.value = '';
+				chatTextAreaElement.style.height = '';
+			}
+
+			const _files: ClientFile[] = JSON.parse(JSON.stringify(files));
+			console.log('[submitPrompt:Chat.svelte] -> _files: ', _files);
+			chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type as string)));
+			chatFiles = chatFiles.filter(
+				// Remove duplicates
+				(item, index, array) => array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
+			);
+
+			// Reset files
+			files = [];
+			// Reset prompt
+			prompt = '';
+
+			// Create user message
+			let assistantId = uuidv4();
+			let assistantMessage = {
+				id: assistantId,
+				parentId: messages.length !== 0 ? messages.at(-1)!.id : null,
+				childrenIds: [],
+				role: 'assistant',
+				type: 'published-articles',
+				content: '',
+				files: _files.length > 0 ? _files : undefined,
+				timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
+				models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx),
+				model: $models.filter((m) => m.id === selectedModels.at(0)).at(0)?.id,
+				done: true
+			};
+
+			// Add message to history and Set currentId to messageId
+			history.messages[assistantId] = assistantMessage;
+			history.currentId = assistantId;
+
+			// Append messageId to childrenIds of parent message
+			if (messages.length !== 0 && messages.at(-1)) {
+				history.messages[messages.at(-1)!.id].childrenIds!.push(assistantId);
+			}
+			messages.push(assistantMessage);
+			messages = messages;
+			// Wait until history/message have been updated
+			await tick();
+		}
+		return _responses;
 	}
 
-	function handleGenerateNewArticle() {
+	function generateNewArticle() {
 		// Move to the generate new article slide
 		currentSlide.set(2);
 	}
@@ -2453,6 +2598,14 @@
 		{ label: 'CBW-AC', value: 'Cisco Business Wireless AC', category: 'Wireless' },
 		{ label: 'CBW-AX', value: 'Cisco Business Wireless AX', category: 'Wireless' }
 	];
+
+	$: reducedModels = selectedModelIds.reduce<Model[]>((a, e) => {
+		const model = $models.find((m) => m.id === e);
+		if (model) {
+			return [...a, model];
+		}
+		return a;
+	}, []);
 </script>
 
 <svelte:head>
@@ -2574,6 +2727,10 @@
 						{continueGeneration}
 						{regenerateResponse}
 						{chatActionHandler}
+						{handleDeviceConfirm}
+						{seriesId}
+						{seriesName}
+						{generateNewArticle}
 					/>
 				</div>
 			</div>
@@ -2627,57 +2784,6 @@
 			/>
 		{/if}
 
-		<ChatControls
-			models={selectedModelIds.reduce((a, e, i, arr) => {
-				const model = $models.find((m) => m.id === e);
-				if (model) {
-					return [...a, model];
-				}
-				return a;
-			}, [])}
-			bind:show={showControls}
-			bind:chatFiles
-			bind:params
-			bind:valves
-		/>
-	</div>
-{/if}
-{#if showConfigAssistant}
-	<div
-		transition:fly={{ x: 200, duration: 800 }}
-		class="h-screen max-h-[100dvh] {$showSidebar
-			? 'md:max-w-[calc(100%-260px)]'
-			: ''} w-full max-w-full flex flex-col absolute right-0 z-50 flex items-center justify-center bg-gray-900/[0.6]"
-	>
-		<div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 w-full max-w-3xl">
-			<div class="flex justify-between items-center mb-4">
-				<h2 class="text-lg font-semibold">Config Assistant</h2>
-				<button
-					class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-					on:click={() => (showConfigAssistant = false)}
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-					</svg>
-				</button>
-			</div>
-			<div class="overflow-y-auto max-h-[70vh]">
-				<div class="slide flex justify-center items-center">
-					{#if $currentSlide === 0}
-						<Slide currentSlide={0} slideIndex={0}>
-							<Select items={devices} on:confirm={handleDeviceConfirm} />
-						</Slide>
-					{:else if $currentSlide === 1}
-						<Slide currentSlide={1} slideIndex={1}>
-							<ArticleTopics {seriesId} on:generateNewArticle={handleGenerateNewArticle} />
-						</Slide>
-					{:else if $currentSlide === 2}
-						<Slide currentSlide={2} slideIndex={2}>
-							<GenerateNewArticle on:submit={handleArticleSubmit} />
-						</Slide>
-					{/if}
-				</div>
-			</div>
-		</div>
+		<ChatControls models={reducedModels} bind:show={showControls} bind:chatFiles bind:params bind:valves />
 	</div>
 {/if}

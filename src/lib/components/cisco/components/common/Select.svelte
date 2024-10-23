@@ -51,6 +51,11 @@
 	export let items: Array<{ [key: string]: string }> = devices;
 	export let label: string = 'label';
 	export let itemId: string = 'value';
+	export let debounceWait = 300;
+	export let hideEmptyState = false;
+	export let inputAttributes = {};
+	export let listOffset = 5;
+	export let hoverItemIndex = 0;
 
 	export let groupHeaderSelectable = false;
 	let loadOptions: ((...args: any[]) => any) | null = null;
@@ -85,13 +90,8 @@
 		timeout = setTimeout(fn, wait);
 	};
 
-	export let debounceWait = 300;
-	export let hideEmptyState = false;
-	export let inputAttributes = {};
 	let listAutoWidth = true;
 	let showChevron = true;
-	export let listOffset = 5;
-	export let hoverItemIndex = 0;
 
 	let itemFilter = (label: string, filterText: string) => `${label}`.toLowerCase().includes(filterText.toLowerCase());
 	let groupBy = (group: { [key: string]: string }) => group.category;
@@ -103,8 +103,6 @@
 
 	const handleConfirm = async () => {
 		console.log('value', value);
-		console.log('input.value: ', input.value.trim());
-		console.log('activeValue: ', activeValue);
 
 		const series = await getSeriesByName(localStorage.token, value.value.trim());
 		if (series) {
@@ -508,6 +506,7 @@
 		if (disabled) return;
 		if (filterText.length > 0) return (listOpen = true);
 		listOpen = !listOpen;
+		dispatch('toggle', { state: listOpen });
 	}
 
 	export function handleClear() {
@@ -870,7 +869,7 @@
 	{/if}
 </div>
 <button
-	class="btn btn-primary rounded-md hover:bg-slate-100 hover:text-slate-800 transition-all"
+	class="btn self-center m-4 px-4 py-2 bg-[#1990fa] text-white rounded-md"
 	on:click={async () => await handleConfirm()}>Confirm</button
 >
 
@@ -970,9 +969,9 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 5px 10px;
-		padding: var(--value-container-padding, 5px 0);
+		padding: 0;
 		position: relative;
-		overflow: var(--value-container-overflow, hidden);
+		overflow: hidden;
 		align-self: stretch;
 	}
 

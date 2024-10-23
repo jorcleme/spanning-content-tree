@@ -72,6 +72,7 @@ export interface Message extends BaseMessage {
 	lastSentence?: string;
 	done?: boolean;
 	context?: any;
+	type?: string;
 	info?: MessageInfo;
 	statusHistory?: StatusHistory[];
 	files?: ClientFile[];

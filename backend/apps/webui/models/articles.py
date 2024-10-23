@@ -197,6 +197,8 @@ class CreatedArticle(BaseModel):
         description="The steps to guide the user through the configuration."
     )
 
+    model_config = ConfigDict(from_attributes=True, extra="allow")
+
 
 class GraphStateKeys(TypedDict, total=False):
     question: str

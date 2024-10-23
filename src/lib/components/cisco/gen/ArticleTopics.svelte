@@ -13,6 +13,7 @@
 	const dispatch = createEventDispatcher();
 
 	export let seriesId = '';
+	export let seriesName = '';
 	let searchQuery = '';
 	let articles: Article[] = [];
 	let filteredArticles: Article[] = [];
@@ -47,7 +48,7 @@
 </script>
 
 <div class="flex flex-col">
-	<h2 class="my-2 text-center">{$i18n.t('Current Articles for {{seriesId}}', { seriesId })}</h2>
+	<h2 class="my-2 text-center">{$i18n.t('Current Articles for {{seriesName}}', { seriesName })}</h2>
 	<input
 		class="self-center"
 		type="text"
@@ -72,6 +73,10 @@
 			{/key}
 		{/if}
 	</div>
+	<small
+		>Not seeing the article you're looking for? Our writers are publishing new content all the time. In the meantime, we
+		can use AI to generate one for you.</small
+	>
 	<button class="btn self-center px-4 py-2 bg-[#1990fa] text-white" on:click={handleGenerateNewArticle}
 		>Generate New Article</button
 	>

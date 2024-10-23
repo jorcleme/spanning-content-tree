@@ -9,14 +9,17 @@ from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv, find_dotenv
 from pprint import pprint
+from huggingface_hub import snapshot_download
 from typing import Dict, List, Any, Optional, Literal
 from chromadb.api.types import GetResult
+from chromadb import Collection as Coll
 from apps.webui.models.articles import (
     CreatedArticle,
     DataSourceType,
     Search,
     GraphState,
     Grader,
+    Step,
 )
 from apps.cisco.examples import create_decomposition_search_examples
 
@@ -38,7 +41,6 @@ from langchain.retrievers.parent_document_retriever import ParentDocumentRetriev
 from langchain.retrievers.multi_vector import SearchType
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.chains.query_constructor.base import AttributeInfo
-from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.utils.function_calling import convert_to_openai_tool
@@ -53,11 +55,188 @@ from langgraph.graph import END, StateGraph
 from config import MONGODB_URI, MONGODB_USER, MONGODB_PASS
 import sys
 
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+
+import operator
+
+from typing import Optional, Sequence
+
+from langchain_core.documents import BaseDocumentCompressor, Document
+from langchain_core.callbacks import Callbacks
+from langchain_community.retrievers import BM25Retriever
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.retrievers import (
+    ContextualCompressionRetriever,
+    EnsembleRetriever,
+)
+from sentence_transformers import SentenceTransformer, CrossEncoder
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info(f"Logger name: {logger.name}")
 logger.info(f"Logger level: {logger.level}")
 logger.info(f"Module: {__name__}")
+
+
+class RerankCompressor(BaseDocumentCompressor):
+    embedding_function: Any
+    top_n: int
+    reranking_function: Any
+    r_score: float
+
+    class Config:
+        extra = "forbid"
+        arbitrary_types_allowed = True
+
+    def compress_documents(
+        self,
+        documents: Sequence[Document],
+        query: str,
+        callbacks: Optional[Callbacks] = None,
+    ) -> Sequence[Document]:
+        reranking = self.reranking_function is not None
+
+        if reranking:
+            scores = self.reranking_function.predict(
+                [(query, doc.page_content) for doc in documents]
+            )
+        else:
+            from sentence_transformers import util
+
+            query_embedding = self.embedding_function(query)
+            document_embedding = self.embedding_function(
+                [doc.page_content for doc in documents]
+            )
+            scores = util.cos_sim(query_embedding, document_embedding)[0]
+
+        docs_with_scores = list(zip(documents, scores.tolist()))
+        if self.r_score:
+            docs_with_scores = [
+                (d, s) for d, s in docs_with_scores if s >= self.r_score
+            ]
+
+        result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
+        final_results = []
+        for doc, doc_score in result[: self.top_n]:
+            metadata = doc.metadata
+            metadata["score"] = doc_score
+            doc = Document(
+                page_content=doc.page_content,
+                metadata=metadata,
+            )
+            final_results.append(doc)
+        return final_results
+
+
+class ChromaRetriever(BaseRetriever):
+    collection: Coll
+    embedding_function: Any
+    top_n: int
+
+    def _get_relevant_documents(
+        self,
+        query: str,
+        *,
+        run_manager: CallbackManagerForRetrieverRun,
+    ) -> List[Document]:
+        query_embeddings = self.embedding_function(query)
+
+        results = self.collection.query(
+            query_embeddings=[query_embeddings],
+            n_results=self.top_n,
+        )
+
+        ids = results["ids"][0]
+        metadatas = results["metadatas"][0]
+        documents = results["documents"][0]
+
+        results = []
+        for idx in range(len(ids)):
+            results.append(
+                Document(
+                    metadata=metadatas[idx],
+                    page_content=documents[idx],
+                )
+            )
+        return results
+
+
+def get_model_path(model: str, update_model: bool = False):
+    # Construct huggingface_hub kwargs with local_files_only to return the snapshot path
+    cache_dir = os.getenv("SENTENCE_TRANSFORMERS_HOME")
+
+    local_files_only = not update_model
+
+    snapshot_kwargs = {
+        "cache_dir": cache_dir,
+        "local_files_only": local_files_only,
+    }
+
+    logger.debug(f"model: {model}")
+    logger.debug(f"snapshot_kwargs: {snapshot_kwargs}")
+
+    # Inspiration from upstream sentence_transformers
+    if (
+        os.path.exists(model)
+        or ("\\" in model or model.count("/") > 1)
+        and local_files_only
+    ):
+        # If fully qualified path exists, return input, else set repo_id
+        return model
+    elif "/" not in model:
+        # Set valid repo_id for model short-name
+        model = "sentence-transformers" + "/" + model
+
+    snapshot_kwargs["repo_id"] = model
+
+    # Attempt to query the huggingface_hub library to determine the local path and/or to update
+    try:
+        model_repo_path = snapshot_download(**snapshot_kwargs)
+        logger.debug(f"model_repo_path: {model_repo_path}")
+        return model_repo_path
+    except Exception as e:
+        logger.exception(f"Cannot determine model snapshot path: {e}")
+        return model
+
+
+def query_doc_with_hybrid_search(
+    collection_name: str,
+    query: str,
+    embedding_function=HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    ),
+    k: int = 5,
+    reranking_function=None,
+    r: float = 0.0,
+):
+    logger.debug("Running query_doc_with_hybrid_search")
+    try:
+        collection = CHROMA_CLIENT.get_collection(name=collection_name)
+        documents = collection.get()  # get all documents
+
+        bm25_retriever = BM25Retriever.from_texts(
+            texts=documents.get("documents"),
+            metadatas=documents.get("metadatas"),
+        )
+        bm25_retriever.k = k
+
+        chroma = Chroma(
+            collection_name=collection_name, embedding_function=embedding_function
+        )
+        chroma_retriever = chroma.as_retriever(search_kwargs={"k": k})
+        ensemble_retriever = EnsembleRetriever(
+            retrievers=[bm25_retriever, chroma_retriever], weights=[0.5, 0.5]
+        )
+
+        result = ensemble_retriever.invoke(query)
+
+        logger.info(f"query_doc_with_hybrid_search:result {result}")
+        return result
+    except Exception as e:
+        raise e
+
 
 load_dotenv(find_dotenv(filename=".env"))
 
@@ -269,8 +448,8 @@ def init_parent_document_retriever(collection_name: str, vectordb: Chroma):
         docstore=store,
         id_key="doc_id",
         child_splitter=get_text_splitter(),
-        search_kwargs={"k": 3},
-        search_type=SearchType.similarity,
+        search_kwargs={"k": 2},
+        search_type=SearchType.mmr,
     )
     formatted_documents = convert_to_documents(docs)
     retriever.add_documents(documents=formatted_documents, ids=ids)
@@ -292,32 +471,33 @@ def init_parent_document_retriever(collection_name: str, vectordb: Chroma):
 
 
 def decompose_question(question: str, retriever: BaseRetriever) -> List[Document]:
-    examples = create_decomposition_search_examples()
-    example_messages = [
-        msg for ex in examples for msg in tool_example_to_messages_helper(ex)
-    ]
-    system = """
-        You are an expert at converting user question into database queries. You have access to a database of documents that contain information about configuring a Cisco Switch, Cisco Router, or Cisco Wireless Access Point.
-        
-        Perform query decomposition. Given a user question, break it down into subtopics which will help answer questions related to the main topic.
-        Each subtopic should be about a single concept/fact/idea. The subtopic should be other configurations, commands, or settings that are related to the main topic.
-        
-        If there are acronyms or words you are not familiar with, do not try to rephrase them."""
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", system),
-            MessagesPlaceholder("examples"),
-            ("human", "{question}"),
-        ]
-    )
-    query_analyzer = (
-        {"question": RunnablePassthrough()}
-        | prompt.partial(examples=example_messages)
-        | get_llm().with_structured_output(Search)
-    )
-    answer = query_analyzer.invoke(question)
-    expanded_questions = [query for query in answer.subtopics]
-    expanded_questions.append(question)  # Add the original question
+    # examples = create_decomposition_search_examples()
+    # example_messages = [
+    #     msg for ex in examples for msg in tool_example_to_messages_helper(ex)
+    # ]
+    # system = """
+    #     You are an expert at converting user question into database queries. You have access to a database of documents that contain information about configuring a Cisco Switch, Cisco Router, or Cisco Wireless Access Point.
+
+    #     Perform query decomposition. Given a user question, break it down into subtopics which will help answer questions related to the main topic.
+    #     Each subtopic should be about a single concept/fact/idea. The subtopic should be other configurations, commands, or settings that are related to the main topic.
+
+    #     If there are acronyms or words you are not familiar with, do not try to rephrase them."""
+    # prompt = ChatPromptTemplate.from_messages(
+    #     [
+    #         ("system", system),
+    #         MessagesPlaceholder("examples"),
+    #         ("human", "{question}"),
+    #     ]
+    # )
+    # query_analyzer = (
+    #     {"question": RunnablePassthrough()}
+    #     | prompt.partial(examples=example_messages)
+    #     | get_llm().with_structured_output(Search)
+    # )
+    # answer = query_analyzer.invoke(question)
+    # expanded_questions = [query for query in answer.subtopics]
+    expanded_questions = [question]
+    # expanded_questions.append(question)  # Add the original question
     print(f"Queries: {expanded_questions}")
     documents = []
     for query in expanded_questions:
@@ -353,7 +533,7 @@ def select_prompt_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"]):
     if datasource == "ADMIN_GUIDE":
         return """Role: You are a Cisco TAC Engineer with extensive technical knowledge about network switches, routers, access points, phones, and network management tools.
 
-    Task: Write an article that guides a user through setting a configuration on their device based on the question below. Follow the article format and rules strictly.
+    Task: Write an article that guides a user through setting a configuration on their Cisco Network device based on the question below. Follow the article format and rules strictly.
           Use only the context below as your knowledge base.
 
     <question>
@@ -369,10 +549,10 @@ def select_prompt_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"]):
         
         List of Steps:
             Each step should be a dictionary with the following keys:
-                1. section: Header that describes the task of this group of steps.
-                2. step_number: The step number within the section.
-                3. text: Describe the action required to advance toward completing the objective.
-                4. note (optional): Provide additional context, cautions, notes or common details often overlooked.
+                1. section: Describe what will be done in this group of related steps.
+                2. step_number: The step number within the section. Step numbers start at 1 and increment by 1.
+                3. text: Describe the action required to advance toward completing the objective. Write in Markdown format.
+                4. note (optional): Provide additional context, cautions, notes or common details often overlooked. Examples could be supported cable types, default settings, or common mistakes.
     </article-format>
     
     
@@ -380,9 +560,8 @@ def select_prompt_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"]):
         1. The first step should always be "Log in to the web user interface (UI) of your switch".
         2. Customize the article to apply to the specific device(s) or product(s) involved. If the question is not applicable to the device, simply state that the configuration is not supported.
         3. Use steps section title to group steps logically by task.
-        4. If the section header changes, the steps start back at 1.
-        5. Optionally use the 'note' key in each step to provide additional context about that step. Examples of notes: 'Configuring the SSH Settings for SCP is only applicable if the chosen downloaded protocols involves SCP.', 'The default username and password for the device is cisco/cisco.', 'In this example, Catalyst 1300 Switch is used.'
-        6. Do not refer to the user or customer within the article.
+        4. Optionally use the 'note' key in each step to provide additional context about that step. Examples of notes: 'Configuring the SSH Settings for SCP is only applicable if the chosen downloaded protocols involves SCP.', 'The default username and password for the device is cisco/cisco.', 'In this example, Catalyst 1300 Switch is used.'
+        5. Do not refer to the user or customer within the article.
     </rules>
     
     <context>
@@ -410,7 +589,7 @@ def select_prompt_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"]):
             Each step should be a dictionary with the following keys:
                 1. section: Describe what will be done in this group of steps.
                 2. step_number: The step number within the section.
-                3. text: Describe the action required to advance toward the objective.
+                3. text: Describe the action required to advance toward the objective. Write in Markdown format.
                 4. note (optional): Provide additional context, cautions, notes or common details often overlooked.
     </article-format>
     
@@ -418,13 +597,12 @@ def select_prompt_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"]):
         1. Every articles first step begins by logging into device Command Line Utility (CLI).
         2. Customize the article to apply to the specific device(s) or product(s) involved. If the question is not applicable to the device, simply state that the configuration is not supported.
         3. Use steps section title to group steps logically by task.
-        4. If a steps section header changes, the steps start back at 1.
-        5. Optionally use the 'note' key in each step to provide additional context about the step. Examples of notes: 'Configuring the SSH Settings for SCP is only applicable if the chosen downloaded protocols involves SCP.', 'The default username and password for the device is cisco/cisco.', 'In this example, Catalyst 1300 Switch is used.'
-        6. Do not refer to the user or customer within the article.
-        7. Articles WILL ALWAYS ASSUME THE USER IS IN GLOBAL CONFIGURATION MODE. THE USER ENTERS GLOBAL CONFIGURATION MODE BY ENTERING 'configure' on the Command Line. Just 'configure' unless otherwise specified.
-        8. Return from Global Configuration mode to Privileged EXEC mode by entering `exit`, `end`, or pressing `Ctrl+Z`.
-        9. Upon a user entering Global Configuration mode, the prompt will consist of the device hostname followed by '(config)'. Example: 'CBS250(config)#'. Include this within the step if applicable.
-        10. Upon entering inteface configuration mode, the prompt will conist of the device hostname followed by '(config-if)'. Example: 'CBS250(config-if)#'. Include this within the step if applicable.
+        4. Optionally use the 'note' key in each step to provide additional context about the step. Examples of notes: 'Configuring the SSH Settings for SCP is only applicable if the chosen downloaded protocols involves SCP.', 'The default username and password for the device is cisco/cisco.', 'In this example, Catalyst 1300 Switch is used.'
+        5. Do not refer to the user or customer within the article.
+        6. Articles WILL ALWAYS ASSUME THE USER IS IN GLOBAL CONFIGURATION MODE. THE USER ENTERS GLOBAL CONFIGURATION MODE BY ENTERING 'configure' on the Command Line. Just 'configure' unless otherwise specified.
+        7. Return from Global Configuration mode to Privileged EXEC mode by entering `exit`, `end`, or pressing `Ctrl+Z`.
+        8. Upon a user entering Global Configuration mode, the prompt will consist of the device hostname followed by '(config)'. Example: 'CBS250(config)#'. Include this within the step if applicable.
+        9. Upon entering inteface configuration mode, the prompt will conist of the device hostname followed by '(config-if)'. Example: 'CBS250(config-if)#'. Include this within the step if applicable.
     </rules>
         
         
@@ -489,7 +667,7 @@ def identify_category(title: str):
 
 def add_article_metadata(state: GraphState):
     state_dict = state["keys"]
-    article = state_dict["article"][0].dict()
+    article = state_dict["article"][0].model_dump()
     article["document_id"] = str(uuid.uuid4())
     revision_history = []
     revision = {
@@ -500,7 +678,8 @@ def add_article_metadata(state: GraphState):
     revision_history.append(revision)
     article["revision_history"] = revision_history
     # We need to construct this back to Pydantic Model without validation
-    article = CreatedArticle.construct(**article)
+    steps = [Step.model_construct(**step) for step in article.get("steps")]
+    article = CreatedArticle.model_construct(**{**article, "steps": steps})
     state["keys"].update({"article": [article]})
     return state
 
@@ -576,6 +755,13 @@ def retrieve(state: GraphState) -> GraphState:
         )
 
     documents = decompose_question(question, retriever)
+    article_collection_name = CollectionFactory.get_article_collection(
+        "Cisco Catalyst 1200 Series Switches"
+    )
+    retrieved_documents = query_doc_with_hybrid_search(
+        article_collection_name, question
+    )
+    documents.extend(retrieved_documents)
     # filter out documents with same metadata doc_id
     filtered_docs = list({doc.metadata["doc_id"]: doc for doc in documents}.values())
     state["keys"].update({"documents": filtered_docs})
@@ -615,7 +801,7 @@ def grade_documents(state: GraphState):
         score = chain.invoke({"context": doc.page_content, "question": question})
         grade = score[0].binary_score if isinstance(score, list) else score.binary_score
         if grade == "yes":
-            logger.info(f"Document: {doc.metadata['topic']} is relevant.")
+            logger.info(f"Document: {doc} is relevant.")
             filtered_docs.append(doc)
     state["keys"].update({"documents": filtered_docs})
     return state
@@ -631,7 +817,7 @@ def generate_article_with_context(state: GraphState):
     """
     print("------GENERATE WITH CONTEXT------")
     state_dict = state["keys"]
-    documents = state_dict["documents"]
+    documents = state_dict.get("documents", [])
     question = state_dict["question"]
     datasource = state_dict["datasource"]
     template = select_prompt_template(datasource)
@@ -655,54 +841,55 @@ def generate_article_with_example(state: GraphState):
         state (GraphState): The current state of the agent.
     """
     print("------GENERATE WITH EXAMPLE------")
-    state_dict = state["keys"]
-    question = state_dict["question"]
-    article = state_dict["article"][0].dict()
-    example_articles = db_aggregate(
-        "articles",
-        [
-            {
-                "$search": {
-                    "index": "articles_search_index",
-                    "text": {
-                        "query": f"{question}",
-                        "path": {"wildcard": "*"},
-                    },
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "title": 1,
-                    "objective": 1,
-                    "intro": 1,
-                    "steps": 1,
-                    "score": {"$meta": "searchScore"},
-                }
-            },
-            {"$limit": 1},
-        ],
-    )
-    results = []
-    for a in example_articles:
-        steps = list(
-            map(
-                lambda step: remove_props_from_dict(
-                    step,
-                    "emphasized_tags",
-                    "emphasized_text",
-                    "src",
-                    "alt",
-                    "video_src",
-                ),
-                a["steps"],
-            )
-        )
-        steps = list(
-            map(lambda step: {"step_number": step.pop("step_num"), **step}, steps)
-        )
-        a["steps"] = steps
-        results.append(a)
+    state_dict = state.get("keys")
+    question = state_dict.get("question")
+    article = state_dict.get("article")[0].model_dump()
+    documents = state_dict.get("documents", [])
+    # example_articles = db_aggregate(
+    #     "articles",
+    #     [
+    #         {
+    #             "$search": {
+    #                 "index": "articles_search_index",
+    #                 "text": {
+    #                     "query": f"{question}",
+    #                     "path": {"wildcard": "*"},
+    #                 },
+    #             }
+    #         },
+    #         {
+    #             "$project": {
+    #                 "_id": 0,
+    #                 "title": 1,
+    #                 "objective": 1,
+    #                 "intro": 1,
+    #                 "steps": 1,
+    #                 "score": {"$meta": "searchScore"},
+    #             }
+    #         },
+    #         {"$limit": 1},
+    #     ],
+    # )
+    # results = []
+    # for a in example_articles:
+    #     steps = list(
+    #         map(
+    #             lambda step: remove_props_from_dict(
+    #                 step,
+    #                 "emphasized_tags",
+    #                 "emphasized_text",
+    #                 "src",
+    #                 "alt",
+    #                 "video_src",
+    #             ),
+    #             a["steps"],
+    #         )
+    #     )
+    #     steps = list(
+    #         map(lambda step: {"step_number": step.pop("step_num"), **step}, steps)
+    #     )
+    #     a["steps"] = steps
+    #     results.append(a)
     videos_pipeline = [
         {
             "$search": {
@@ -729,7 +916,7 @@ def generate_article_with_example(state: GraphState):
     ]
 
     system_message = """You are a TAC Engineer at Cisco who has supreme knowledge with configuring network switches, routers, wireless access points, phones and network management tools.
-    Your task is to refine the <current-article> by ensuring it follows the correct format, improving clarity, and adding detailed explanations. Use the <example-article> as a template to guide you in this process.
+    You will be given the question, current-article state and context within XML-Style tags. Your task is to refine the <current-article> by ensuring it follows the correct format, improving clarity, and adding detailed explanations. Use the context to help guide you in both formatting and the steps to take to complete the configuration.
     Pay special attention to the specific device mentioned in the question.
     
     Rules To Follow:
@@ -737,7 +924,7 @@ def generate_article_with_example(state: GraphState):
         2. The objective must start with "The objective of this article is..." and mention the configuration is performed through the Web-Based Utility or Command Line Interface.
         3. The intoduction should explain the topic, discuss the importance of the configuration, and describe how the feature works in some detail.
         4. Customize the article to apply to the specific device(s) or product(s) involved.
-        5. Use section header to group steps logically. When a section headers changes from the value of the previous steps, the step_number resets back to 1.
+        5. Use section header to group steps logically.
         6. Optionally use the 'note' key in each step to provide additional context about the step. Examples of notes: 'Configuring the SSH Settings for SCP is only applicable if the chosen downloaded protocols involves SCP.', 'The default username and password for the device is cisco/cisco.', 'In this example, Catalyst 1300 Switch is used.'
         7. Do not refer to the user or customer within the article.
         8. Break down complex steps into smaller, more manageable steps.
@@ -752,13 +939,6 @@ def generate_article_with_example(state: GraphState):
     <question>
         {question}
     </question>
-    
-    
-    
-    <example-article>
-        {example}
-    </example-article>
-    
     
     
     <current-article>
@@ -786,9 +966,8 @@ def generate_article_with_example(state: GraphState):
     new_article = chain.invoke(
         {
             "question": question,
-            "example": results.pop(0),
             "article": article,
-            "context": format_other_sources(example_videos),
+            "context": f"{format_docs(documents)}\n\n{format_other_sources(example_videos)}",
         }
     )
     state["keys"].update({"article": new_article})
@@ -797,10 +976,10 @@ def generate_article_with_example(state: GraphState):
 
 def refine_article_steps(state: GraphState):
     state_dict = state["keys"]
-    article = state_dict["article"][0].dict()
+    article = state_dict["article"][0].model_dump()
 
     template = """
-    You are an AI copy editor with a keen eye for detail and a deep understanding of language, style, and grammar.
+    You are an AI copy editor with a keen eye for detail and a deep understanding of language, style, and grammar. Each section will be provided within XML-Style tags.
     Your task is to refine and reorganize the steps in the provided JSON List of Steps for an <article>. You can think of the list of steps as a list of smaller tasks the user must complete to enact the desired configuration.
     Follow the <guidelines> below.
     Use the <examples> below that shows the <original> set of steps and the expected <edited> results after refining the steps.
@@ -812,20 +991,17 @@ def refine_article_steps(state: GraphState):
            Steps within the same logical group should share the same section value.
            When the step content no longer fits the current section, create a new section header for the next group of steps.
 
-        3. Adjust step numbering. When a new section begins, reset the step_number to 1.
-           Increment the step_number within each section until a new section starts.
-
-        4. Handle login steps. Do not create a separate section for logging into a web-based utility or CLI. The initial step is the first step towards completing the step section task. Under no circumstances should the Log-In step have it's own section. Ensure you make this step the first step in completing the sub-objective and give it the proper section title based on the subsequent steps.
+        3. Handle login steps. Do not create a separate section for logging into a web-based utility or CLI. The initial step is the first step towards completing the step section task. Under no circumstances should the Log-In step have it's own section. Ensure you make this step the first step in completing the sub-objective and give it the proper section title based on the subsequent steps.
 
            Example: For "Configure DHCP Auto Update," make logging in the first step of this section.
 
-        5. Maintain the original order of steps. Do not change the sequence of steps provided in the JSON List. Only re-name the sections by sub-objectives.
+        4. Maintain the original order of steps. Do not change the sequence of steps provided in the JSON List. Only re-name the sections by sub-objectives.
 
-        6. Use context from the entire Article JSON. While your primary focus is on refining the steps, use other information in the Article JSON to inform your decisions about logically grouping a set of related steps.
+        5. Use context from the entire Article JSON. While your primary focus is on refining the steps, use other information in the Article JSON to inform your decisions about logically grouping a set of related steps.
 
-        7. As a guide, an article typically only has 2-4 sub-objectives. There are special cases, however.
+        6. As a guide, an article typically only has 2-4 sub-objectives. There are special cases, however.
 
-        8. Ensure clarity and coherence. Each step should clearly contribute to the overall objective of the article. Section titles should provide a clear overview of the steps they encompass.
+        7. Ensure clarity and coherence. Each step should clearly contribute to the overall objective of the article. Section titles should provide a clear overview of the steps they encompass.
     </guidelines>
 
     <examples>
@@ -909,12 +1085,12 @@ def build_html_for_admin_guide_sources(state: GraphState):
         state: The final state of the agent.
     """
     state_dict = state["keys"]
-    article = state_dict["article"][0].dict()
+    article = state_dict.get("article")[0].model_dump()
     article_intro = convert_markdown_to_html(article["introduction"])
     article_steps = article["steps"]
     steps_html = ""
     for step in article_steps:
-        text = step["text"]
+        text = convert_markdown_to_html(step["text"])
         note = step.get("note", None)
         if step["step_number"] == 1:
             steps_html += f"""
@@ -1078,7 +1254,7 @@ def build_html_for_cli_guide_sources(state: GraphState):
     prompt = ChatPromptTemplate.from_template(template)
     chain = prompt | model | StrOutputParser()
     state_dict = state["keys"]
-    article = state_dict["article"][0].dict()
+    article = state_dict.get("article")[0].model_dump()
     html = chain.invoke({"article": article})
     html5 = add_html_formatting(html, article)
     state["keys"].update({"html": html5})
@@ -1132,7 +1308,7 @@ workflow.add_edge("build_html_for_cli_guide_sources", END)
 
 ARTICLE_GRAPH = workflow.compile()
 
-question = "Configure Bluetooth Settings in Catalyst 1200 and 1300 Switches"
+question = "Configure PVST, PVST Vlan Settings, and PVST Vlan Interface on Catalyst 1200 Switches"
 
 inputs: dict[str, GraphState] = {"keys": {"question": question}}
 

@@ -234,3 +234,8 @@ async def update_article_steps_by_id(
 async def view_article_on_series():
     article_on_seris = Article_Table.view_article_on_series()
     return article_on_seris
+
+
+@router.post("/generate")
+async def generate_new_article():
+    from apps.cisco.content_creator import build_article

@@ -692,33 +692,6 @@ def prepare_and_run():
         process_and_insert_documents(ag_url, admin_guide_collection_name, "AdminGuide")
         process_and_insert_documents(cli_url, cli_guide_collection_name, "CLIGuide")
 
-    # for series, sources in SERIES_DOCUMENT_MAP.items():
-    #     print(f"Processing for {series} assets")
-    #     ag_collection_name, ag_url = sources["ag"]
-    #     cli_collection_name, cli_url = sources["cli"]
-
-    #     try:
-    #         ag_collection = CHROMA_CLIENT.get_collection(ag_collection_name)
-    #         cli_collection = CHROMA_CLIENT.get_collection(cli_collection_name)
-
-    #         if ag_collection and cli_collection:
-    #             # move to next iteration
-    #             logger.info(
-    #                 f"Collection for {ag_collection_name} and {cli_collection_name} already exists. Skipping."
-    #             )
-    #             continue
-    #     except ValueError:
-    #         logger.info(
-    #             f"Error retrieving collection for {ag_collection_name} or {cli_collection_name}. Creating new collections."
-    #         )
-
-    #         CHROMA_CLIENT.get_or_create_collection(ag_collection_name)
-    #         CHROMA_CLIENT.get_or_create_collection(cli_collection_name)
-    #         # do nothing
-
-    #     process_and_insert_documents(ag_url, ag_collection_name, "AdminGuide")
-    #     process_and_insert_documents(cli_url, cli_collection_name, "CLIGuide")
-
 
 def run():
     prepare_and_run()
@@ -726,7 +699,6 @@ def run():
 
 def query_collection(query: str):
     from langchain_openai.embeddings import OpenAIEmbeddings
-    from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
     try:
         openai_collection = CHROMA_CLIENT.get_collection(
@@ -737,19 +709,6 @@ def query_collection(query: str):
         openai_results = openai_collection.query(openai_query)
         logger.info(f"Query: {query}\nResults: {openai_results}")
 
-        hf_collection = CHROMA_CLIENT.get_collection(
-            "catalyst_1300_admin_guide_huggingface"
-        )
-        e = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        hf_query = e.embed_query(query)
-        # Add debugging statements
-        logger.debug(f"Type of hf_query: {type(hf_query)}")
-        logger.debug(f"Content of hf_query: {hf_query}")
-        hf_results = hf_collection.query(
-            query_embeddings=hf_query,
-            include=["embeddings", "metadatas", "documents", "distances"],
-        )
-        logger.info(f"Query: {query}\nResults: {hf_results}")
     except Exception as e:
         logger.error(f"An error occurred while querying the collection: {e}")
         return None

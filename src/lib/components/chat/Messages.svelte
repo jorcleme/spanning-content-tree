@@ -13,7 +13,9 @@
 	import { imageGenerations } from '$lib/apis/images';
 	import { copyToClipboard, findWordIndices } from '$lib/utils';
 	import CompareMessages from './Messages/CompareMessages.svelte';
-	import { stringify } from 'postcss';
+	import Select from '../cisco/components/common/Select.svelte';
+	import DeviceSelectorMessage from './Messages/DeviceSelectorMessage.svelte';
+	import PublishedArticlesMessage from './Messages/PublishedArticlesMessage.svelte';
 	import type { Message, MessageHistory, EditedMessage } from '$lib/types';
 	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
@@ -26,6 +28,7 @@
 	export let continueGeneration: Function;
 	export let regenerateResponse: (message: Message) => Promise<void>;
 	export let chatActionHandler: Function;
+	export let handleDeviceConfirm: (e: CustomEvent) => void;
 
 	export let user = $_user as SessionUser;
 	export let prompt;
@@ -36,6 +39,10 @@
 	export let messages: Message[] = [];
 
 	export let selectedModels;
+
+	export let seriesId = '';
+	export let seriesName = '';
+	export let generateNewArticle: (e: CustomEvent) => void;
 
 	$: if (autoScroll && bottomPadding) {
 		(async () => {
@@ -254,16 +261,16 @@
 		});
 	};
 
-	const onSubmitPrompt = async (prompt: string) => {
-		let text = prompt;
+	const onSubmitPrompt = async (p: string) => {
+		let text = p;
 
-		if (prompt.includes('{{CLIPBOARD}}')) {
+		if (p.includes('{{CLIPBOARD}}')) {
 			const clipboardText = await navigator.clipboard.readText().catch((err) => {
 				toast.error($i18n.t('Failed to read clipboard contents'));
 				return '{{CLIPBOARD}}';
 			});
 
-			text = prompt.replaceAll('{{CLIPBOARD}}', clipboardText);
+			text = p.replaceAll('{{CLIPBOARD}}', clipboardText);
 		}
 		prompt = text;
 
@@ -271,7 +278,7 @@
 
 		const chatInputElement = document.getElementById('chat-textarea') as HTMLInputElement;
 		if (chatInputElement) {
-			prompt = prompt;
+			prompt = p;
 
 			chatInputElement.style.height = '';
 			chatInputElement.style.height = Math.min(chatInputElement.scrollHeight, 200) + 'px';
@@ -315,38 +322,7 @@
 		<Placeholder
 			modelIds={selectedModels}
 			submitPrompt={async (p) => {
-				let text = p;
-
-				if (p.includes('{{CLIPBOARD}}')) {
-					const clipboardText = await navigator.clipboard.readText().catch((err) => {
-						toast.error($i18n.t('Failed to read clipboard contents'));
-						return '{{CLIPBOARD}}';
-					});
-
-					text = p.replaceAll('{{CLIPBOARD}}', clipboardText);
-				}
-
-				prompt = text;
-
-				await tick();
-
-				const chatInputElement = document.getElementById('chat-textarea');
-				if (chatInputElement) {
-					prompt = p;
-
-					chatInputElement.style.height = '';
-					chatInputElement.style.height = Math.min(chatInputElement.scrollHeight, 200) + 'px';
-					chatInputElement.focus();
-
-					const words = findWordIndices(prompt);
-
-					if (words.length > 0) {
-						const word = words.at(0);
-						chatInputElement.setSelectionRange(word?.startIndex, word.endIndex + 1);
-					}
-				}
-
-				await tick();
+				await onSubmitPrompt(p);
 			}}
 		/>
 	{:else}
@@ -376,6 +352,20 @@
 									{showNextMessage}
 									copyToClipboard={copyToClipboardWithToast}
 								/>
+							{:else if message.type}
+								{#key message.type}
+									{#if message.type === 'device-selector'}
+										<DeviceSelectorMessage
+											{message}
+											{handleDeviceConfirm}
+											siblings={message.parentId ? history.messages[message.parentId]?.childrenIds : []}
+											isLastMessage={messageIdx + 1 === messages.length}
+										/>
+									{:else if message.type === 'published-articles'}
+										<PublishedArticlesMessage {message} {seriesId} {seriesName} on:generate={generateNewArticle} />
+									{/if}
+								{/key}
+								<!-- <svelte:component this={Select} on:confirm={handleDeviceConfirm} /> -->
 							{:else if $mobile || ((message.parentId && history.messages[message.parentId]?.models?.length) ?? 1) === 1}
 								{#key message.id && history.currentId}
 									<ResponseMessage

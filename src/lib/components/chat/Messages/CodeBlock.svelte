@@ -21,11 +21,6 @@
 
 	let copied = false;
 
-	onMount(() => {
-		// Register HTML language
-		hljs.registerLanguage('html', html);
-	});
-
 	const copyCode = async () => {
 		copied = true;
 		await copyToClipboard(code);
@@ -216,14 +211,15 @@ __builtins__.input = input`);
 	$: if (code) {
 		// Function to perform the code highlighting
 		const highlightCode = () => {
-			if (lang.toLowerCase() === 'html' || lang.toLowerCase() === 'xml') {
-				console.log('Highlighting HTML code');
-				highlightedCode = hljs.highlight(code, { language: 'html' }).value; // Use 'html' for highlight.js
-			} else {
-				console.log('Highlighting Other Lang code');
-				highlightedCode = hljs.highlightAuto(code, hljs.getLanguage(lang)?.aliases).value || code;
-			}
-			// highlightedCode = hljs.highlightAuto(code, hljs.getLanguage(lang)?.aliases).value || code;
+			// if (lang.toLowerCase() === 'html' || lang.toLowerCase() === 'xml') {
+			// 	hljs.registerLanguage('html', html);
+			// 	console.log('Highlighting HTML code');
+			// 	highlightedCode = hljs.highlight(code, { language: 'html' }).value; // Use 'html' for highlight.js
+			// } else {
+			// 	console.log('Highlighting Other Lang code');
+			// 	highlightedCode = hljs.highlightAuto(code, hljs.getLanguage(lang)?.aliases).value || code;
+			// }
+			highlightedCode = hljs.highlightAuto(code, hljs.getLanguage(lang)?.aliases).value || code;
 		};
 
 		// Clear the previous timeout if it exists
@@ -257,25 +253,16 @@ __builtins__.input = input`);
 			>
 		</div>
 	</div>
-	{#if lang.toLowerCase() === 'html' || lang.toLowerCase() === 'xml'}
-		<div class="hljs p-4 px-5 overflow-x-auto">
-			{#if highlightedCode}
-				{@html highlightedCode}
-			{:else}
-				{code}
-			{/if}
-		</div>
-	{:else}
-		<pre
-			class=" hljs p-4 px-5 overflow-x-auto"
-			style="border-top-left-radius: 0px; border-top-right-radius: 0px; {(executing || stdout || stderr || result) &&
-				'border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;'}"><code
-				class="language-{lang} rounded-t-none whitespace-pre"
-				>{#if highlightedCode}{@html highlightedCode}{:else}{code}{/if}</code
-			></pre>
 
-		<div id="plt-canvas-{id}" class="bg-[#202123] text-white max-w-full overflow-x-auto scrollbar-hidden" />
-	{/if}
+	<pre
+		class=" hljs p-4 px-5 overflow-x-auto"
+		style="border-top-left-radius: 0px; border-top-right-radius: 0px; {(executing || stdout || stderr || result) &&
+			'border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;'}"><code
+			class="language-{lang} rounded-t-none whitespace-pre"
+			>{#if highlightedCode}{@html highlightedCode}{:else}{code}{/if}</code
+		></pre>
+
+	<div id="plt-canvas-{id}" class="bg-[#202123] text-white max-w-full overflow-x-auto scrollbar-hidden" />
 
 	{#if executing}
 		<div class="bg-[#202123] text-white px-4 py-4 rounded-b-lg">
