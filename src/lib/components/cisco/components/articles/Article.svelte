@@ -232,13 +232,13 @@
 	{#if $activeArticle}
 		<div id="eot-doc-wrapper" style="position: relative;" class="w-full text-gray-800 {$showSidebar ? 'my-3' : 'my-8'}">
 			<div class="flex flex-col mx-auto {$showSidebar ? 'w-[calc(100%-16px)]' : 'w-[calc(100%-50px)]'}">
-				<div class="article-Hero rounded-xl" style="background-image: url({backgroundImage});">
+				<div class="article-Hero rounded-xl">
 					<div class="frostedGlass">
 						<!-- <img id="heroImage" src={backgroundImage} alt="hero dynamic experience background" /> -->
 
 						<div class="band" />
 
-						<h1 style="line-height: 1.075em;">{$activeArticle.title}</h1>
+						<h1 class="text-3xl text-left" style="line-height: 1.075em;">{$activeArticle.title}</h1>
 						<h2 class="articleHeadersExp">Objective</h2>
 						<div data-section="Objective" bind:this={objectiveElement}>
 							<p>{$activeArticle.objective}</p>
@@ -334,7 +334,7 @@
 				{#each $activeArticle.steps as step, index}
 					<div class="stepContainer" bind:this={stepElements[index]}>
 						{#if step.step_number === 1}
-							<h4 class="section-title">{step.section}</h4>
+							<h4 class="section-title text-2xl">{step.section}</h4>
 						{/if}
 						<ArticleStep {index} {step} bind:active={isStepActive} />
 
@@ -371,7 +371,7 @@
 						<Controls
 							on:close={() => {
 								showControls = false;
-								hideSupportWidgetBtn.set(false)
+								hideSupportWidgetBtn.set(false);
 							}}
 							models={chatControlModels}
 						/>
@@ -385,7 +385,7 @@
 				<Controls
 					on:close={() => {
 						showControls = false;
-						hideSupportWidgetBtn.set(false)
+						hideSupportWidgetBtn.set(false);
 					}}
 					models={chatControlModels}
 				/>
@@ -421,8 +421,8 @@
 	}
 
 	.article-Hero {
-		background: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%), linear-gradient(90deg, #a1c4fd 0%, #c2e9fb 100%),
-			linear-gradient(10deg, #a1c4fd 0%, #c2e9fb 100%);
+		/* border: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%), linear-gradient(90deg, #a1c4fd 0%, #c2e9fb 100%),
+			linear-gradient(10deg, #a1c4fd 0%, #c2e9fb 100%); */
 		transition: all 0.3s ease-in-out;
 		background-size: cover;
 		mix-blend-mode: darken;
@@ -436,7 +436,8 @@
 	}
 
 	#eot-doc-wrapper h1 {
-		text-align: center;
+		/* text-align: center; */
+		text-wrap: balance;
 		font-family: 'CiscoSansTT';
 		margin: 2em 0;
 		font-weight: 700;
@@ -447,7 +448,9 @@
 	#eot-doc-wrapper h2 {
 		font-family: 'CiscoSansTT';
 		margin: 1em 0;
-		color: #2b5592;
+		/* color: #2b5592; */
+		font-weight: 800;
+		font-size: 1.5rem;
 	}
 
 	.container-est-completion {
@@ -481,16 +484,20 @@
 
 	ul li::before {
 		content: '\25cf';
-		color: #64bbe3;
-		font-weight: 900;
-		font-size: 1.15em;
+		color: #9b9b9b;
+		font-weight: 100;
+		font-size: 1em;
 		display: inline-block;
-		width: 1em;
+		width: 0.25em;
+		height: 0.25em;
 		text-align: left;
+
+		padding-right: 1.5rem;
 	}
 
 	.section-title {
 		font-weight: 700;
+		/* font-size: 1.5rem; */
 		margin: 20px 0 16px 0;
 		color: #132d4e;
 	}

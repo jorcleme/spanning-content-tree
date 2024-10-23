@@ -1283,9 +1283,14 @@
 		</h3></summary
 	>
 
-	<div class="messageWell max-h-[50vh] min-h-[30vh] overflow-auto p-4 bg-white rounded-t-lg" id="messages-well">
-		<h1 style="text-align: center;">Need Answers?</h1>
-		<h3 style="text-align: center; margin-top: -1em; margin-bottom: 4rem;">Choose from our options below</h3>
+	<div
+		class="messageWell max-h-[50vh] min-h-[30vh] overflow-auto p-4 bg-white rounded-t-lg text-2xl pt-8"
+		id="messages-well"
+	>
+		<h1 class="text-2xl mt-4" style="text-align: center;">Need Answers?</h1>
+		<h3 class="text-2xl" style="text-align: center; margin-top: -1em; margin-bottom: 4rem;">
+			Choose from our options below
+		</h3>
 
 		{#each messages as message, i (i)}
 			{#key message.id}
@@ -1805,7 +1810,7 @@
 											}}
 											class="flex items-center rounded-md py-2 px-3 text-center bg-blue-500"
 										>
-											<ThumbsUp style="fill: whitesmoke;" />
+											<ThumbsUp style="color:white;" />
 										</button>
 										<button
 											on:click={async () => {
@@ -1822,7 +1827,7 @@
 											}}
 											class="flex items-center rounded-md py-2 px-3 text-center bg-blue-500 text-white"
 										>
-											<ThumbsDown style="fill: whitesmoke;" />
+											<ThumbsDown />
 										</button>
 									</div>
 								</div>
@@ -1905,7 +1910,7 @@
 		-webkit-transition: all 0.25s ease-in;
 		-o-transition: all 0.25s ease-in;
 		transition: all 0.25s ease-in;
-		margin: 1em;
+		margin: 1em 0;
 		border-radius: 0 16px 16px 0;
 		position: relative;
 		background-color: var(--menu-background-gray);
@@ -1933,15 +1938,15 @@
 
 	.detailsGetSupport {
 		border-radius: 16px;
-		background-color: white;
+		/* background-color: white;
 		background-image: radial-gradient(
 				75.83% 78.18% at 51.72% 100%,
 				rgba(56, 96, 190, 0.03) 0%,
 				rgba(100, 187, 227, 0.03) 65.24%,
 				rgba(223, 223, 223, 0) 100%
 			),
-			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0) 0deg, rgba(56, 96, 190, 0.02) 360deg);
-		margin-left: 10px;
+			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0) 0deg, rgba(56, 96, 190, 0.02) 360deg); */
+		/* margin-left: 10px; */
 		transition: all 0.3s ease-in-out;
 		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 4px 8px rgba(0, 0, 0, 0.07),
 			0 8px 16px rgba(0, 0, 0, 0.07), 0 16px 32px rgba(0, 0, 0, 0.07), 0 32px 64px rgba(0, 0, 0, 0.07);

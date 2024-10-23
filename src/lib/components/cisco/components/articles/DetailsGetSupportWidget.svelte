@@ -469,8 +469,10 @@
 			</h3></summary
 		>
 		<div class="messageWell s-5e5kg2sOboz_" style="height: auto;">
-			<h1 style="text-align:center;">Need Answers?</h1>
-			<h3 style="text-align:center;margin-top:-1em;margin-bottom:4em;">choose from our options below</h3>
+			<h1 class="text-2xl" style="text-align:center;">Need Answers?</h1>
+			<h3 class="text-2xl" style="text-align:center;margin-top:-1em;margin-bottom:4em;">
+				choose from our options below
+			</h3>
 			{#each messages as message, index (index)}
 				{#if message && message.role === 'user' && index !== 1}
 					<div class="question user">
@@ -839,14 +841,14 @@
 	}
 	.detailsGetSupport {
 		border-radius: 16px;
-		background-color: white;
+		/* background-color: white;
 		background-image: radial-gradient(
 				75.83% 78.18% at 51.72% 100%,
 				rgba(56, 96, 190, 0.03) 0%,
 				rgba(100, 187, 227, 0.03) 65.24%,
 				rgba(223, 223, 223, 0) 100%
 			),
-			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0) 0deg, rgba(56, 96, 190, 0.02) 360deg);
+			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0) 0deg, rgba(56, 96, 190, 0.02) 360deg); */
 		margin-left: 40px;
 		transition: all 0.3s ease-in-out;
 	}

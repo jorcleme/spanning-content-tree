@@ -176,6 +176,8 @@
 		border-radius: 5px;
 		box-shadow: 0 0 16px 0 rgba(43, 85, 146, 0.2);
 		border-left: #64bbe3 5px solid;
+		max-width: 1100px;
+		text-wrap: pretty;
 	}
 	.cdt-note p {
 		margin: auto 0;
@@ -198,7 +200,7 @@
 		list-style-type: none;
 	}
 
-	:global(ul li::before) {
+	/* :global(ul li::before) {
 		content: '\25cf';
 		color: #64bbe3;
 		font-weight: 900;
@@ -206,7 +208,7 @@
 		display: inline-block;
 		width: 1em;
 		text-align: left;
-	}
+	} */
 
 	.stepContainer img {
 		max-width: calc(100% - 80px);
@@ -223,8 +225,9 @@
 		color: #0d274d;
 		border-radius: 12px;
 		padding: 1.3em;
-		margin: 1.5em 40px;
+		margin: 1.5em 0;
 		box-shadow: 0 0 16px 0 rgba(43, 85, 146, 0.2);
+		max-width: 1100px;
 	}
 
 	:global(#eot-doc-wrapper .kbd-cdt p) {
