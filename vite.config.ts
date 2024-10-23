@@ -23,6 +23,11 @@ const fallbackVersion = packageJson.version;
 // };
 
 export default defineConfig({
+	  server: {
+    fs: {
+      allow: ['.'], // Allows serving files from project root
+    },
+  },
 	plugins: [sveltekit()],
 	define: {
 		APP_VERSION: JSON.stringify(process.env.npm_package_version) || JSON.stringify(fallbackVersion),
