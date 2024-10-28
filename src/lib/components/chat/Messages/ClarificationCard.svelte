@@ -1,4 +1,3 @@
-<!-- ClarificationCard.svelte -->
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -24,9 +23,7 @@
 	// let notOptions; // Initialize notOptions as an empty array
 
 	function convertOptionsToString(options: string[]): string {
-		return options.length > 0
-			? JSON.stringify(options.filter((option) => typeof option === 'string'))
-			: '[]';
+		return options.length > 0 ? JSON.stringify(options.filter((option) => typeof option === 'string')) : '[]';
 	}
 
 	async function handleSubmit() {
@@ -71,24 +68,13 @@
 </script>
 
 {#if question && visible}
-	<div
-		class="clarification-card w-full md:max-w-[850px]"
-		transition:slide={{ duration: 300, easing: cubicOut }}
-	>
+	<div class="clarification-card w-full md:max-w-[850px]" transition:slide={{ duration: 300, easing: cubicOut }}>
 		<p>{@html question}</p>
 		<div class="tabs mt-4">
-			<button
-				id="tab"
-				class:active={selectedTab === 'options'}
-				on:click={() => (selectedTab = 'options')}
-			>
+			<button id="tab" class:active={selectedTab === 'options'} on:click={() => (selectedTab = 'options')}>
 				Options
 			</button>
-			<button
-				id="tab"
-				class:active={selectedTab === 'notOptions'}
-				on:click={() => (selectedTab = 'notOptions')}
-			>
+			<button id="tab" class:active={selectedTab === 'notOptions'} on:click={() => (selectedTab = 'notOptions')}>
 				Not Options
 			</button>
 		</div>
@@ -106,10 +92,7 @@
 								if (index < 0) {
 									selectedOptions = [...selectedOptions, option.label];
 								} else {
-									selectedOptions = [
-										...selectedOptions.slice(0, index),
-										...selectedOptions.slice(index + 1)
-									];
+									selectedOptions = [...selectedOptions.slice(0, index), ...selectedOptions.slice(index + 1)];
 								}
 								onSelect(selectedOptions);
 							}

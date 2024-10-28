@@ -14,6 +14,11 @@
 	import { getArticlesBySeriesId } from '$lib/apis/articles';
 	import Card from '$lib/components/cisco/components/common/Card.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Modal from '$lib/components/common/Modal.svelte';
+	import { flip } from 'svelte/animate';
+	import { cubicInOut } from 'svelte/easing';
+	import { InfoIcon } from 'lucide-svelte';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
 	const dispatch = createEventDispatcher();
@@ -29,6 +34,7 @@
 	let articles: Article[] = [];
 	let filteredArticles: Article[] = [];
 	let loading = false;
+	let showInfo = false;
 
 	onMount(async () => {
 		// Fetch articles from the database
@@ -49,13 +55,22 @@
 		}
 	});
 
-	function handleSearch() {
-		filteredArticles = articles.filter((article) => article.title.toLowerCase().includes(searchQuery.toLowerCase()));
-	}
+	const onHandleWheel = (event: WheelEvent & { currentTarget: EventTarget & HTMLDivElement }) => {
+		if (event.deltaY !== 0) {
+			// If scrolling vertically, prevent default behavior
+			event.preventDefault();
+			// Adjust horizontal scroll position based on vertical scroll
+			event.currentTarget.scrollLeft += event.currentTarget.scrollWidth * (event.deltaY / 1000);
+		}
+	};
 
-	function handleGenerateNewArticle() {
+	const handleSearch = () => {
+		filteredArticles = articles.filter((article) => article.title.toLowerCase().includes(searchQuery.toLowerCase()));
+	};
+
+	const handleGenerateNewArticle = () => {
 		dispatch('generate');
-	}
+	};
 </script>
 
 {#key message.id}
@@ -91,7 +106,7 @@
 				<div>
 					<div class="w-full">
 						<div class="flex flex-col">
-							<div class="flex flex-col">
+							<div class="flex flex-col gap-4">
 								<h2 class="my-2 text-center">
 									{$i18n.t('Current Articles for {{seriesName}}', { seriesName })}
 								</h2>
@@ -102,30 +117,46 @@
 									bind:value={searchQuery}
 									on:input={handleSearch}
 								/>
-								<div class="flex m-4">
+								<div class="flex">
 									{#if loading}
 										<Spinner />
 									{:else}
-										{#key filteredArticles}
-											<div
-												class="w-full mt-4 snap-x snap-mandatory overflow-x-scroll scroll-ml-2 scroll-smooth grid grid-flow-col gap-2 overscroll-x-contain h-max pb-2.5"
-											>
-												{#each filteredArticles as article (article.id)}
-													<div class="snap-center">
-														<Card id={article.id} title={article.title} category={article.category} />
-													</div>
-												{/each}
-											</div>
-										{/key}
+										<div
+											on:wheel={onHandleWheel}
+											id="articles-container"
+											class="w-full mt-4 snap-x snap-mandatory overflow-x-scroll scroll-ml-2 scroll-smooth grid grid-flow-col gap-2 overscroll-x-contain h-max pb-2.5"
+										>
+											{#each filteredArticles as article, i (article.id)}
+												<div class="snap-center" animate:flip={{ delay: i * 200, easing: cubicInOut, duration: 800 }}>
+													<Card id={article.id} title={article.title} category={article.category} url={article.url} />
+												</div>
+											{/each}
+										</div>
 									{/if}
 								</div>
-								<small
+								<small class="mt-2"
 									>Not seeing the article you're looking for? Our writers are publishing new content all the time. In
 									the meantime, we can use AI to generate one for you.</small
 								>
-								<button class="btn self-center px-4 py-2 bg-[#1990fa] text-white" on:click={handleGenerateNewArticle}
-									>Generate New Article</button
-								>
+								<div class="grid grid-cols-4">
+									<button
+										class="btn col-start-2 col-span-2 self-center px-4 py-2 bg-[#1990fa] text-white"
+										on:click={handleGenerateNewArticle}>Generate New Article</button
+									>
+									<div class="col-start-4 col-span-1 justify-self-end mb-2 flex space-x-1 mr-1">
+										<Tooltip content={$i18n.t('Info')}>
+											<button
+												class="text-gray-600 dark:text-gray-300 bg-gray-300/20 size-5 flex items-center justify-center text-[0.7rem] rounded-full"
+												type="button"
+												on:click={() => {
+													showInfo = !showInfo;
+												}}
+											>
+												<InfoIcon class="w-5 h-5 translate-y-[0.5px]" />
+											</button>
+										</Tooltip>
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -159,3 +190,37 @@
 		</div>
 	</div>
 {/key}
+
+<Modal bind:show={showInfo}>
+	<div class="p-4">
+		<div class="flex justify-between dark:text-gray-300 px-5 pb-4">
+			<div class="text-lg font-medium self-center">{$i18n.t('Generated Articles')}</div>
+			<button
+				class="self-center"
+				on:click={() => {
+					showInfo = false;
+				}}
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+					<path
+						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+					/>
+				</svg>
+			</button>
+		</div>
+		<div class="flex flex-col space-y-3">
+			<div class="flex">
+				<span class="font-bold mr-2">1.</span>
+				<p>Generated articles are created by AI using Cisco Documentation. It can stil make mistakes.</p>
+			</div>
+			<div class="flex">
+				<span class="font-bold mr-2">2.</span>
+				<p>Articles must be reviewed by a Cisco team member prior to publishing.</p>
+			</div>
+			<div class="flex">
+				<span class="font-bold mr-2">3.</span>
+				<p>We can notify you once the article becomes publicly available.</p>
+			</div>
+		</div>
+	</div>
+</Modal>

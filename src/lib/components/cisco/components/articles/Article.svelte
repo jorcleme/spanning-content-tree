@@ -12,10 +12,7 @@
 		activeSupportStep,
 		mostRecentStep,
 		mountedArticleSteps,
-		mountedArticlePreambleObjective,
-		mountedArticlePreambleDevices,
 		ExpGradeSelected,
-		activeArticleId,
 		activeArticle,
 		hideSupportWidgetBtn
 	} from '$lib/stores';
@@ -30,9 +27,6 @@
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import Controls from '$lib/components/chat/Controls/Controls.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import ChatControls from '$lib/components/chat/ChatControls.svelte';
-	import lightlyGuidedImage from '$lib/assets/assing-port-to-vlan-dall-e-2.png';
-	import fullyGuidedImage from '$lib/assets/assing-port-to-vlan-dall-e.png';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
 
@@ -55,7 +49,6 @@
 	$: selectedModelIds = atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
 	$: console.log('selectedModels', selectedModels);
 	$: getSupportDivs = [] as HTMLDivElement[];
-	$: backgroundImage = $ExpGradeSelected === 'Fully Guided' ? fullyGuidedImage : lightlyGuidedImage;
 	$: activeStep = -1;
 
 	const handleIntersection = (entries: IntersectionObserverEntry[]) => {
@@ -307,7 +300,7 @@
 						<span>14 Min.</span>
 					</div>
 				</div>
-				{#if expanded && hasRelatedVideo}
+				<!-- {#if expanded && hasRelatedVideo}
 					<div class="vid-card-container" in:slide>
 						<div
 							class="video-card"
@@ -329,8 +322,8 @@
 							</div>
 						</div>
 					</div>
-					<!-- <GetSupportDetailsFooter index={$mostRecentStep} /> -->
-				{/if}
+					<GetSupportDetailsFooter index={$mostRecentStep} /> 
+				{/if} -->
 				{#each $activeArticle.steps as step, index}
 					<div class="stepContainer" bind:this={stepElements[index]}>
 						{#if step.step_number === 1}
@@ -441,7 +434,7 @@
 		font-family: 'CiscoSansTT';
 		margin: 2em 0;
 		font-weight: 700;
-		color: #58585b;
+		color: #414344;
 		line-height: 1.25em;
 	}
 
@@ -451,6 +444,24 @@
 		/* color: #2b5592; */
 		font-weight: 800;
 		font-size: 1.5rem;
+	}
+
+	:global(#eot-doc-wrapper ul > li::before) {
+		content: '●';
+		color: #9b9b9b;
+		font-weight: 100;
+		font-size: 1em;
+		display: inline-block;
+		width: 0.25em;
+		height: 0.25em;
+		text-align: left;
+		padding-right: 1.5rem;
+	}
+
+	:global(#eot-doc-wrapper ul > li > a) {
+		color: #0051af;
+		line-height: 1.5rem;
+		margin: 6px 0;
 	}
 
 	.container-est-completion {

@@ -5,11 +5,11 @@ const APP_VERSION = import.meta.env.APP_VERSION;
 const APP_BUILD_HASH = import.meta.env.APP_BUILD_HASH;
 const BUILD_HASH = import.meta.env.BUILD_HASH;
 
-console.log(`APP_VERSION: ${APP_VERSION}`);
-console.log(`APP_BUILD_HASH: ${APP_BUILD_HASH}`);
-console.log(`BUILD_HASH: ${BUILD_HASH}`);
+console.log(`${APP_VERSION}`);
+console.log(`${APP_BUILD_HASH}`);
+console.log(`${BUILD_HASH}`);
 
-export const APP_NAME = 'Open WebUI';
+export const APP_NAME = 'Spanning Content Tree';
 
 export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:8080` : ``) : '';
 export const WEBUI_BASE_URL = browser ? (dev ? `http://${WEBUI_HOSTNAME}` : ``) : ``;
@@ -21,7 +21,7 @@ export const AUDIO_API_BASE_URL = `${WEBUI_BASE_URL}/audio/api/v1`;
 export const IMAGES_API_BASE_URL = `${WEBUI_BASE_URL}/images/api/v1`;
 export const RAG_API_BASE_URL = `${WEBUI_BASE_URL}/rag/api/v1`;
 
-export const WEBUI_VERSION = APP_VERSION;
+export const WEBUI_VERSION = APP_VERSION ?? version;
 export const WEBUI_BUILD_HASH = APP_BUILD_HASH;
 export const REQUIRED_OLLAMA_VERSION = '0.1.16';
 

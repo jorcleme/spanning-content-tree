@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import {
 		getCommunitySharingEnabledStatus,
 		getWebhookUrl,
@@ -17,22 +19,23 @@
 	} from '$lib/apis/auths';
 	import Switch from '$lib/components/common/Switch.svelte';
 	import { onMount, getContext } from 'svelte';
+	import { toast } from 'svelte-sonner';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let saveHandler: Function;
 
-	let adminConfig = null;
+	let adminConfig: { [key: string]: any } | null = null;
 	let webhookUrl = '';
 
 	const updateHandler = async () => {
 		webhookUrl = await updateWebhookUrl(localStorage.token, webhookUrl);
-		const res = await updateAdminConfig(localStorage.token, adminConfig);
+		const res = await updateAdminConfig(localStorage.token, adminConfig as { [key: string]: any });
 
 		if (res) {
-			toast.success(i18n.t('Settings updated successfully'));
+			toast.success($i18n.t('Settings updated successfully'));
 		} else {
-			toast.error(i18n.t('Failed to update settings'));
+			toast.error($i18n.t('Failed to update settings'));
 		}
 	};
 
@@ -143,10 +146,7 @@
 	</div>
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

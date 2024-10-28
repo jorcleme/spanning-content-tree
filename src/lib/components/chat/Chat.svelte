@@ -46,6 +46,7 @@
 		updateChatById
 	} from '$lib/apis/chats';
 	import { generateOpenAIChatCompletion } from '$lib/apis/openai';
+	import { createNewArticle } from '$lib/apis/articles';
 	import { runWebSearch } from '$lib/apis/rag';
 	import { createOpenAITextStream } from '$lib/apis/streaming';
 	import { queryMemory } from '$lib/apis/memories';
@@ -1476,7 +1477,14 @@
 
 			// Wait until history/message have been updated
 			await tick();
-			_responses = await sendPrompt(userPrompt, userMessageId, { newChat: true });
+
+			if (isGeneratingNewArticle) {
+				_responses = await sendPrompt(userPrompt, userMessageId, { newChat: true });
+				isGeneratingNewArticle = false;
+			} else {
+				_responses = await sendPrompt(userPrompt, userMessageId, { newChat: true });
+			}
+			// _responses = await sendPrompt(userPrompt, userMessageId, { newChat: true });
 		}
 
 		return _responses;
@@ -1529,7 +1537,7 @@
 		await tick();
 
 		// Create new chat if only one message in messages
-		if (newChat && messages.length == 2) {
+		if ((newChat && messages.length == 2) || (newChat && isGeneratingNewArticle)) {
 			if ($settings.saveChatHistory ?? true) {
 				chat = await createNewChat(localStorage.token, {
 					id: $chatId,
@@ -1936,7 +1944,7 @@
 			files.push(...model.info?.meta.knowledge);
 		}
 		if (responseMessage?.files) {
-			files.push(...responseMessage?.files.filter((item) => ['web_search_results'].includes(item.type as string)));
+			files.push(...responseMessage?.files.filter((item) => item.type && ['web_search_results'].includes(item.type)));
 		}
 
 		scrollToBottom();
@@ -2375,11 +2383,7 @@
 		}
 	};
 
-	let slides = [];
-
 	const openConfigAssistant = async () => {
-		showConfigAssistant = true;
-
 		let _responses: string[] = [];
 		console.log('openConfig -> chatId', $chatId);
 		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
@@ -2409,6 +2413,7 @@
 			if (chatTextAreaElement) {
 				chatTextAreaElement.value = '';
 				chatTextAreaElement.style.height = '';
+				chatTextAreaElement.disabled = true;
 			}
 
 			const _files: ClientFile[] = JSON.parse(JSON.stringify(files));
@@ -2446,37 +2451,18 @@
 
 			// Append messageId to childrenIds of parent message
 			if (messages.length !== 0 && messages.at(-1)) {
-				history.messages[messages.at(-1)!.id].childrenIds!.push(assistantId);
+				(history.messages[messages.at(-1)!.id].childrenIds ?? []).push(assistantId);
 			}
 
 			// Wait until history/message have been updated
 			await tick();
 			// _responses = await sendPrompt(userPrompt, userMessageId, { newChat: true });
 		}
-		// if (messages.length == 2) {
-		// 	if ($settings.saveChatHistory ?? true) {
-		// 		chat = await createNewChat(localStorage.token, {
-		// 			id: $chatId,
-		// 			title: $i18n.t('New Chat'),
-		// 			models: selectedModels,
-		// 			system: $settings.system ?? undefined,
-		// 			params: params,
-		// 			messages: messages,
-		// 			history: history,
-		// 			tags: [],
-		// 			timestamp: Date.now()
-		// 		});
-		// 		chats.set(await getChatList(localStorage.token));
-		// 		if (chat) chatId.set(chat.id);
-		// 	} else {
-		// 		chatId.set('local');
-		// 	}
-		// 	await tick();
-		// }
+
+		await scrollToBottom();
 		return _responses;
 	};
 
-	let showConfigAssistant = false;
 	let seriesId = '';
 	let seriesName = '';
 
@@ -2489,8 +2475,6 @@
 		seriesId = device;
 		seriesName = name;
 		variablesStore.update((vars) => ({ ...vars, device: name }));
-
-		showConfigAssistant = true;
 
 		console.log('openConfig -> chatId', $chatId);
 		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
@@ -2564,40 +2548,117 @@
 			// Wait until history/message have been updated
 			await tick();
 		}
+		await scrollToBottom();
 		return _responses;
 	}
 
-	function generateNewArticle() {
-		// Move to the generate new article slide
-		currentSlide.set(2);
+	let isGeneratingNewArticle: boolean = false;
+
+	async function generateNewArticle() {
+		// Move to the next slide
+		let _responses: string[] = [];
+
+		console.log('openConfig -> chatId', $chatId);
+		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
+
+		if (selectedModels.includes('')) {
+			toast.error($i18n.t('Model not selected'));
+		} else if (messages.length != 0 && messages.at(-1)?.done != true) {
+			// Response not done
+			console.log('wait');
+		} else if (messages.length != 0 && messages.at(-1)?.error) {
+			// Error in response
+			toast.error($i18n.t(`Oops! There was an error in the previous response. Please try again or contact admin.`));
+		} else if (
+			files.length > 0 &&
+			files.filter((file) => file.type !== 'image' && file.status !== 'processed').length > 0
+		) {
+			// Upload not done
+			toast.error(
+				$i18n.t(
+					`Oops! Hold tight! Your files are still in the processing oven. We're cooking them up to perfection. Please be patient and we'll let you know once they're ready.`
+				)
+			);
+		} else {
+			// Reset chat input textarea
+			const chatTextAreaElement = document.getElementById('chat-textarea') as unknown as HTMLTextAreaElement;
+
+			if (chatTextAreaElement) {
+				chatTextAreaElement.disabled = false;
+				chatTextAreaElement.value = '';
+				chatTextAreaElement.style.height = '';
+			}
+
+			const _files: ClientFile[] = JSON.parse(JSON.stringify(files));
+			console.log('[submitPrompt:Chat.svelte] -> _files: ', _files);
+			chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type as string)));
+			chatFiles = chatFiles.filter(
+				// Remove duplicates
+				(item, index, array) => array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
+			);
+
+			// Reset files
+			files = [];
+			// Reset prompt
+			prompt = '';
+
+			let assistantId = uuidv4();
+			let assistantMessage = {
+				id: assistantId,
+				parentId: messages.length !== 0 ? messages.at(-1)!.id : null,
+				childrenIds: [],
+				role: 'assistant',
+				content: 'Given the device you selected, describe what you would like the article to be about.',
+				files: _files.length > 0 ? _files : undefined,
+				timestamp: Math.floor(Date.now() / 1000), // Unix epoch in seconds
+				models: selectedModels.filter((m, mIdx) => selectedModels.indexOf(m) === mIdx),
+				model: $models.filter((m) => m.id === selectedModels.at(0)).at(0)?.id,
+				done: true
+			};
+
+			// Add message to history and Set currentId to messageId
+			history.messages[assistantId] = assistantMessage;
+			history.currentId = assistantId;
+
+			// Append messageId to childrenIds of parent message
+			if (messages.length !== 0 && messages.at(-1)) {
+				(history.messages[messages.at(-1)!.id].childrenIds ?? []).push(assistantId);
+			}
+			messages.push(assistantMessage);
+			messages = messages;
+
+			// Wait until history/message have been updated
+			await tick();
+			isGeneratingNewArticle = true;
+			// if (messages.length == 2) {
+			// 	if ($settings.saveChatHistory ?? true) {
+			// 		chat = await createNewChat(localStorage.token, {
+			// 			id: $chatId,
+			// 			title: $i18n.t('New Chat'),
+			// 			models: selectedModels,
+			// 			system: $settings.system ?? undefined,
+			// 			params: params,
+			// 			messages: messages,
+			// 			history: history,
+			// 			tags: [],
+			// 			timestamp: Date.now()
+			// 		});
+			// 		chats.set(await getChatList(localStorage.token));
+			// 		if (chat) chatId.set(chat.id);
+			// 	} else {
+			// 		chatId.set('local');
+			// 	}
+			// 	await tick();
+			// }
+		}
+		await scrollToBottom();
+		return _responses;
 	}
 
 	function handleArticleSubmit(event: CustomEvent<{ input: string }>) {
 		// Handle article submission
 		console.log('Article submitted:', event.detail.input);
 	}
-
-	interface Device {
-		[key: string]: string;
-	}
-	const devices: Device[] = [
-		{ label: 'Catalyst 1200', value: 'Cisco Catalyst 1200 Series Switches', category: 'Switches' },
-		{ label: 'Catalyst 1300', value: 'Cisco Catalyst 1300 Series Switches', category: 'Switches' },
-		{ label: 'CBS110 Series', value: 'Cisco Business 110 Series Unmanaged Switches', category: 'Switches' },
-		{ label: 'CBS220 Series', value: 'Cisco Business 220 Series Smart Switches', category: 'Switches' },
-		{ label: 'CBS250 Series', value: 'Cisco Business 250 Series Smart Switches', category: 'Switches' },
-		{ label: 'CBS350 Series', value: 'Cisco Business 350 Series Managed Switches', category: 'Switches' },
-		{ label: '350 Series', value: 'Cisco 350 Series Managed Switches', category: 'Switches' },
-		{ label: '350X Series', value: 'Cisco 350X Series Stackable Managed Switches', category: 'Switches' },
-		{ label: '550X Series', value: 'Cisco 550X Series Stackable Managed Switches', category: 'Switches' },
-		{ label: 'RV100 Series', value: 'RV100 Product Family', category: 'Routers' },
-		{ label: 'RV320 Series', value: 'RV320 Product Family', category: 'Routers' },
-		{ label: 'RV340 Series', value: 'RV340 Product Family', category: 'Routers' },
-		{ label: 'RV160 VPN Series', value: 'RV160 VPN Router', category: 'Routers' },
-		{ label: 'RV260 VPN Series', value: 'RV260 VPN Router', category: 'Routers' },
-		{ label: 'CBW-AC', value: 'Cisco Business Wireless AC', category: 'Wireless' },
-		{ label: 'CBW-AX', value: 'Cisco Business Wireless AX', category: 'Wireless' }
-	];
 
 	$: reducedModels = selectedModelIds.reduce<Model[]>((a, e) => {
 		const model = $models.find((m) => m.id === e);

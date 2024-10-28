@@ -1,17 +1,20 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { Tool } from '$lib/types';
 	import Checkbox from '$lib/components/common/Checkbox.svelte';
 	import { getContext, onMount } from 'svelte';
 
-	export let tools = [];
+	type ToolByIdWithSelected = { [key: string]: Tool & { selected: boolean } };
+	const i18n: Writable<i18nType> = getContext('i18n');
 
-	let _tools = {};
+	export let tools: Tool[] = [];
+	export let selectedToolIds: string[] = [];
 
-	export let selectedToolIds = [];
-
-	const i18n = getContext('i18n');
+	let _tools: { [key: string]: Tool & { selected: boolean } } = {};
 
 	onMount(() => {
-		_tools = tools.reduce((acc, tool) => {
+		_tools = tools.reduce<ToolByIdWithSelected>((acc, tool) => {
 			acc[tool.id] = {
 				...tool,
 				selected: selectedToolIds.includes(tool.id)

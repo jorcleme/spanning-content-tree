@@ -71,7 +71,7 @@ from langchain.retrievers import (
     ContextualCompressionRetriever,
     EnsembleRetriever,
 )
-from sentence_transformers import SentenceTransformer, CrossEncoder
+from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -471,33 +471,32 @@ def init_parent_document_retriever(collection_name: str, vectordb: Chroma):
 
 
 def decompose_question(question: str, retriever: BaseRetriever) -> List[Document]:
-    # examples = create_decomposition_search_examples()
-    # example_messages = [
-    #     msg for ex in examples for msg in tool_example_to_messages_helper(ex)
-    # ]
-    # system = """
-    #     You are an expert at converting user question into database queries. You have access to a database of documents that contain information about configuring a Cisco Switch, Cisco Router, or Cisco Wireless Access Point.
+    examples = create_decomposition_search_examples()
+    example_messages = [
+        msg for ex in examples for msg in tool_example_to_messages_helper(ex)
+    ]
+    system = """
+        You are an expert at converting user question into database queries. You have access to a database of documents that contain information about configuring a Cisco Switch, Cisco Router, or Cisco Wireless Access Point.
 
-    #     Perform query decomposition. Given a user question, break it down into subtopics which will help answer questions related to the main topic.
-    #     Each subtopic should be about a single concept/fact/idea. The subtopic should be other configurations, commands, or settings that are related to the main topic.
+        Perform query decomposition. Given a user question, break it down into subtopics which will help answer questions related to the main topic.
+        Each subtopic should be about a single concept/fact/idea. The subtopic should be other configurations, commands, or settings that are related to the main topic.
 
-    #     If there are acronyms or words you are not familiar with, do not try to rephrase them."""
-    # prompt = ChatPromptTemplate.from_messages(
-    #     [
-    #         ("system", system),
-    #         MessagesPlaceholder("examples"),
-    #         ("human", "{question}"),
-    #     ]
-    # )
-    # query_analyzer = (
-    #     {"question": RunnablePassthrough()}
-    #     | prompt.partial(examples=example_messages)
-    #     | get_llm().with_structured_output(Search)
-    # )
-    # answer = query_analyzer.invoke(question)
-    # expanded_questions = [query for query in answer.subtopics]
-    expanded_questions = [question]
-    # expanded_questions.append(question)  # Add the original question
+        If there are acronyms or words you are not familiar with, do not try to rephrase them."""
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system),
+            MessagesPlaceholder("examples"),
+            ("human", "{question}"),
+        ]
+    )
+    query_analyzer = (
+        {"question": RunnablePassthrough()}
+        | prompt.partial(examples=example_messages)
+        | get_llm().with_structured_output(Search)
+    )
+    answer = query_analyzer.invoke(question)
+    expanded_questions = [query for query in answer.subtopics]
+    expanded_questions.append(question)  # Add the original question
     print(f"Queries: {expanded_questions}")
     documents = []
     for query in expanded_questions:
@@ -755,7 +754,7 @@ def retrieve(state: GraphState) -> GraphState:
         )
 
     documents = decompose_question(question, retriever)
-    article_collection_name = CollectionFactory.get_article_collection(
+    article_collection_name = CollectionFactory.get_admin_guide_collection(
         "Cisco Catalyst 1200 Series Switches"
     )
     retrieved_documents = query_doc_with_hybrid_search(
@@ -816,10 +815,10 @@ def generate_article_with_context(state: GraphState):
         Dict: New key added to state, `article`, that contains the generated article.
     """
     print("------GENERATE WITH CONTEXT------")
-    state_dict = state["keys"]
+    state_dict = state.get("keys")
     documents = state_dict.get("documents", [])
-    question = state_dict["question"]
-    datasource = state_dict["datasource"]
+    question = state_dict.get("question")
+    datasource = state_dict.get("datasource")
     template = select_prompt_template(datasource)
 
     tools = [CreatedArticle]
@@ -845,51 +844,6 @@ def generate_article_with_example(state: GraphState):
     question = state_dict.get("question")
     article = state_dict.get("article")[0].model_dump()
     documents = state_dict.get("documents", [])
-    # example_articles = db_aggregate(
-    #     "articles",
-    #     [
-    #         {
-    #             "$search": {
-    #                 "index": "articles_search_index",
-    #                 "text": {
-    #                     "query": f"{question}",
-    #                     "path": {"wildcard": "*"},
-    #                 },
-    #             }
-    #         },
-    #         {
-    #             "$project": {
-    #                 "_id": 0,
-    #                 "title": 1,
-    #                 "objective": 1,
-    #                 "intro": 1,
-    #                 "steps": 1,
-    #                 "score": {"$meta": "searchScore"},
-    #             }
-    #         },
-    #         {"$limit": 1},
-    #     ],
-    # )
-    # results = []
-    # for a in example_articles:
-    #     steps = list(
-    #         map(
-    #             lambda step: remove_props_from_dict(
-    #                 step,
-    #                 "emphasized_tags",
-    #                 "emphasized_text",
-    #                 "src",
-    #                 "alt",
-    #                 "video_src",
-    #             ),
-    #             a["steps"],
-    #         )
-    #     )
-    #     steps = list(
-    #         map(lambda step: {"step_number": step.pop("step_num"), **step}, steps)
-    #     )
-    #     a["steps"] = steps
-    #     results.append(a)
     videos_pipeline = [
         {
             "$search": {
@@ -1066,6 +1020,22 @@ def refine_article_steps(state: GraphState):
     refined_article = chain.invoke({"article": article})
     state["keys"].update({"article": refined_article})
     return state
+
+
+def renumber_article_steps(state: GraphState):
+    """
+    Renumber the steps in the article. If the section value changes from the previous values, the step number should reset to 1.
+
+    Args:
+        state (GraphState): The current state of the agent.
+
+    Returns:
+        state: The final state of the agent.
+    """
+    article = state.get("keys").get("article")[0].model_dump()
+    steps = article.get("steps")
+
+    template = """"""
 
 
 def convert_markdown_to_html(text: str) -> str:
@@ -1308,40 +1278,80 @@ workflow.add_edge("build_html_for_cli_guide_sources", END)
 
 ARTICLE_GRAPH = workflow.compile()
 
-question = "Configure PVST, PVST Vlan Settings, and PVST Vlan Interface on Catalyst 1200 Switches"
+# question = "Configure PVST, PVST Vlan Settings, and PVST Vlan Interface on Catalyst 1200 Switches"
 
-inputs: dict[str, GraphState] = {"keys": {"question": question}}
-
-article = None
-html = None
+# inputs: dict[str, GraphState] = {"keys": {"question": question}}
 
 
-for output in ARTICLE_GRAPH.stream(inputs, stream_mode="updates"):
-    for key, value in output.items():
-        pprint(f"Output from node: {key}")
-        pprint("--------------------")
-        pprint(f"Value: {value}")
-        print("\n")
-        print("\n")
-        if "article" in value["keys"]:
-            if isinstance(value["keys"]["article"], list):
-                article = value["keys"]["article"][0].dict()
+def build_article(question: str, device: str):
+    query = f"My device is {device}. I want to {question}"
+    inputs: dict[str, GraphState] = {"keys": {"question": question}}
+    article = None
+    html = None
 
-            elif isinstance(value["keys"]["article"], dict):
-                article = value["keys"]["article"]
-        if "html" in value["keys"]:
-            html = value["keys"]["html"]
-    pprint("\n ------------------- \n")
-if article:
-    with open(
-        f"{BASE_DIR}/backend/data/cisco/{'_'.join(article['title'].lower().split())}.json",
-        "w",
-    ) as f:
-        json.dump(article, f, indent=2)
+    # state = ARTICLE_GRAPH.invoke(inputs)
 
-if html:
-    with open(
-        f"{BASE_DIR}/backend/data/cisco/html/{'_'.join(article['title'].lower().split())}.html",
-        "w",
-    ) as f:
-        f.write(html)
+    for output in ARTICLE_GRAPH.stream(inputs):
+        for key, value in output.items():
+            if "article" in value["keys"]:
+                if isinstance(value["keys"]["article"], list):
+                    article = value["keys"]["article"][0].dict()
+                elif isinstance(value["keys"]["article"], BaseModel):
+                    article = value["keys"]["article"].dict()
+                else:
+                    article = value["keys"]["article"]
+            if "html" in value["keys"]:
+                html = value["keys"]["html"]
+    save(article, html)
+    return article
+
+
+# article = None
+# html = None
+
+
+def save(article, html):
+    if article:
+        with open(
+            f"{BASE_DIR}/backend/data/cisco/{'_'.join(article['title'].lower().split())}.json",
+            "w",
+        ) as f:
+            json.dump(article, f, indent=2)
+
+    if html:
+        with open(
+            f"{BASE_DIR}/backend/data/cisco/html/{'_'.join(article['title'].lower().split())}.html",
+            "w",
+        ) as f:
+            f.write(html)
+
+
+# for output in ARTICLE_GRAPH.stream(inputs, stream_mode="updates"):
+#     for key, value in output.items():
+#         pprint(f"Output from node: {key}")
+#         pprint("--------------------")
+#         pprint(f"Value: {value}")
+#         print("\n")
+#         print("\n")
+#         if "article" in value["keys"]:
+#             if isinstance(value["keys"]["article"], list):
+#                 article = value["keys"]["article"][0].dict()
+
+#             elif isinstance(value["keys"]["article"], dict):
+#                 article = value["keys"]["article"]
+#         if "html" in value["keys"]:
+#             html = value["keys"]["html"]
+#     pprint("\n ------------------- \n")
+# if article:
+#     with open(
+#         f"{BASE_DIR}/backend/data/cisco/{'_'.join(article['title'].lower().split())}.json",
+#         "w",
+#     ) as f:
+#         json.dump(article, f, indent=2)
+
+# if html:
+#     with open(
+#         f"{BASE_DIR}/backend/data/cisco/html/{'_'.join(article['title'].lower().split())}.html",
+#         "w",
+#     ) as f:
+#         f.write(html)

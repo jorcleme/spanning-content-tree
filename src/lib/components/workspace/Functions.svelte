@@ -148,9 +148,9 @@
 			for (const func of _functions) {
 				const data = {
 					id: func.id,
-					name: func.name ?? func.function?.name,
-					meta: func.meta ?? func.function?.meta,
-					content: func.content ?? func.function?.content
+					name: func?.function?.name ?? func.name,
+					meta: func?.function?.meta ?? func.meta,
+					content: func?.function?.content ?? func.content
 				};
 				await createNewFunction(localStorage.token, data).catch((error) => {
 					toast.error(error);

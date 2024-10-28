@@ -85,7 +85,6 @@ WEBUI_URL = os.environ.get("WEBUI_URL", "http://localhost:3000")
 
 WEBUI_FAVICON_URL = "https://openwebui.com/favicon.png"
 
-
 ####################################
 # ENV (dev,test,prod)
 ####################################

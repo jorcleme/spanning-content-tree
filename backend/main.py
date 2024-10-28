@@ -445,6 +445,7 @@ async def chat_completion_functions_handler(
     skip_files = None
 
     filter_ids = get_filter_function_ids(model)
+    log.debug(f"filter_ids: {filter_ids}")
     for filter_id in filter_ids:
         filter = Functions.get_function_by_id(filter_id)
         if not filter:

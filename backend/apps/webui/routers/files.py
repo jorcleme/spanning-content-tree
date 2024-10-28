@@ -45,6 +45,61 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 router = APIRouter()
 
 ############################
+# Cisco Send A File to Insert
+############################
+
+
+class CiscoFakeFileForm(BaseModel):
+    content: str
+    filename: str
+
+
+@router.post("/cisco")
+def upload_cisco_file(form_data: CiscoFakeFileForm, user=Depends(get_verified_user)):
+    try:
+        # replace filename with uuid
+        id = str(uuid.uuid4())
+        name = form_data.filename
+        filename = f"{id}_{form_data.filename}"
+        file_path = f"{UPLOAD_DIR}/{filename}"
+
+        with open(file_path, "w") as f:
+            f.write(form_data.content)
+            f.close()
+
+        file = Files.insert_new_file(
+            user.id,
+            FileForm(
+                **{
+                    "id": id,
+                    "filename": filename,
+                    "meta": {
+                        "name": name,
+                        "content_type": "text/plain",
+                        "size": len(form_data.content),
+                        "path": file_path,
+                    },
+                }
+            ),
+        )
+
+        if file:
+            return file
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ERROR_MESSAGES.DEFAULT("Error uploading file"),
+            )
+
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(e),
+        )
+
+
+############################
 # Upload File
 ############################
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
-	import type { Tool } from '$lib/stores';
+	import type { Tool } from '$lib/types';
 
 	import { toast } from 'svelte-sonner';
 	import fileSaver from 'file-saver';
@@ -114,7 +114,7 @@
 			console.log(_tools);
 
 			for (const tool of _tools) {
-				await createNewTool(localStorage.token, tool).catch((error) => {
+				await createNewTool(localStorage.token, tool?.tool ?? tool).catch((error) => {
 					toast.error(error);
 					return null;
 				});

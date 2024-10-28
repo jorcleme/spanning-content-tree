@@ -173,7 +173,7 @@ input[type='number'] {
 
 .cisco * {
 	/* stroke: #3e84e5 !important; */
-	font-family: 'CiscoSans', sans-serif !important;
+	font-family: 'CiscoSans', sans-serif;
 }
 
 .cisco .app > * {

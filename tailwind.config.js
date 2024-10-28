@@ -23,6 +23,13 @@ export default {
 					500: '#3e84e5'
 				}
 			},
+			fontFamily: {
+				inter: ['Inter', 'sans-serif'],
+				archivo: ['Archivo', 'sans-serif'],
+				'mona-sans': ['Mona Sans', 'sans-serif'],
+				CiscoSans: ['CiscoSans', 'sans-serif'],
+				CiscoSansLight: ['CiscoSansLight', 'sans-serif']
+			},
 			typography: {
 				DEFAULT: {
 					css: {

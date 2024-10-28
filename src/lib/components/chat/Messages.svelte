@@ -319,12 +319,7 @@
 
 <div class="h-full flex">
 	{#if messages.length == 0}
-		<Placeholder
-			modelIds={selectedModels}
-			submitPrompt={async (p) => {
-				await onSubmitPrompt(p);
-			}}
-		/>
+		<Placeholder modelIds={selectedModels} submitPrompt={onSubmitPrompt} />
 	{:else}
 		<div class="w-full pt-2">
 			{#key chatId}

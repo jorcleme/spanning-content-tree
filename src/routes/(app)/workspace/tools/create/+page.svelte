@@ -17,7 +17,7 @@
 	let clone = false;
 	let tool: Tool | null = null;
 
-	const saveHandler = async (data: any) => {
+	const saveHandler = async (data: { [key: string]: any }) => {
 		console.log(data);
 
 		const manifest = extractFrontmatter(data.content);

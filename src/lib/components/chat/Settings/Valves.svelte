@@ -1,4 +1,7 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { Valve } from '$lib/types';
 	import { toast } from 'svelte-sonner';
 
 	import { config, functions, models, settings, tools, user } from '$lib/stores';
@@ -23,7 +26,7 @@
 
 	const dispatch = createEventDispatcher();
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let saveSettings: Function;
 
@@ -32,8 +35,8 @@
 
 	let loading = false;
 
-	let valvesSpec = null;
-	let valves = {};
+	let valvesSpec: Valve | null = null;
+	let valves: Valve | { [key: string]: any } = {};
 
 	const getUserValves = async () => {
 		loading = true;
@@ -62,28 +65,22 @@
 			// Convert string to array
 			for (const property in valvesSpec.properties) {
 				if (valvesSpec.properties[property]?.type === 'array') {
-					valves[property] = (valves[property] ?? '').split(',').map((v) => v.trim());
+					valves[property] = (valves[property] ?? '').split(',').map((v: string) => v.trim());
 				}
 			}
 
 			if (tab === 'tools') {
-				const res = await updateToolUserValvesById(localStorage.token, selectedId, valves).catch(
-					(error) => {
-						toast.error(error);
-						return null;
-					}
-				);
+				const res = await updateToolUserValvesById(localStorage.token, selectedId, valves).catch((error) => {
+					toast.error(error);
+					return null;
+				});
 
 				if (res) {
 					toast.success($i18n.t('Valves updated'));
 					valves = res;
 				}
 			} else if (tab === 'functions') {
-				const res = await updateFunctionUserValvesById(
-					localStorage.token,
-					selectedId,
-					valves
-				).catch((error) => {
+				const res = await updateFunctionUserValvesById(localStorage.token, selectedId, valves).catch((error) => {
 					toast.error(error);
 					return null;
 				});
@@ -145,8 +142,7 @@
 						}}
 					>
 						{#if tab === 'tools'}
-							<option value="" selected disabled class="bg-gray-100 dark:bg-gray-700"
-								>{$i18n.t('Select a tool')}</option
+							<option value="" selected disabled class="bg-gray-100 dark:bg-gray-700">{$i18n.t('Select a tool')}</option
 							>
 
 							{#each $tools as tool, toolIdx}
@@ -180,10 +176,7 @@
 	</div>
 
 	<div class="flex justify-end text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

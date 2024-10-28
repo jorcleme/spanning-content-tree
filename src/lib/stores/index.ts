@@ -1,8 +1,8 @@
 import { APP_NAME } from '$lib/constants';
 import { page } from '$app/stores';
 import { derived, type Writable, writable } from 'svelte/store';
-import type { ChatListResponse, TagsByUserResponse, Article } from '$lib/types';
-import type { GlobalModelConfig, ModelConfig } from '$lib/apis';
+import type { ChatListResponse, TagsByUserResponse, Article, Tool } from '$lib/types';
+import type { ModelConfig } from '$lib/apis';
 import type { Banner } from '$lib/types';
 import type { Socket } from 'socket.io-client';
 
@@ -66,29 +66,29 @@ export type Func = {
 	created_at: number;
 };
 
-type ToolMeta = {
-	description: string | null;
-	manifest: {
-		title: string;
-		author: string;
-		version: string;
-		license: string;
-		description: string;
-		GitHub: string;
-		Notes: string;
-		funding_url?: string;
-	};
-};
+// type ToolMeta = {
+// 	description: string | null;
+// 	manifest: {
+// 		title: string;
+// 		author: string;
+// 		version: string;
+// 		license: string;
+// 		description: string;
+// 		GitHub: string;
+// 		Notes: string;
+// 		funding_url?: string;
+// 	};
+// };
 
-export type Tool = {
-	id: string;
-	user_id: string;
-	name: string;
-	meta: ToolMeta;
-	content: string;
-	updated_at: number;
-	created_at: number;
-};
+// export type Tool = {
+// 	id: string;
+// 	user_id: string;
+// 	name: string;
+// 	meta: ToolMeta;
+// 	content: string;
+// 	updated_at: number;
+// 	created_at: number;
+// };
 
 export type Model = OpenAIModel | OllamaModel;
 
@@ -361,10 +361,8 @@ export type SessionUser = {
 	info?: Record<string, string>;
 	oauth_sub?: string;
 	community?: string;
-};
-
-export type Params<T> = {
-	[key in keyof T]: T[key] | null;
+	token?: string;
+	token_type?: string;
 };
 
 export type ChatParams =

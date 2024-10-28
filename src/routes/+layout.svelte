@@ -29,8 +29,12 @@
 	let loaded = false;
 	const BREAKPOINT = 768;
 
+	/**
+	 * @type {WakeLockSentinel | null}
+	 */
 	let wakeLock = null;
 
+	// @ts-ignore
 	onMount(async () => {
 		theme.set(localStorage.theme);
 
@@ -83,22 +87,24 @@
 		// Initialize i18n even if we didn't get a backend config,
 		// so `/error` can show something that's not `undefined`.
 
-		initI18n();
+		initI18n(backendConfig?.default_locale);
 		if (!localStorage.locale) {
 			const languages = await getLanguages();
 			const browserLanguages = navigator.languages
 				? navigator.languages
-				: [navigator.language || navigator.userLanguage];
+				: // @ts-ignore
+				  [navigator.language || navigator.userLanguage];
 			const lang = backendConfig.default_locale
 				? backendConfig.default_locale
-				: bestMatchingLanguage(languages, browserLanguages, 'en-US');
+				: // @ts-ignore
+				  bestMatchingLanguage(languages, browserLanguages, 'en-US');
 			$i18n.changeLanguage(lang);
 		}
 
 		if (backendConfig) {
 			// Save Backend Status to Store
-			await config.set(backendConfig);
-			await WEBUI_NAME.set(backendConfig.name);
+			config.set(backendConfig);
+			WEBUI_NAME.set(backendConfig.name);
 
 			if ($config) {
 				const _socket = io(`${WEBUI_BASE_URL}`, {
@@ -110,7 +116,7 @@
 					console.log('connected');
 				});
 
-				await socket.set(_socket);
+				socket.set(_socket);
 
 				_socket.on('user-count', (data) => {
 					console.log('user-count', data);
@@ -131,7 +137,7 @@
 
 					if (sessionUser) {
 						// Save Session User to Store
-						await user.set(sessionUser);
+						user.set(sessionUser);
 					} else {
 						// Redirect Invalid Session User to /auth Page
 						localStorage.removeItem('token');

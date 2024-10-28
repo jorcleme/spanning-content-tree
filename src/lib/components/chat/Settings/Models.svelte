@@ -16,7 +16,7 @@
 
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import { WEBUI_NAME, models, MODEL_DOWNLOAD_POOL, user, config } from '$lib/stores';
-	import { splitStream } from '$lib/utils';
+	import { splitStream, isErrorWithMessage } from '$lib/utils';
 	import { onMount, getContext } from 'svelte';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -221,11 +221,10 @@
 					}
 				} catch (error) {
 					console.log(error);
-					if (typeof error !== 'string') {
+					if (isErrorWithMessage(error)) {
 						error = error.message;
 					}
-
-					toast.error(error);
+					toast.error(error as string);
 					// opts.callback({ success: false, error, modelName: opts.modelName });
 				}
 			}
@@ -371,7 +370,7 @@
 						}
 					} catch (error) {
 						console.log(error);
-						toast.error(error);
+						toast.error(error as string);
 					}
 				}
 			}

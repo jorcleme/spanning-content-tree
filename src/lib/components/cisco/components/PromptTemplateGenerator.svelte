@@ -33,7 +33,7 @@
 		Cpu
 	} from 'lucide-svelte';
 	import { createEventDispatcher, onMount, tick, onDestroy } from 'svelte';
-	import AssistantAnimationHero from '$lib/components/Cisco/components/layout/AssistantAnimationHero.svelte';
+	import AssistantAnimationHero from '$lib/components/chat/AssistantAnimationHero.svelte';
 	export let explanation = '';
 	export let showPromptTemplate: boolean;
 	export let showPromptIntro: boolean;

@@ -1,4 +1,7 @@
-<script>
+<script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { SessionUser } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { getSessionUser, userSignIn, userSignUp } from '$lib/apis/auths';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -9,7 +12,7 @@
 	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
 	import { page } from '$app/stores';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	let loaded = false;
 	let mode = 'signin';
@@ -18,7 +21,7 @@
 	let email = '';
 	let password = '';
 
-	const setSessionUser = async (sessionUser) => {
+	const setSessionUser = async (sessionUser: SessionUser | null) => {
 		if (sessionUser) {
 			console.log(sessionUser);
 			toast.success($i18n.t(`You're now logged in.`));
@@ -26,8 +29,8 @@
 				localStorage.token = sessionUser.token;
 			}
 
-			$socket.emit('user-join', { auth: { token: sessionUser.token } });
-			await user.set(sessionUser);
+			$socket?.emit('user-join', { auth: { token: sessionUser.token } });
+			user.set(sessionUser);
 			goto('/');
 		}
 	};
@@ -42,13 +45,10 @@
 	};
 
 	const signUpHandler = async () => {
-		const sessionUser = await userSignUp(name, email, password, generateInitialsImage(name)).catch(
-			(error) => {
-				toast.error(error);
-				return null;
-			}
-		);
-
+		const sessionUser = await userSignUp(name, email, password, generateInitialsImage(name)).catch((error) => {
+			toast.error(error);
+			return null;
+		});
 		await setSessionUser(sessionUser);
 	};
 
@@ -106,31 +106,12 @@
 	<div class="fixed m-10 z-50">
 		<div class="flex space-x-2">
 			<div class=" self-center">
-				<img
-					crossorigin="anonymous"
-					src="{WEBUI_BASE_URL}/static/favicon.png"
-					class=" w-8 rounded-full"
-					alt="logo"
-				/>
+				<img crossorigin="anonymous" src="{WEBUI_BASE_URL}/static/favicon.png" class=" w-8 rounded-full" alt="logo" />
 			</div>
 		</div>
 	</div>
 
 	<div class=" bg-white dark:bg-gray-950 min-h-screen w-full flex justify-center font-primary">
-		<!-- <div class="hidden lg:flex lg:flex-1 px-10 md:px-16 w-full bg-yellow-50 justify-center">
-			<div class=" my-auto pb-16 text-left">
-				<div>
-					<div class=" font-semibold text-yellow-600 text-4xl">
-						{$i18n.t('Get up and running with')} <br /> {$i18n.t('large language models, locally.')}
-					</div>
-
-					<div class="mt-2 text-yellow-600 text-xl">
-						{$i18n.t('Run Llama 2, Code Llama, and other models. Customize and create your own.')}
-					</div>
-				</div>
-			</div>
-		</div> -->
-
 		<div class="w-full sm:max-w-md px-10 min-h-screen flex flex-col text-center">
 			{#if ($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false}
 				<div class=" my-auto pb-10 w-full">
@@ -226,9 +207,7 @@
 
 							{#if $config?.features.enable_signup}
 								<div class=" mt-4 text-sm text-center">
-									{mode === 'signin'
-										? $i18n.t("Don't have an account?")
-										: $i18n.t('Already have an account?')}
+									{mode === 'signin' ? $i18n.t("Don't have an account?") : $i18n.t('Already have an account?')}
 
 									<button
 										class=" font-medium underline"
@@ -346,8 +325,8 @@
 
 <style>
 	.font-mona {
-		font-family: 'Mona Sans', -apple-system, 'Inter', ui-sans-serif, system-ui, 'Segoe UI', Roboto,
-			Ubuntu, Cantarell, 'Noto Sans', sans-serif, 'Helvetica Neue', Arial, 'Apple Color Emoji',
-			'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+		font-family: 'Mona Sans', -apple-system, 'Inter', ui-sans-serif, system-ui, 'Segoe UI', Roboto, Ubuntu, Cantarell,
+			'Noto Sans', sans-serif, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+			'Noto Color Emoji';
 	}
 </style>

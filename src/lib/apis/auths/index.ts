@@ -1,6 +1,24 @@
+import type { SessionUser } from '$lib/stores';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 
-export const getAdminDetails = async (token: string) => {
+interface AdminDetails {
+	name: string;
+	email: string;
+}
+
+interface AdminConfig {
+	SHOW_ADMIN_DETAILS: boolean;
+	ENABLE_SIGNUP: boolean;
+	DEFAULT_USER_ROLE: string;
+	JWT_EXPIRES_IN: string;
+	ENABLE_COMMUNITY_SHARING: boolean;
+}
+
+interface APIKey {
+	api_key: string;
+}
+
+export const getAdminDetails = async (token: string): Promise<AdminDetails> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/admin/details`, {
@@ -12,7 +30,7 @@ export const getAdminDetails = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -27,7 +45,7 @@ export const getAdminDetails = async (token: string) => {
 	return res;
 };
 
-export const getAdminConfig = async (token: string) => {
+export const getAdminConfig = async (token: string): Promise<AdminConfig> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/admin/config`, {
@@ -39,7 +57,7 @@ export const getAdminConfig = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -54,7 +72,7 @@ export const getAdminConfig = async (token: string) => {
 	return res;
 };
 
-export const updateAdminConfig = async (token: string, body: object) => {
+export const updateAdminConfig = async (token: string, body: object): Promise<AdminConfig> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/admin/config`, {
@@ -67,7 +85,7 @@ export const updateAdminConfig = async (token: string, body: object) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -82,7 +100,7 @@ export const updateAdminConfig = async (token: string, body: object) => {
 	return res;
 };
 
-export const getSessionUser = async (token: string) => {
+export const getSessionUser = async (token: string): Promise<SessionUser> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/`, {
@@ -95,7 +113,7 @@ export const getSessionUser = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -110,7 +128,7 @@ export const getSessionUser = async (token: string) => {
 	return res;
 };
 
-export const userSignIn = async (email: string, password: string) => {
+export const userSignIn = async (email: string, password: string): Promise<SessionUser> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/signin`, {
@@ -126,7 +144,7 @@ export const userSignIn = async (email: string, password: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -147,7 +165,7 @@ export const userSignUp = async (
 	email: string,
 	password: string,
 	profile_image_url: string
-) => {
+): Promise<SessionUser> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/signup`, {
@@ -165,7 +183,7 @@ export const userSignUp = async (
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -186,7 +204,7 @@ export const addUser = async (
 	email: string,
 	password: string,
 	role: string = 'pending'
-) => {
+): Promise<SessionUser> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/add`, {
@@ -204,7 +222,7 @@ export const addUser = async (
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -219,7 +237,7 @@ export const addUser = async (
 	return res;
 };
 
-export const updateUserProfile = async (token: string, name: string, profileImageUrl: string) => {
+export const updateUserProfile = async (token: string, name: string, profileImageUrl: string): Promise<SessionUser> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/update/profile`, {
@@ -235,7 +253,7 @@ export const updateUserProfile = async (token: string, name: string, profileImag
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -250,7 +268,11 @@ export const updateUserProfile = async (token: string, name: string, profileImag
 	return res;
 };
 
-export const updateUserPassword = async (token: string, password: string, newPassword: string) => {
+export const updateUserPassword = async (
+	token: string,
+	password: string,
+	newPassword: string
+): Promise<SessionUser> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/update/password`, {
@@ -266,7 +288,7 @@ export const updateUserPassword = async (token: string, password: string, newPas
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -293,7 +315,7 @@ export const getSignUpEnabledStatus = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -320,7 +342,7 @@ export const getDefaultUserRole = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -350,7 +372,7 @@ export const updateDefaultUserRole = async (token: string, role: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -377,7 +399,7 @@ export const toggleSignUpEnabledStatus = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -404,7 +426,7 @@ export const getJWTExpiresDuration = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -434,7 +456,7 @@ export const updateJWTExpiresDuration = async (token: string, duration: string) 
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -449,7 +471,7 @@ export const updateJWTExpiresDuration = async (token: string, duration: string) 
 	return res;
 };
 
-export const createAPIKey = async (token: string) => {
+export const createAPIKey = async (token: string): Promise<APIKey> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/api_key`, {
@@ -461,7 +483,7 @@ export const createAPIKey = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -474,7 +496,7 @@ export const createAPIKey = async (token: string) => {
 	return res.api_key;
 };
 
-export const getAPIKey = async (token: string) => {
+export const getAPIKey = async (token: string): Promise<APIKey> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/api_key`, {
@@ -486,7 +508,7 @@ export const getAPIKey = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -499,7 +521,7 @@ export const getAPIKey = async (token: string) => {
 	return res.api_key;
 };
 
-export const deleteAPIKey = async (token: string) => {
+export const deleteAPIKey = async (token: string): Promise<boolean> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/api_key`, {
@@ -511,7 +533,7 @@ export const deleteAPIKey = async (token: string) => {
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);

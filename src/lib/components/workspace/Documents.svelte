@@ -21,7 +21,7 @@
 	import AddFilesPlaceholder from '$lib/components/AddFilesPlaceholder.svelte';
 	import AddDocModal from '$lib/components/documents/AddDocModal.svelte';
 	import { transcribeAudio } from '$lib/apis/audio';
-	import { type _FileUploadRes, uploadFile } from '$lib/apis/files';
+	import { type FileUpload, uploadFile } from '$lib/apis/files';
 
 	const i18n: Writable<i18nType> = getContext('i18n');
 

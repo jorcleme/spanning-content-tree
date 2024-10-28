@@ -1,10 +1,9 @@
 <script lang="ts">
-	import Switch from '$lib/components/common/Switch.svelte';
-	import { getContext, createEventDispatcher } from 'svelte';
 	import type { ChatParams } from '$lib/stores';
 	import type { Writable } from 'svelte/store';
 	import { type i18n as i18nType } from 'i18next';
-	import { settings } from '$lib/stores';
+	import Switch from '$lib/components/common/Switch.svelte';
+	import { getContext, createEventDispatcher } from 'svelte';
 
 	const dispatch = createEventDispatcher();
 	const i18n: Writable<i18nType> = getContext('i18n');
@@ -563,13 +562,7 @@
 					/>
 				</div>
 				<div class="">
-					<input
-						bind:value={params.num_ctx}
-						type="number"
-						class=" bg-transparent text-center w-14"
-						min="-1"
-						step="1"
-					/>
+					<input bind:value={params.num_ctx} type="number" class=" bg-transparent text-center w-14" min="-1" step="1" />
 				</div>
 			</div>
 		{/if}

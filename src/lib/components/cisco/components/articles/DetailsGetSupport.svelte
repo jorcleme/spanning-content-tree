@@ -854,10 +854,10 @@
 			if (needsContextFlag) {
 				const res = await queryCollection(
 					localStorage.token,
-					['catalyst_1200_admin_guide_openai', 'catalyst_1200_cli_guide_openai'],
+					['catalyst_1200_admin_guide', 'catalyst_1200_cli_guide'],
 					question
 				);
-				// const test = await queryDocWithSmallChunks(localStorage.token, 'catalyst_1200_cli_guide_openai', question);
+				// const test = await queryDocWithSmallChunks(localStorage.token, 'catalyst_1200_cli_guide', question);
 				// console.log('test', test);
 				distances = res.distances?.flat(1) ?? null;
 				documents = res.documents?.flat(1) ?? null;
@@ -1266,6 +1266,10 @@
 	$: if (latest) {
 		latest.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
 	}
+
+	afterUpdate(async () => {
+		await renderStyling();
+	});
 </script>
 
 <details

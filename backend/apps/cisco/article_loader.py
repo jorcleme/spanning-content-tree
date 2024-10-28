@@ -1,5 +1,7 @@
 import hashlib
 import logging
+import time
+import uuid
 from typing import Any, Optional, Dict, Union, List, cast
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -10,11 +12,11 @@ import requests
 from uuid import uuid4
 from lxml import etree
 import chromadb.utils.embedding_functions as embedding_functions
-from config import BASE_DIR, CHROMA_CLIENT, CollectionFactory
+from config import BASE_DIR, CHROMA_CLIENT, CollectionFactory, UPLOAD_DIR
 import aiohttp
 import asyncio
 from chromadb import Documents, EmbeddingFunction, Embeddings
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 try:
@@ -23,6 +25,10 @@ except ImportError:
     raise ImportError(
         "Webpage requires extra dependencies. Install with `pip install beautifulsoup4==4.12.3`"
     ) from None
+
+
+API_URL = "http://localhost:8080/api/v1"
+DOCUMENTS_API = f"{API_URL}/documents"
 
 
 class GenerateEmbeddingsForm(BaseModel):
@@ -84,6 +90,17 @@ sentence_all_MiniLM_V6_v2_embeddings = embedding_functions.DefaultEmbeddingFunct
 ollama_embeddings = OllamaEmbeddingFunction()
 
 
+class DocumentUpdateForm(BaseModel):
+    name: str
+    title: str
+
+
+class DocumentForm(DocumentUpdateForm):
+    collection_name: str
+    filename: str
+    content: Optional[str] = None
+
+
 def clean_string(text):
     """
     This function takes in a string and performs a series of text cleaning operations.
@@ -111,8 +128,21 @@ def clean_string(text):
     # that character.
     # For example, "!!! hello !!!" would become "! hello !".
     cleaned_text = re.sub(r"([^\w\s])\1*", r"\1", cleaned_text)
-
+    cleaned_text = re.sub(r"\{[^}]*\}", "", cleaned_text)
+    cleaned_text = re.sub(r"\[[^\]]*\]", "", cleaned_text)
     return cleaned_text
+
+
+class DocumentModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    collection_name: str
+    name: str
+    title: str
+    filename: str
+    content: Optional[str] = None
+    user_id: str
+    timestamp: int  # timestamp in epoch
 
 
 class WebPageLoader:
@@ -190,7 +220,7 @@ class WebPageLoader:
             data = await self._fetch(url)
         except Exception as e:
             logging.error(f"Failed to fetch URL {url}: {e}")
-            return {}
+            return None
 
         reference_links = self.fetch_reference_links(data)
         if all_references:
@@ -205,12 +235,37 @@ class WebPageLoader:
         content = self._get_clean_content(data, url)
         metadata = self._build_metadata(url, data)
 
-        doc_id = hashlib.sha256((content + url).encode()).hexdigest()
-        metadata["doc_id"] = doc_id
-        return {
-            "doc_id": doc_id,
-            "data": [{"content": content, "metadata": metadata}],
+        # doc_id = hashlib.sha256((content + url).encode()).hexdigest()
+        # metadata["doc_id"] = doc_id
+
+        # return {
+        #     "doc_id": doc_id,
+        #     "data": [{"content": content, "metadata": metadata}],
+        # }
+        collection_name = hashlib.sha256((content + url).encode()).hexdigest()[:63]
+        title = metadata.get("title").strip()
+        title_formatted = f"{'-'.join(title.lower().strip().split(' '))}.txt"
+        name = f'{"".join([c for c in title.lower().strip().split(" ")])}txt'
+        f = "".join([c for c in name.lower().strip().split(" ")])
+        print(f)
+        timestamp = int(time.time())
+        # self._save_to_upload_dir(content, title_formatted)
+        model = {
+            "collection_name": collection_name,
+            "name": name,
+            "title": title_formatted,
+            "filename": title_formatted,
+            "content": str(content),
+            "user_id": "e607d64b-0f72-4ce2-90b4-3b7c33d98569",
+            "timestamp": timestamp,
         }
+        return model
+
+    @staticmethod
+    def _save_to_upload_dir(content: str, filename: str) -> None:
+        with open(UPLOAD_DIR / filename, "w") as f:
+            f.write(content)
+            f.close()
 
     @staticmethod
     def _build_metadata(url: str, html: str) -> Dict[str, Union[List[str], str]]:
@@ -222,8 +277,8 @@ class WebPageLoader:
             metadata["document_id"] = document_id.get(
                 "content", hashlib.sha256(uuid4().bytes).hexdigest()
             )
-        if title := soup.find("meta", attrs={"name": "description"}):
-            metadata["title"] = title.get("content", "Chapter not found.")
+        if title := soup.find("meta", attrs={"name": "title"}):
+            metadata["title"] = title.get("content", "Title not found")
         if concept := soup.find("meta", attrs={"name": "concept"}):
             concepts.append(concept.get("content", None))
         if published_date := dom.xpath('//*[@id="documentInfo"]/dl/dd'):
@@ -442,7 +497,137 @@ def reset_db():
     print(reset)
 
 
+class DocumentResponse(BaseModel):
+    collection_name: str
+    name: str
+    title: str
+    filename: str
+    content: Optional[str] = None
+    user_id: str
+    timestamp: int  # timestamp in epoch
+
+
+def insert_as_documents():
+    documents = []
+    articles = json.loads(open(JSON_DIR / "articles.json").read())
+    for article in articles:
+        if article["series"] == "Cisco Catalyst 1200 Series Switches":
+            url = article["url"]
+            document = asyncio.run(loader.load_data(url))
+            documents.append(document)
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImU2MDdkNjRiLTBmNzItNGNlMi05MGI0LTNiN2MzM2Q5ODU2OSJ9.0_dSn3vnFsJcYIJO0xDHe67uTI0H0fVbcA6erSk8Das",
+    }
+    for document in documents:
+        print(document)
+        if document:
+
+            try:
+                ids = [
+                    "d12a12f9-9c01-464f-9735-208c611c116b",
+                    "5da38b5d-7718-4da7-aff7-a0009a994e9e",
+                    "98d964da-b649-4bd5-adfd-68dc7e2bce55",
+                    "d4c2990b-e0ed-464b-8c31-239f48cf78b7",
+                    "46c34071-3cf2-49b9-bf2f-a5dc76537747",
+                    "871b7a55-9105-43f6-ac62-7c0019baa3e3",
+                    "6afcf167-74a2-4048-aaff-1e56f36bd9ba",
+                    "6d0d9bab-15bc-45d6-887f-dadb5762bc3d",
+                    "f9c25e53-4a6e-45c5-8f0d-f0d46d6fa734",
+                ]
+
+                for id in ids:
+
+                    item = {
+                        "file_id": id,
+                        "collection_name": document["collection_name"],
+                    }
+                    try:
+                        process_doc = requests.post(
+                            "http://localhost:8080/rag/api/v1/process/doc",
+                            json=item,
+                            headers=headers,
+                        )
+                        process_doc.raise_for_status()
+                        doc = process_doc.json()
+                        print(doc)
+                        if doc:
+                            try:
+                                res = requests.post(
+                                    f"{DOCUMENTS_API}/create",
+                                    json={**document, "content": "{}"},
+                                    headers=headers,
+                                )
+                                res.raise_for_status()
+                                print(res.json())
+                            except Exception as e:
+                                print(e)
+                    except Exception as e:
+                        print(e)
+
+            # try:
+            #     fake_file = {
+            #         "content": document["content"],
+            #         "filename": document["filename"],
+            #     }
+            #     file_insert = requests.post(
+            #         f"{API_URL}/files/cisco", json=fake_file, headers=headers
+            #     )
+            #     file_insert.raise_for_status()
+            #     file_data = file_insert.json()
+            #     print(file_data)
+            #     item = {
+            #         "file_id": file_data["id"],
+            #         "collection_name": document["collection_name"],
+            #     }
+            # try:
+            #     vector_res = requests.post("http://localhost:8080/rag/api/v1/process/doc", json=item, headers=headers)
+
+            except Exception as e:
+                print(e)
+            # docu = DocumentResponse(
+            #     **{
+            #         **document.model_dump(),
+            #         "content": content,
+            #     }
+            # )
+            # print(docu)
+            # try:
+            #     print(document.model_dump())
+            #     res = requests.post(
+            #         f"{DOCUMENTS_API}/create",
+            #         json=document.model_dump(),
+            #         headers=headers,
+            #     )
+            #     res.raise_for_status()
+            #     print(res.json())
+            #     uploaded_file = res.json()
+            #     if uploaded_file:
+            #         print(uploaded_file)
+            #         item = {
+            #             "file_id": uploaded_file["id"],
+            #             "collection_name": uploaded_file["collection_name"],
+            #         }
+
+            # except Exception as e:
+            #     print(e)
+        # if document.get("content", None) is not None:
+        #     try:
+
+        #         res = requests.post(
+        #             f"{DOCUMENTS_API}/create", json=document, headers=headers
+        #         )
+        #         res.raise_for_status()
+        #         print(res.json())
+        #     except Exception as e:
+        #         print(e)
+        # else:
+        #     print("No content")
+
+
 if __name__ == "__main__":
-    seed_articles_to_vectordb()
+    insert_as_documents()
+    # seed_articles_to_vectordb()
     # peek_db_collections()
     # reset_db()

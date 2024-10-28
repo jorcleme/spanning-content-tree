@@ -1,4 +1,4 @@
-import type { _FileUploadRes } from '$lib/apis/files';
+import type { FileUpload } from '$lib/apis/files';
 
 // Shared Utility
 export type Nullable<T> = T | null;
@@ -42,7 +42,7 @@ interface MessageInfo {
 	total_tokens?: number;
 }
 
-interface StatusHistory {
+interface MessageStatusHistory {
 	done?: boolean;
 	error?: boolean;
 	action?: string;
@@ -51,14 +51,16 @@ interface StatusHistory {
 	urls?: string[];
 }
 
+interface MessageAnnotation {
+	rating?: number;
+	reason?: string;
+	comment?: string;
+}
+
 export interface BaseMessage {
 	role: string;
 	content: string;
 }
-
-export interface EditedMessage extends Message {}
-
-// export type EditedMessage = Partial<Message>;
 
 export interface Message extends BaseMessage {
 	id: string;
@@ -74,37 +76,23 @@ export interface Message extends BaseMessage {
 	context?: any;
 	type?: string;
 	info?: MessageInfo;
-	statusHistory?: StatusHistory[];
+	statusHistory?: MessageStatusHistory[];
 	files?: ClientFile[];
 	citations?: any[];
 	error?: any;
 	images?: any;
 	raContent?: string;
 	originalContent?: string;
-	status?: StatusHistory;
-	annotation?: {
-		rating?: number;
-		reason?: string;
-		comment?: string;
-	};
+	status?: MessageStatusHistory;
+	annotation?: MessageAnnotation;
 }
 
-// File object shape:
-// -------------------
-// collection_name: "2a1113258f84e36ba0f4734b33092836936e538c539b2c741218fa9bc7aef13"
-// error: ""
-// file: {id: '362ec854-789f-4563-8981-92c0f196cd47', user_id: 'b7ad0b4d-972a-4225-8cbf-b592b4a51a90', filename: '362ec854-789f-4563-8981-92c0f196cd47_auto-surveillance-vlan-catalyst-1200-1300-switches.pdf', meta: {…}, created_at: 1724870348}
-// id: "362ec854-789f-4563-8981-92c0f196cd47"
-// name: "auto-surveillance-vlan-catalyst-1200-1300-switches.pdf"
-// status: "processed"
-// type: "file"
-// url: "/api/v1/files/362ec854-789f-4563-8981-92c0f196cd47"
-// -------------------
+export interface EditedMessage extends Message {}
 
 export interface ClientFile {
 	collection_name?: string;
 	error?: string;
-	file?: _FileUploadRes;
+	file?: FileUpload;
 	id?: string;
 	name?: string;
 	status?: boolean | string;
@@ -171,17 +159,34 @@ export interface Memory extends BaseEntity, UserEntity, TimestampEntity {
 	content: string;
 }
 
-interface ApplicableDevice {
+interface ArticleDevice {
 	device?: string;
 	software?: string;
 	datasheet_link?: string;
 	software_link?: string | null;
 }
 
-interface RevisionHistory {
+interface ArticleRevisionHistory {
 	revision: number; // e.g. 1.0, 1.1, 1.2, etc.
 	publish_date: string; // e.g. 2021-01-01
 	comments: string;
+}
+
+interface ArticleAnnotation {
+	rating?: number;
+	reasons?: string[];
+	comment?: string;
+}
+
+interface ArticleQNAPair {
+	id: string;
+	question: string;
+	answer: string | null;
+	sources?: Record<string, any>[];
+	original_answer?: string;
+	rating?: number;
+	annotation?: ArticleAnnotation;
+	model?: string;
 }
 
 export interface ArticleStep {
@@ -193,20 +198,7 @@ export interface ArticleStep {
 	note: string | null;
 	emphasized_text: string[];
 	emphasized_tags: string[];
-	qna_pairs?: Array<{
-		id: string;
-		question: string;
-		answer: string | null;
-		sources?: Record<string, any>[];
-		original_answer?: string;
-		rating?: number;
-		annotation?: {
-			rating?: number;
-			reasons?: string[];
-			comment?: string;
-		};
-		model?: string;
-	}>;
+	qna_pairs?: Array<ArticleQNAPair>;
 }
 
 export interface Article {
@@ -216,10 +208,10 @@ export interface Article {
 	objective: string;
 	category: string;
 	url: string;
-	applicable_devices: ApplicableDevice[];
+	applicable_devices: ArticleDevice[];
 	introduction: string;
 	steps: ArticleStep[];
-	revision_history: RevisionHistory[];
+	revision_history: ArticleRevisionHistory[];
 	created_at: number;
 	updated_at: number;
 }
@@ -235,6 +227,24 @@ export interface Series {
 	updated_at: number;
 }
 
+interface ToolManifest {
+	id: string;
+	title: string;
+	description: string;
+	author: string;
+	version: string;
+	license: string;
+	author_url?: string;
+	funding_url?: string;
+	GitHub?: string;
+	Notes?: string;
+}
+
+interface ToolMeta {
+	description: string;
+	manifest: ToolManifest;
+}
+
 export interface Tool extends BaseEntity, UserEntity, TimestampEntity {
 	name: string;
 	content: string;
@@ -247,16 +257,9 @@ export interface Tool extends BaseEntity, UserEntity, TimestampEntity {
 			required: string[];
 		};
 	}[];
-	meta: {
-		description: string;
-		manifest: {
-			title: string;
-			author: string;
-			version: string;
-			license: string;
-			description: string;
-			GitHub: string;
-			Notes: string;
-		};
-	};
+	meta: ToolMeta;
+}
+
+export interface Valve {
+	[key: string]: any;
 }

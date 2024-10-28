@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { WEBUI_BASE_URL } from '$lib/constants';
+	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 	import { marked } from 'marked';
 	import { config, user, models as _models } from '$lib/stores';
 	import { onMount, getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
 	import { blur, fade } from 'svelte/transition';
 	import Suggestions from '../MessageInput/Suggestions.svelte';
 	import { sanitizeResponseContent } from '$lib/utils';
@@ -46,18 +46,7 @@
 						<Tooltip
 							content={marked.parse(sanitizeResponseContent(models[selectedModelIdx]?.info?.meta?.description ?? ''))}
 							placement="right"
-						>
-							<!-- <img
-								crossorigin="anonymous"
-								src={model?.info?.meta?.profile_image_url ??
-									($i18n.language === 'dg-DG'
-										? `/doge.png`
-										: `${WEBUI_BASE_URL}/static/favicon.png`)}
-								class=" size-[2.7rem] rounded-full border-[1px] border-gray-200 dark:border-none"
-								alt="logo"
-								draggable="false"
-							/> -->
-						</Tooltip>
+						/>
 					</button>
 				{/each}
 			</div>
@@ -84,18 +73,11 @@
 							<div class="mt-0.5 text-sm font-normal text-gray-400 dark:text-gray-500">
 								By
 								{#if models[selectedModelIdx]?.info?.meta?.user?.community ?? null}
-									<a href="https://openwebui.com/m/{models[selectedModelIdx]?.info?.meta?.user?.name}"
+									<a href="https://openwebui.com/m/{models[selectedModelIdx]?.info?.meta?.user?.username}"
 										>{models[selectedModelIdx]?.info?.meta?.user?.name
 											? models[selectedModelIdx]?.info?.meta.user?.name
-											: models[selectedModelIdx]?.info?.meta?.user?.username}</a
+											: `@${models[selectedModelIdx]?.info?.meta?.user?.username}`}</a
 									>
-									<!-- <a
-										href="https://openwebui.com/m/{models[selectedModelIdx]?.info?.meta?.user?
-											.username}"
-										>{models[selectedModelIdx]?.info?.meta?.user.name
-											? models[selectedModelIdx]?.info?.meta?.user.name
-											: `@${models[selectedModelIdx]?.info?.meta?.user.username}`}</a
-									> -->
 								{:else}
 									{models[selectedModelIdx]?.info?.meta?.user?.name}
 								{/if}

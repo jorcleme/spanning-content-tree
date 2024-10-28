@@ -1,5 +1,5 @@
 import type { Func } from '$lib/stores';
-import type { Nullable } from '$lib/types';
+import type { Nullable, Valve } from '$lib/types';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 
 export const createNewFunction = async (token: string, func: object): Promise<Nullable<Func>> => {
@@ -258,14 +258,7 @@ export const toggleGlobalById = async (token: string, id: string): Promise<Func>
 	return res;
 };
 
-interface FunctionValve {
-	show_status: boolean;
-	html_filename: string;
-	OPENIA_KEY: string;
-	OPENIA_URL: string;
-}
-
-export const getFunctionValvesById = async (token: string, id: string): Promise<Nullable<FunctionValve>> => {
+export const getFunctionValvesById = async (token: string, id: string): Promise<Nullable<Valve>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves`, {
@@ -278,7 +271,7 @@ export const getFunctionValvesById = async (token: string, id: string): Promise<
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.then((json) => {
 			return json;
@@ -297,7 +290,7 @@ export const getFunctionValvesById = async (token: string, id: string): Promise<
 	return res;
 };
 
-export const getFunctionValvesSpecById = async (token: string, id: string): Promise<Nullable<FunctionValve>> => {
+export const getFunctionValvesSpecById = async (token: string, id: string): Promise<Nullable<Valve>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/spec`, {
@@ -329,11 +322,7 @@ export const getFunctionValvesSpecById = async (token: string, id: string): Prom
 	return res;
 };
 
-export const updateFunctionValvesById = async (
-	token: string,
-	id: string,
-	valves: object
-): Promise<Nullable<FunctionValve>> => {
+export const updateFunctionValvesById = async (token: string, id: string, valves: object): Promise<Nullable<Valve>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/update`, {
@@ -368,7 +357,7 @@ export const updateFunctionValvesById = async (
 	return res;
 };
 
-export const getUserValvesById = async (token: string, id: string): Promise<Nullable<FunctionValve>> => {
+export const getUserValvesById = async (token: string, id: string): Promise<Valve> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/user`, {
@@ -397,7 +386,7 @@ export const getUserValvesById = async (token: string, id: string): Promise<Null
 	return res;
 };
 
-export const getUserValvesSpecById = async (token: string, id: string): Promise<Record<string, any>> => {
+export const getUserValvesSpecById = async (token: string, id: string): Promise<Valve> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/user/spec`, {
@@ -426,7 +415,7 @@ export const getUserValvesSpecById = async (token: string, id: string): Promise<
 	return res;
 };
 
-export const updateUserValvesById = async (token: string, id: string, valves: object): Promise<Record<string, any>> => {
+export const updateUserValvesById = async (token: string, id: string, valves: object): Promise<Valve> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/valves/user/update`, {

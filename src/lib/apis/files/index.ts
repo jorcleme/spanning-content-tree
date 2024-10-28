@@ -1,19 +1,19 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 
-export type _FileMeta = {
+export type FileStats = {
 	name: string;
 	content_type: string;
 	size: number;
 	path: string;
 };
 
-export type _FileUploadRes = {
+export type FileUpload = {
 	id: string;
 	filename: string;
-	meta: _FileMeta;
+	meta: FileStats;
 };
 
-export const uploadFile = async (token: string, file: File): Promise<_FileUploadRes> => {
+export const uploadFile = async (token: string, file: File): Promise<FileUpload> => {
 	const data = new FormData();
 	data.append('file', file);
 	let error = null;

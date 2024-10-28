@@ -234,3 +234,55 @@ export const updateArticleStep = async (
 
 	return res;
 };
+
+interface CreatedArticleStep {
+	section: string;
+	step_number: number;
+	text: string;
+	note?: string;
+}
+interface CreatedArticle {
+	objective: string;
+	title: string;
+	introduction: string;
+	steps: CreatedArticleStep[];
+	document_id?: string;
+	revision_history?: {
+		revision: number;
+		date: string;
+		comments?: string;
+	};
+}
+
+export const createNewArticle = async (
+	token: string,
+	query: string,
+	device: string = 'Cisco Catalyst 1200 Series Switch'
+): Promise<CreatedArticle> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/generate`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`,
+			Accept: 'application/json'
+		},
+		body: JSON.stringify({ query, device })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			console.log(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};

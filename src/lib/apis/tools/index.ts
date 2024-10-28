@@ -1,25 +1,7 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
-import type { Tool } from '$lib/types';
+import type { Nullable, Tool, Valve } from '$lib/types';
 
-interface CreateToolForm {
-	id: string;
-	name: string;
-	meta: {
-		description: string;
-		manifest: {
-			title: string;
-			author: string;
-			version: string;
-			license: string;
-			description: string;
-			GitHub: string;
-			Notes: string;
-		};
-	};
-	content: string;
-}
-
-export const createNewTool = async (token: string, tool: CreateToolForm): Promise<Tool> => {
+export const createNewTool = async (token: string, tool: Partial<Tool>): Promise<Tool> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/create`, {
@@ -211,7 +193,7 @@ export const deleteToolById = async (token: string, id: string): Promise<boolean
 	return res;
 };
 
-export const getToolValvesById = async (token: string, id: string) => {
+export const getToolValvesById = async (token: string, id: string): Promise<Valve> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/id/${id}/valves`, {
@@ -310,7 +292,7 @@ export const updateToolValvesById = async (token: string, id: string, valves: ob
 	return res;
 };
 
-export const getUserValvesById = async (token: string, id: string) => {
+export const getUserValvesById = async (token: string, id: string): Promise<Valve> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/id/${id}/valves/user`, {
@@ -342,7 +324,7 @@ export const getUserValvesById = async (token: string, id: string) => {
 	return res;
 };
 
-export const getUserValvesSpecById = async (token: string, id: string) => {
+export const getUserValvesSpecById = async (token: string, id: string): Promise<Nullable<Valve>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/id/${id}/valves/user/spec`, {
@@ -374,7 +356,7 @@ export const getUserValvesSpecById = async (token: string, id: string) => {
 	return res;
 };
 
-export const updateUserValvesById = async (token: string, id: string, valves: object) => {
+export const updateUserValvesById = async (token: string, id: string, valves: object): Promise<Valve> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/tools/id/${id}/valves/user/update`, {

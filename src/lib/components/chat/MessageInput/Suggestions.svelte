@@ -14,7 +14,7 @@
 
 	$: prompts = suggestionPrompts
 		.reduce<PromptSuggestion[]>((acc, current) => [...acc, ...[current]], [])
-		.sort(() => Math.random() - 0.5);
+		.sort(() => Math.random() - 0.5).slice(0, 4);
 	// suggestionPrompts.length <= 4
 	// 	? suggestionPrompts
 	// 	: suggestionPrompts.sort(() => Math.random() - 0.5).slice(0, 4);

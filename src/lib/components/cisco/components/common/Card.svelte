@@ -5,17 +5,16 @@
 	export let id: string | null = null;
 	export let title: string = 'Card Title';
 	export let category: string = 'Card Category';
+	export let url: string = '';
 
 	const dispatch = createEventDispatcher();
 
-	const handleArticleClick = async () => {
-		if (id) {
-			await goto(`/article/${id}`);
-		}
+	const handleArticleClick = async (url: string) => {
+		window.open(url, '_blank');
 	};
 </script>
 
-<div class="card mb-2 relative flex flex-col rounded-lg bg-neutral-50 shadow-xl min-w-64 min-h-[312px]">
+<div class="card card-{id} mb-2 relative flex flex-col rounded-lg bg-neutral-50 shadow-xl w-64 min-h-[312px]">
 	<div class="flex justify-center items-center bg-sky-100 py-4 w-full border-top-lg">
 		<figure>
 			<svg xmlns="http://www.w3.org/2000/svg" id="a" viewBox="0 0 80 80" fill="currentColor" class="w-20 h-20"
@@ -27,11 +26,11 @@
 	</div>
 	<div class="card-body flex flex-col flex-auto gap-4 items-center text-center p-4">
 		<h2 class="card-title">{title}</h2>
-		<p class="font-['CiscoSansLight']">{category}</p>
+		<p class="font-['CiscoSansLight'] flex-grow">{category}</p>
 		<div class="card-actions flex flex-wrap items-start gap-4">
 			<button
 				class="btn rounded-lg px-4 py-2 bg-[#1990fa] text-neutral-50 font-bold"
-				on:click={async () => await handleArticleClick()}>View</button
+				on:click={async () => await handleArticleClick(url)}>View</button
 			>
 		</div>
 	</div>

@@ -236,6 +236,23 @@ async def view_article_on_series():
     return article_on_seris
 
 
+class GenerateArticleForm(BaseModel):
+    query: str
+    device: str
+
+
 @router.post("/generate")
-async def generate_new_article():
-    from apps.cisco.content_creator import build_article
+async def generate_new_article(
+    form_data: GenerateArticleForm, user=Depends(get_verified_user)
+):
+    from apps.cisco.article_creator import build_article
+
+    article = build_article(form_data.query, form_data.device)
+
+    if article:
+        return article
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.DEFAULT(),
+        )
