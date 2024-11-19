@@ -137,9 +137,6 @@
 					/>
 				</div>
 			</details>
-			<!-- <label>
-					<input type="checkbox" bind:checked={keepContext} /> Keep previous clarifications
-				</label> -->
 		</div>
 		<div class="flex space-x-2 flex-row justify-end mt-4">
 			<button id="cancel-button" on:click={handleSubmit}>Skip</button>

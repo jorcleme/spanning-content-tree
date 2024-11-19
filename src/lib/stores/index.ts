@@ -99,6 +99,7 @@ type BaseModel = {
 	ollama?: OllamaPullDetails;
 	openai?: OpenAIModelDetails;
 	preset?: boolean;
+	actions?: any[];
 };
 
 export interface OpenAIModel extends BaseModel {
@@ -187,12 +188,7 @@ type CiscoPromptVariable = {
 } & {
 	[key: string]: string;
 };
-export const IsSupportingArticle = derived([page], ([$page]) => {
-	if ($page.route.id === '/(app)/article') {
-		return true;
-	}
-	return false;
-});
+
 export const ExpGradeSelected = writable('Fully Guided');
 export const activeSupportSection = writable('Objective');
 export const activeSupportStep = writable(1);
@@ -225,8 +221,8 @@ export const mountedArticlePreambleObjective = derived([activeArticle], ([$activ
 export const mountedArticlePreambleDevices = derived(
 	[activeArticle],
 	([$activeArticle]) =>
-		$activeArticle?.applicable_devices
-			.map((device) => `${device.device} (Firmware Version: ${device.software})`)
+		($activeArticle?.applicable_devices ?? [])
+			.map((device) => `${device?.device} (Firmware Version: ${device?.software})`)
 			.join(' and ') || ''
 );
 
@@ -263,7 +259,7 @@ interface _CiscoArticleQuestion {
 	clicked: boolean;
 	stepIndex: number;
 }
-
+export const globalMessages = writable<Map<number, _CiscoArticleMessage[]>>(new Map());
 export const ciscoArticleMessages = writable<_CiscoArticleMessage[]>([]);
 export const ciscoArticleQuestions = writable<_CiscoArticleQuestion[]>([]);
 

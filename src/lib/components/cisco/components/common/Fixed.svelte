@@ -9,7 +9,7 @@
 	const dispatch = createEventDispatcher();
 
 	function handleClickThenDispatch() {
-		$isSupportWidgetOpen = $isSupportWidgetOpen === true ? false : true;
+		$isSupportWidgetOpen = !$isSupportWidgetOpen;
 		console.log($isSupportWidgetOpen);
 	}
 

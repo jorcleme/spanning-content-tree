@@ -1,16 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { createEventDispatcher } from 'svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
 	export let id: string | null = null;
 	export let title: string = 'Card Title';
 	export let category: string = 'Card Category';
 	export let url: string = '';
-
-	const dispatch = createEventDispatcher();
+	export let MAX_TITLE_LENGTH = 65;
 
 	const handleArticleClick = async (url: string) => {
-		window.open(url, '_blank');
+		await goto(`/article/${id}`);
 	};
 </script>
 
@@ -25,7 +24,11 @@
 		</figure>
 	</div>
 	<div class="card-body flex flex-col flex-auto gap-4 items-center text-center p-4">
-		<h2 class="card-title">{title}</h2>
+		<Tooltip content={title}>
+			<h2 class="card-title font-bold">
+				{title.length > MAX_TITLE_LENGTH ? title.slice(0, MAX_TITLE_LENGTH) + '...' : title}
+			</h2>
+		</Tooltip>
 		<p class="font-['CiscoSansLight'] flex-grow">{category}</p>
 		<div class="card-actions flex flex-wrap items-start gap-4">
 			<button

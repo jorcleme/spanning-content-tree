@@ -120,6 +120,7 @@ export interface Chat extends BaseEntity, TimestampEntity {
 	timestamp: number; // epoch time in seconds
 	files: ClientFile[];
 	mapping?: Record<string, any>;
+	article?: Article;
 }
 
 interface TagByUser extends BaseEntity, UserEntity {
@@ -127,7 +128,7 @@ interface TagByUser extends BaseEntity, UserEntity {
 	data?: string | null;
 }
 
-interface ChatTag extends BaseEntity, UserEntity {
+export interface ChatTag extends BaseEntity, UserEntity {
 	name: string;
 	data?: any;
 }
@@ -205,6 +206,8 @@ export interface Article {
 	id: string;
 	title: string;
 	document_id: string;
+	series?: string;
+	series_ids?: string[];
 	objective: string;
 	category: string;
 	url: string;

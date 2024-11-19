@@ -44,32 +44,6 @@
 		await navigator.clipboard.writeText(text);
 	};
 
-	// const wrapEmphasizedText = (html: string) => {
-	// 	const parser = new DOMParser();
-	// 	const doc = parser.parseFromString(html, 'text/html');
-
-	// 	step.emphasized_text.forEach((text, i) => {
-	// 		const tag = step.emphasized_tags[i];
-	// 		const regex = new RegExp(`\\b${text}\\b`, 'g');
-	// 		const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
-
-	// 		let node;
-
-	// 		while ((node = walker.nextNode())) {
-	// 			if (regex.test(node.textContent || '')) {
-	// 				const element = doc.createElement(tag);
-	// 				element.textContent = text;
-
-	// 				const newContent = node.textContent?.replace(regex, element.outerHTML);
-	// 				const wrapper = doc.createElement('span');
-	// 				wrapper.innerHTML = newContent || '';
-	// 				node.parentNode?.replaceChild(wrapper, node);
-	// 			}
-	// 		}
-	// 	});
-
-	// 	return doc.body.innerHTML;
-	// };
 	onMount(() => {
 		// Create a mutation observer to watch for DOM changes
 		const observer = new MutationObserver(() => {
@@ -178,6 +152,7 @@
 		border-left: #64bbe3 5px solid;
 		max-width: 1100px;
 		text-wrap: pretty;
+		margin: 1em 0;
 	}
 	.cdt-note p {
 		margin: auto 0;

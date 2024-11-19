@@ -696,6 +696,8 @@ class ChatCompletionMiddleware(BaseHTTPMiddleware):
                     ),
                     body["messages"],
                 )
+                # Delete me
+                log.debug(f"Messages after RAG: {body['messages']}")
 
             # If there are citations, add them to the data_items
             if len(citations) > 0:
@@ -806,6 +808,9 @@ def filter_pipeline(payload, user):
             url = openai_app.state.config.OPENAI_API_BASE_URLS[urlIdx]
             key = openai_app.state.config.OPENAI_API_KEYS[urlIdx]
 
+            log.debug(f"filter_pipeline: {filter['id']}")
+            log.debug(f"filter_pipeline:url: {url}")
+
             if key != "":
                 headers = {"Authorization": f"Bearer {key}"}
                 r = requests.post(
@@ -827,7 +832,7 @@ def filter_pipeline(payload, user):
                 res = r.json()
                 if "detail" in res:
                     raise Exception(r.status_code, res["detail"])
-
+    log.debug(f"filter_pipeline payload: {payload}")
     return payload
 
 

@@ -29,6 +29,11 @@ except ImportError:
 
 API_URL = "http://localhost:8080/api/v1"
 DOCUMENTS_API = f"{API_URL}/documents"
+RAG_BASE_URL = "http://localhost:8080/rag/api/v1"
+JSON_DIR = BASE_DIR / "json"
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class GenerateEmbeddingsForm(BaseModel):
@@ -76,11 +81,6 @@ class OllamaEmbeddingFunction(EmbeddingFunction):
                     error_detail = f"Ollama: {e}"
             raise ValueError(error_detail)
 
-
-JSON_DIR = BASE_DIR / "json"
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 openai_embeddings = embedding_functions.OpenAIEmbeddingFunction(
     api_key=os.environ.get("OPENAI_API_KEY"), model_name="text-embedding-ada-002"
@@ -161,7 +161,7 @@ class WebPageLoader:
                         ssl=None if self._session.verify else False,
                         cookies=self._session.cookies.get_dict(),
                     ) as response:
-                        return await response.text()
+                        return await response.text(encoding="utf-8")
                 except aiohttp.ClientConnectionError as e:
                     if i == retries - 1:
                         raise
@@ -192,12 +192,16 @@ class WebPageLoader:
                 )
                 raise e
 
-    async def load_data(self, url, **kwargs: Optional[dict[str, Any]]):
+    async def load_data(self, url, **kwargs):
         """Load data from a web page using a shared requests' session."""
         all_references = False
+        for_documents = False
         for key, value in kwargs.items():
             if key == "all_references":
                 all_references = kwargs["all_references"]
+
+            if key == "for_documents":
+                for_documents = kwargs["for_documents"] or True
 
             if key == "requests_per_second" and isinstance(
                 kwargs["requests_per_second"], int
@@ -235,31 +239,33 @@ class WebPageLoader:
         content = self._get_clean_content(data, url)
         metadata = self._build_metadata(url, data)
 
-        # doc_id = hashlib.sha256((content + url).encode()).hexdigest()
-        # metadata["doc_id"] = doc_id
+        if for_documents:
+            return self.for_documents(content, metadata)
+        else:
+            doc_id = hashlib.sha256((content + url).encode()).hexdigest()
+            metadata["doc_id"] = doc_id
+            return {
+                "doc_id": doc_id,
+                "data": [{"content": content, "metadata": metadata}],
+            }
 
-        # return {
-        #     "doc_id": doc_id,
-        #     "data": [{"content": content, "metadata": metadata}],
-        # }
-        collection_name = hashlib.sha256((content + url).encode()).hexdigest()[:63]
-        title = metadata.get("title").strip()
-        title_formatted = f"{'-'.join(title.lower().strip().split(' '))}.txt"
+    def for_documents(self, content: str, metadata: dict[str, str]):
+        collection_name = hashlib.sha256(
+            (content + metadata["url"]).encode()
+        ).hexdigest()
+        base_title = metadata.get("title").strip()
+        title = f"{'-'.join(base_title.lower().strip().split(' '))}.txt"
+        filename = f"{'-'.join(title.lower().strip().split(' '))}.txt"
         name = f'{"".join([c for c in title.lower().strip().split(" ")])}txt'
-        f = "".join([c for c in name.lower().strip().split(" ")])
-        print(f)
-        timestamp = int(time.time())
-        # self._save_to_upload_dir(content, title_formatted)
-        model = {
+        return {
             "collection_name": collection_name,
             "name": name,
-            "title": title_formatted,
-            "filename": title_formatted,
-            "content": str(content),
+            "title": title,
+            "filename": filename,
+            "content": content,
             "user_id": "e607d64b-0f72-4ce2-90b4-3b7c33d98569",
-            "timestamp": timestamp,
+            "timestamp": int(time.time()),
         }
-        return model
 
     @staticmethod
     def _save_to_upload_dir(content: str, filename: str) -> None:
@@ -389,7 +395,7 @@ def convert_to_lc_document(article: dict[str, any]) -> Document:
     return Document(page_content=article["data"]["content"], metadata=metadata)
 
 
-def insert_article_into_vectordb(article: dict[str, any], collections: str):
+def insert_article_into_vectordb(article: dict[str, any], collection_name: str):
     """
     This function inserts an article into the VectorDB database.
 
@@ -398,8 +404,8 @@ def insert_article_into_vectordb(article: dict[str, any], collections: str):
         collection_name (str): The name of the collection in which the article
         is to be inserted.
     """
-
-    collection = CHROMA_CLIENT.get_or_create_collection(name=collections)
+    # Not defining the embedding_function here defaults to Huggingface Sentence Transformer (all-MiniLM-V6-v2)
+    collection = CHROMA_CLIENT.get_or_create_collection(name=collection_name)
     ids = [article["doc_id"]]
     content = [article["data"][0]["content"]]
     metadatas = [article["data"][0]["metadata"]]
@@ -511,9 +517,9 @@ def insert_as_documents():
     documents = []
     articles = json.loads(open(JSON_DIR / "articles.json").read())
     for article in articles:
-        if article["series"] == "Cisco Catalyst 1200 Series Switches":
+        if article["series"] == "Cisco Catalyst 1300 Series Switches":
             url = article["url"]
-            document = asyncio.run(loader.load_data(url))
+            document = asyncio.run(loader.load_data(url, for_documents=True))
             documents.append(document)
 
     headers = {
@@ -522,109 +528,39 @@ def insert_as_documents():
     }
     for document in documents:
         print(document)
-        if document:
-
-            try:
-                ids = [
-                    "d12a12f9-9c01-464f-9735-208c611c116b",
-                    "5da38b5d-7718-4da7-aff7-a0009a994e9e",
-                    "98d964da-b649-4bd5-adfd-68dc7e2bce55",
-                    "d4c2990b-e0ed-464b-8c31-239f48cf78b7",
-                    "46c34071-3cf2-49b9-bf2f-a5dc76537747",
-                    "871b7a55-9105-43f6-ac62-7c0019baa3e3",
-                    "6afcf167-74a2-4048-aaff-1e56f36bd9ba",
-                    "6d0d9bab-15bc-45d6-887f-dadb5762bc3d",
-                    "f9c25e53-4a6e-45c5-8f0d-f0d46d6fa734",
-                ]
-
-                for id in ids:
-
-                    item = {
-                        "file_id": id,
-                        "collection_name": document["collection_name"],
-                    }
-                    try:
-                        process_doc = requests.post(
-                            "http://localhost:8080/rag/api/v1/process/doc",
-                            json=item,
-                            headers=headers,
-                        )
-                        process_doc.raise_for_status()
-                        doc = process_doc.json()
-                        print(doc)
-                        if doc:
-                            try:
-                                res = requests.post(
-                                    f"{DOCUMENTS_API}/create",
-                                    json={**document, "content": "{}"},
-                                    headers=headers,
-                                )
-                                res.raise_for_status()
-                                print(res.json())
-                            except Exception as e:
-                                print(e)
-                    except Exception as e:
-                        print(e)
-
-            # try:
-            #     fake_file = {
-            #         "content": document["content"],
-            #         "filename": document["filename"],
-            #     }
-            #     file_insert = requests.post(
-            #         f"{API_URL}/files/cisco", json=fake_file, headers=headers
-            #     )
-            #     file_insert.raise_for_status()
-            #     file_data = file_insert.json()
-            #     print(file_data)
-            #     item = {
-            #         "file_id": file_data["id"],
-            #         "collection_name": document["collection_name"],
-            #     }
-            # try:
-            #     vector_res = requests.post("http://localhost:8080/rag/api/v1/process/doc", json=item, headers=headers)
-
-            except Exception as e:
-                print(e)
-            # docu = DocumentResponse(
-            #     **{
-            #         **document.model_dump(),
-            #         "content": content,
-            #     }
-            # )
-            # print(docu)
-            # try:
-            #     print(document.model_dump())
-            #     res = requests.post(
-            #         f"{DOCUMENTS_API}/create",
-            #         json=document.model_dump(),
-            #         headers=headers,
-            #     )
-            #     res.raise_for_status()
-            #     print(res.json())
-            #     uploaded_file = res.json()
-            #     if uploaded_file:
-            #         print(uploaded_file)
-            #         item = {
-            #             "file_id": uploaded_file["id"],
-            #             "collection_name": uploaded_file["collection_name"],
-            #         }
-
-            # except Exception as e:
-            #     print(e)
-        # if document.get("content", None) is not None:
-        #     try:
-
-        #         res = requests.post(
-        #             f"{DOCUMENTS_API}/create", json=document, headers=headers
-        #         )
-        #         res.raise_for_status()
-        #         print(res.json())
-        #     except Exception as e:
-        #         print(e)
-        # else:
-        #     print("No content")
-
+        # insert a new file first without using FastAPI UploadFile (hence, fake upload but similar to the real process)
+        try:
+            file_form = {
+                "content": document.get("content", ""),
+                "filename": document.get("filename", ""),
+            }
+            res = requests.post(
+                f"{API_URL}/files/cisco", json=file_form, headers=headers
+            )
+            res.raise_for_status()
+            uploaded_file = res.json()
+            if uploaded_file:
+                process_doc_form = {
+                    "file_id": uploaded_file.get("id", ""),
+                    "collection_name": document.get("collection_name", ""),
+                }
+                
+                try:
+                    process_doc = requests.post(f"{RAG_BASE_URL}/process/doc", json=process_doc_form, headers=headers)
+                    process_doc.raise_for_status()
+                    doc = process_doc.json()
+                    if doc:
+                        try:
+                            res = requests.post(f"{DOCUMENTS_API}/create", json={**document, "content": "{}"}, headers=headers)
+                            res.raise_for_status()
+                            print(res.json())
+                        except Exception as e:
+                            print(e)
+                except Exception as e:
+                    print(e)
+                    continue
+        except Exception as err:
+            print(err)
 
 if __name__ == "__main__":
     insert_as_documents()

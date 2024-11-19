@@ -94,6 +94,7 @@
 				})(),
 				(async () => {
 					documents.set(await getDocs(localStorage.token));
+					console.log('documents: ', $documents);
 				})(),
 				(async () => {
 					tools.set(await getTools(localStorage.token));

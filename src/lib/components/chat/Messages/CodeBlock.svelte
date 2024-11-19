@@ -2,15 +2,14 @@
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { copyToClipboard, isErrorAsString, isErrorWithDetail, isErrorWithMessage } from '$lib/utils';
 	import hljs from 'highlight.js';
-	import html from 'highlight.js/lib/languages/xml';
 	import 'highlight.js/styles/github-dark.min.css';
 	import { loadPyodide } from 'pyodide';
-	import { onMount, tick } from 'svelte';
 	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
 
 	export let id = '';
 	export let lang = '';
 	export let code = '';
+	export let text = '';
 
 	let highlightedCode: string | null = null;
 	let executing = false;
@@ -145,6 +144,8 @@ __builtins__.input = input`);
 				isErrorWithDetail(error) && (stderr = error.detail);
 				isErrorWithMessage(error) && (stderr = error.message);
 				stderr = String(stderr);
+			} finally {
+				executing = false;
 			}
 
 			executing = false;
@@ -227,6 +228,13 @@ __builtins__.input = input`);
 
 		// Set a new timeout to debounce the code highlighting
 		debounceTimeout = setTimeout(highlightCode, 10);
+
+		console.log('Code:', code);
+		console.log('highlightedCode:', highlightedCode);
+	}
+
+	$: if (text) {
+		console.log('Text:', text);
 	}
 </script>
 
@@ -241,6 +249,7 @@ __builtins__.input = input`);
 				{:else}
 					<button
 						class="copy-code-button bg-none border-none p-1"
+						disabled={executing}
 						on:click={() => {
 							executePython(code);
 						}}>Run</button
@@ -255,7 +264,7 @@ __builtins__.input = input`);
 	</div>
 
 	<pre
-		class=" hljs p-4 px-5 overflow-x-auto"
+		class="hljs p-4 px-5 overflow-x-auto"
 		style="border-top-left-radius: 0px; border-top-right-radius: 0px; {(executing || stdout || stderr || result) &&
 			'border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;'}"><code
 			class="language-{lang} rounded-t-none whitespace-pre"

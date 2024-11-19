@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { DropdownMenu } from 'bits-ui';
 	import { createEventDispatcher, getContext, onMount } from 'svelte';
 
@@ -9,7 +11,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let show = false;
 	export let role = '';
@@ -39,7 +41,7 @@
 			<button
 				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
 				on:click={async () => {
-					await showSettings.set(true);
+					showSettings.set(true);
 					show = false;
 				}}
 			>

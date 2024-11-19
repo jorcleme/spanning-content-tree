@@ -2,11 +2,14 @@
 	import type { _CiscoArticleMessage, Model } from '$lib/stores';
 	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
+	import type { Instance } from 'tippy.js';
+
+	import tippy from 'tippy.js';
 	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { toast } from 'svelte-sonner';
-	import { slide, fly } from 'svelte/transition';
-	import { quintInOut } from 'svelte/easing';
+	import { slide, fly, fade, crossfade } from 'svelte/transition';
+	import { quintInOut, cubicInOut } from 'svelte/easing';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import {
 		mostRecentStep,
@@ -20,27 +23,51 @@
 		activeArticleId,
 		settings,
 		models,
-		config
+		config,
+		activeArticle,
+		globalMessages,
+		socket
 	} from '$lib/stores';
-	import { generateOpenAIChatCompletionQuestions, generateOpenAIChatCompletionAnswers } from '$lib/apis/openai';
-	// import { generateAIQuestion, answerGenAIQuestion } from '$lib/apis/articles/index'
+	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { splitStream, approximateToHumanReadable } from '$lib/utils';
+	import { queryDoc, queryCollection } from '$lib/apis/rag';
+	import { X } from 'lucide-svelte';
+	import {
+		generateOpenAIChatCompletionQuestions,
+		generateOpenAIChatCompletionAnswers,
+		generateOpenAIChatCompletion
+	} from '$lib/apis/openai';
+	import { createOpenAITextStream } from '$lib/apis/streaming';
+	import { generateOllamaChatCompletion, generateChatCompletion } from '$lib/apis/ollama';
+	import { getArticleById, updateArticleStep } from '$lib/apis/articles';
 	import { stripHtml, isErrorWithDetail, isErrorWithMessage, isErrorAsString } from '$lib/utils';
 	import { page } from '$app/stores';
+	import { flip } from 'svelte/animate';
+
+	type QuestionButton = { id: string; text: string; clicked: boolean };
 
 	const i18n: Writable<i18nType> = getContext('i18n');
+	const STATIC_IDS = ['static_1', 'static_2', 'static_3'];
+	const DYNAMIC_IDS = ['dynamic_1', 'dynamic_2', 'dynamic_3'];
 
-	let details: HTMLDetailsElement;
 	$: {
-		console.log(currentStep);
+		console.log(activeStepSection);
 	}
+
+	let staticQuestionBtns: QuestionButton[] = [];
+	let dynamicQuestionBtns: QuestionButton[] = [];
 	let selectedModels = [''];
 	let atSelectedModel: Model | undefined;
 	let activeStepMatch;
 	let activeStepNum = 0;
-	let questionsFetched = false;
 	let isLoading = false;
-	let questions: Array<{ id: string; text: string; clicked: boolean }> = [];
-	$: currentStep = $activeSupportSection;
+	let questions: QuestionButton[] = [];
+	let currentQuestion: string;
+
+	let _stopResponseFlag = false;
+
+	let tooltipInstance: Instance[] | null = null;
+	$: activeStepSection = $activeSupportSection;
 	$: activeStepNum = $mostRecentStep;
 
 	$: selectedModelIds = atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
@@ -57,10 +84,6 @@
 	$: model = $models.find((m) => m.id === selectedModels.at(0));
 
 	$: history = {};
-
-	$: if (activeStepNum > -1 && currentStep) {
-		updateQuestions(activeStepNum);
-	}
 
 	async function loadQuestions(stepNumber: number) {
 		const articleId = $activeArticleId;
@@ -82,29 +105,10 @@
 		localStorage.setItem(key, JSON.stringify(questions));
 	};
 
-	async function updateQuestions(stepNumber: number) {
-		isLoading = true;
-		try {
-			if ($activeArticleId) {
-				let generatedQuestionsData = getQuestionsFromStorage($activeArticleId, stepNumber) ?? [];
-				// (await generateAIQuestion(stepNumber, $mountedArticleSteps));
-				// let generatedQuestionsData = await generateAIQuestion(stepNumber, $mountedArticleSteps);
-				saveQuestionsToStorage($activeArticleId, stepNumber, generatedQuestionsData);
-				questions = [
-					...staticQuestionBtns,
-					...generatedQuestionsData.map((q, index) => ({
-						id: `dynamicAnswer${index + 1}`,
-						text: q,
-						clicked: false
-					}))
-				];
-			}
-		} catch (err) {
-			console.error(err);
-		} finally {
-			isLoading = false;
-		}
-	}
+	const getRecentStepByIndex = (index: number) => {
+		return $mountedArticleSteps.at(index);
+	};
+
 	// let messages = [
 	// 	{
 	// 		role: 'system',
@@ -117,6 +121,9 @@
 	let messages: _CiscoArticleMessage[] = [];
 	$: messages = $ciscoArticleMessages;
 
+	let _globalMessages: Map<number, _CiscoArticleMessage[]> = new Map();
+	$: _globalMessages = $globalMessages;
+
 	onMount(() => {
 		activeStepMatch = $activeSupportSection && $activeSupportSection.match(/Step (\d+)/g);
 		if (activeStepMatch) {
@@ -125,31 +132,14 @@
 	});
 	$: questionsGenerated =
 		$mostRecentStep > -1 &&
-		messages.filter((m) => m.role === 'user').some((m) => m.stepIndex ?? Infinity === $mostRecentStep);
+		$activeArticle?.steps[$mostRecentStep].qna_pairs?.length === STATIC_IDS.length + DYNAMIC_IDS.length;
 
-	let staticQuestionBtns = [
-		{
-			id: 'staticAnswer1',
-			text: 'Summarize the key points of this section',
-			clicked: false
-		},
-		{
-			id: 'staticAnswer2',
-			text: 'I need help troubleshooting',
-			clicked: false
-		},
-		{
-			id: 'staticAnswer3',
-			text: 'Show Best Practices',
-			clicked: false
-		}
-	];
 	const dispatch = createEventDispatcher();
 
 	const generateContext = () => {
-		if ($mostRecentStep > -1 && Array.isArray($mountedArticleSteps)) {
+		if (activeStepNum > -1 && Array.isArray($mountedArticleSteps)) {
 			return $mountedArticleSteps
-				.slice(0, $mostRecentStep + 1)
+				.slice(0, activeStepNum + 1)
 				.map((s, i) => `Step ${i + 1}: ${stripHtml(s.text)}`)
 				.join('\n');
 		}
@@ -157,7 +147,7 @@
 	};
 
 	const generateQuestionPrompt = () => {
-		if ($mostRecentStep > -1 && Array.isArray($mountedArticleSteps)) {
+		if (activeStepNum > -1 && Array.isArray($mountedArticleSteps)) {
 			const stepsText = generateContext();
 
 			return `${stepsText}\n Given all this context, what are three questions a user may have about the most recent step? Return only the questions.`;
@@ -165,26 +155,93 @@
 		return null;
 	};
 
+	const updateMessages = (newMessage: _CiscoArticleMessage) => {
+		const unique = new Set(messages.map((m) => m.id));
+		if (!unique.has(newMessage.id)) {
+			return [...messages, newMessage];
+		} else {
+			return messages.map((m) => (m.id === newMessage.id ? newMessage : m));
+		}
+	};
+
+	const setMessages = (index: number) => {
+		if (index > -1) {
+			messages = _globalMessages.has(index) ? _globalMessages.get(index)! : [...messages];
+		}
+	};
+
+	$: if ($activeArticle) {
+		// For Generated Articles, set the default static buttons
+		// Articles saved in the database will have these set already but generated articles will not
+		// Article.svelte will set the default QNA Pairs for generated articles + Insert the generated article into the database
+		// This is just a backup in case the default QNA Pairs are not set
+		staticQuestionBtns =
+			activeStepNum > -1
+				? $activeArticle.steps[activeStepNum].qna_pairs
+						?.filter((pair) => STATIC_IDS.includes(pair.id))
+						.map((pair) => ({ id: pair.id, text: pair.question, clicked: false })) ?? [
+						{ id: 'static_1', text: "I don't understand this step", clicked: false },
+						{ id: 'static_2', text: 'Help me troubleshoot', clicked: false },
+						{ id: 'static_3', text: 'Show best practices', clicked: false }
+				  ]
+				: [
+						{ id: 'static_1', text: "I don't understand this step", clicked: false },
+						{ id: 'static_2', text: 'Help me troubleshoot', clicked: false },
+						{ id: 'static_3', text: 'Show best practices', clicked: false }
+				  ];
+
+		dynamicQuestionBtns =
+			activeStepNum > -1
+				? $activeArticle.steps[activeStepNum].qna_pairs
+						?.filter((pair) => DYNAMIC_IDS.includes(pair.id))
+						.map((pair) => ({ id: pair.id, text: pair.question, clicked: false })) ?? []
+				: [];
+
+		questions = [...staticQuestionBtns, ...dynamicQuestionBtns];
+		console.log('questions', questions);
+		// Update messages
+		// Messages are stored in globalMessages store
+		// Messages must be reset every time a user scrolls the page to a new section
+		// Due to this, we must find the most recent message for the current section / step number
+		setMessages(activeStepNum);
+	}
+
 	const startGenerateDynamicQuestions = async (e: Event & { currentTarget: HTMLDetailsElement }) => {
-		if (e.currentTarget.open && !questionsGenerated) {
+		if (e.currentTarget.open) {
 			questions = [...staticQuestionBtns];
 			selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
 			let selectedModel = selectedModels.at(0);
 			if (selectedModels.includes('')) {
 				toast.error($i18n.t('Model not selected'));
+			} else if (
+				$activeArticle &&
+				$activeArticle.steps.at(activeStepNum)?.qna_pairs?.some((pair) => DYNAMIC_IDS.includes(pair.id))
+			) {
+				console.log("We've already generated the questions");
+				questions = [...staticQuestionBtns, ...dynamicQuestionBtns];
 			} else {
+				console.log('Generating questions...');
 				const prompt = generateQuestionPrompt();
+				console.log('Prompt:', prompt);
 				if (prompt) {
 					const responses = await sendGeneratedDynamicQuestions(prompt, selectedModel);
 					questions = [...questions, ...responses];
-					questionsGenerated = true;
+					console.log('questions', questions);
+					const updatedArticle = await updateArticleStep(localStorage.token, $activeArticle?.id ?? $activeArticleId, {
+						step_index: activeStepNum,
+						step: {
+							...$mountedArticleSteps[activeStepNum],
+							qna_pairs: questions.map(({ id, text }) => {
+								return { id, question: text, answer: null };
+							})
+						}
+					});
+					activeArticle.set(updatedArticle);
+					console.log('updated article', updatedArticle);
 				}
 			}
-		} else if (e.currentTarget.open && questionsGenerated) {
-			await updateQuestions(activeStepNum);
 		} else {
 			dispatch('closeDialog', { open: false });
-			$isSupportWidgetOpen = false;
 		}
 	};
 
@@ -204,29 +261,15 @@
 		const model = $models.filter((m) => m.id === selectedModelId).at(0);
 		let _responses: any[] = [];
 		if (model) {
-			try {
-				const data = await generateOpenAIChatCompletionQuestions(localStorage.token, {
-					stream: false,
-					model: model.id,
-					messages: [
-						messages.at(0) ? { role: messages[0].role, content: messages[0].content } : undefined,
-						{ role: 'user', content: prompt }
-					].filter((m) => m?.content?.trim()),
-					temperature: 0
-				});
-				_responses = data.map((text, i) => ({ id: `dynamicAnswer${i + 1}`, text, clicked: false }));
-			} catch (e) {
-				console.error(e);
-				if (isErrorWithDetail(e)) {
-					toast.error(e.detail);
-				} else if (isErrorWithMessage(e)) {
-					toast.error(e.message);
-				} else {
-					toast.error('An error occurred');
-				}
-				_responses = [];
-			} finally {
-				isLoading = false;
+			if (model.owned_by === 'openai') {
+				console.log('Generating questions with OpenAI');
+				_responses = await generateDynamicQuestionsOpenAI(prompt, model);
+			} else if (model.owned_by === 'ollama') {
+				console.log('Generating questions with Ollama');
+				_responses = await generateDynamicQuestionsOllama(prompt, model);
+			} else {
+				console.log('Generating questions with Ollama');
+				_responses = await generateDynamicQuestionsOllama(prompt, model);
 			}
 		} else {
 			toast.error($i18n.t(`Model {{modelId}} not found`, { selectedModelId }));
@@ -235,106 +278,227 @@
 		return _responses;
 	};
 
-	async function generateLLMAnswer(i: number, question: string) {
+	const generateDynamicQuestionsOpenAI = async (prompt: string, model: Model) => {
+		let _responses: any[] = [];
+
 		try {
-			isLoading = true;
-			const askedQuestion = question;
-			console.log('askedQuestion', askedQuestion);
+			const data = await generateOpenAIChatCompletionQuestions(localStorage.token, {
+				stream: false,
+				model: model.id,
+				messages: [
+					messages.at(0) ? { role: messages[0].role, content: messages[0].content } : undefined,
+					{ role: 'user', content: prompt }
+				].filter((m) => m?.content?.trim()),
+				temperature: 0
+			}).catch((e) => {
+				throw e;
+			});
+			_responses = data
+				.split(/[\n;]|1\.\s*|2\.\s*|3\.\s*/)
+				.filter((x) => x)
+				.map((x) => x.replace(/^-+\s*/, ''))
+				.slice(0, 3)
+				.map((text, i) => ({ id: `dynamic_${i + 1}`, text, clicked: false }));
+			// _responses = data.map((text, i) => ({ id: `dynamic_${i + 1}`, text, clicked: false }));
+		} catch (error) {
+			console.error(error);
+			if (isErrorWithDetail(error)) {
+				toast.error(error.detail);
+			} else if (isErrorWithMessage(error)) {
+				toast.error(error.message);
+			} else {
+				toast.error('An error occurred');
+			}
+			_responses = [];
+		} finally {
+			isLoading = false;
+		}
+		return _responses;
+	};
 
-			// send the latest message to the LLM
-			selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
-			let selectedModel = selectedModels.at(0);
-			const model = $models.filter((m) => m.id === selectedModel).at(0);
-			questions[i].clicked = true;
-			currentQuestion = question.slice(0);
-			const userMessageId = uuidv4();
-			messages = [
-				...messages,
-				{
-					id: userMessageId,
-					role: 'user',
-					content: question,
+	const generateDynamicQuestionsOllama = async (prompt: string, model: Model) => {
+		let _responses: any[] = [];
+		let userPrompt = `${prompt} Return as a numbered list of questions and only the questions text. VERY IMPORTANT: Do not include any other text. Example: 1. How do I connect the console cable? 2. Do I need a special cable? 3. What is a console port?`;
+		try {
+			const data = await generateOllamaChatCompletion(localStorage.token, {
+				stream: false,
+				model: model.id,
+				messages: [
+					messages.at(0) ? { role: messages[0].role, content: messages[0].content } : undefined,
+					{ role: 'user', content: userPrompt }
+				].filter((m) => m?.content?.trim())
+			}).catch((error) => {
+				throw error;
+			});
+			console.log('Response from Ollama:', data);
+			_responses = data.map((text, i) => ({ id: `dynamic_${i + 1}`, text, clicked: false }));
+		} catch (error) {
+			console.error(error);
+			if (isErrorWithDetail(error)) {
+				toast.error(error.detail);
+			} else if (isErrorWithMessage(error)) {
+				toast.error(error.message);
+			} else {
+				toast.error('An error occurred');
+			}
+			_responses = [];
+		} finally {
+			isLoading = false;
+		}
+		return _responses;
+	};
+
+	const generateLLMAnswer = async (i: number, btnId: string, question: string) => {
+		isLoading = true;
+		// send the latest message to the LLM
+		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
+		let selectedModel = selectedModels.at(0);
+		const model = $models.filter((m) => m.id === selectedModel).at(0);
+		if (questions.at(i)) {
+			questions = questions.map((q) => (q.id === questions[i].id ? { ...q, clicked: true } : q));
+		}
+		currentQuestion = question.slice(0);
+		messages = updateMessages({
+			id: uuidv4(),
+			role: 'user',
+			content: question,
+			timestamp: Math.floor(Date.now() / 1000),
+			model: model?.id ?? selectedModel ?? selectedModels.at(0)!,
+			associatedQuestion: null
+		});
+
+		if ($activeArticle && $activeArticle.steps.at(activeStepNum)?.qna_pairs) {
+			const pairs = $activeArticle.steps.at(activeStepNum)?.qna_pairs ?? [];
+			const match = pairs.find((pair) => pair.id.trim().toLowerCase() === btnId.trim().toLowerCase());
+			if (match && match.answer !== null) {
+				await tick();
+
+				messages = updateMessages({
+					id: uuidv4(),
+					role: 'assistant',
+					content: match.answer,
 					timestamp: Math.floor(Date.now() / 1000),
-					model: model?.id ?? selectedModel ?? '',
-					associatedQuestion: null
-				}
-			];
+					model: model?.id ?? selectedModels.at(0)!,
+					sources: match.sources,
+					associatedQuestion: question,
+					qnaBtnId: btnId,
+					done: true
+				});
+				isLoading = false;
+				return;
+			}
+		}
 
+		try {
 			const context = generateContext();
-
 			let directions: string;
 			let needsContextFlag: boolean = false;
+
 			switch (i) {
 				case 0:
-					directions = `The devices the user is performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The most recent step is the most important to pay attention to.\nThe objective of this article is ${$mountedArticlePreambleObjective}\n<article-steps>:\n\t${context}\n</article-steps>\nThe user doesn't understand the latest step, use the context of the previous article steps to explain in simple language how the latest step ties into the objective of the article.`;
+					directions = `The devices the user is performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The most recent step is the most important to pay attention to.\n<objective>\n\t${$mountedArticlePreambleObjective}\n</objective>\n\n<article-steps>:\n\t${context}\n</article-steps>\nThe user doesn't understand the latest step, use the context of the previous article steps to explain in simple language how the latest step ties into the objective of the article. Keep your answer simple, easy to understand and limited to answering the question about the most recent step only. Do not direct the user in other steps.`;
 					break;
 				case 1:
-					directions = `You are a one-shot troubleshooting helper. You should only provide hyperlinks that reference the context below. Do NOT make up hyperlinks. If you can't find the answer in the context below, just say "Hmm, I'm not sure." Don't try to make up an answer. If the question is not related to the context, politely respond that you are tuned to only answer questions that are related to the context. Use the previous steps as a context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\nAlso of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The last step is the most important to pay attention to.\nThe objective of this article is ${$mountedArticlePreambleObjective}\n<context>:\n\t${context}\n</context>\n Question: I need help troubleshooting, use the context of the previous steps to inform the steps to troubleshoot presented to the user. Be sure to cite the articles content when responding.`;
+					directions = `You are a one-shot troubleshooting helper. The article objective, devices, steps and context will be labelled within XML-Style tags. Use the context and/or prior article steps to answer the users questions. If you can't find the answer in the context below, just say "Hmm, I'm not sure." Don't try to make up an answer. Use the previous steps as context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\n\n<objective>\n\t${mountedArticlePreambleObjective}\n</objective>\n\n<devices>\n\t${mountedArticlePreambleDevices}\n</devices>\n\n<article-steps>:\n\t${context}\n</article-steps>\n\n<Question>\n\tI need help troubleshooting\n</Question>\n\n<context>\n\t[[context]]\n</context>\n\nBe sure to cite the articles content when responding. Keep your answer simple, easy to understand and limited to answering the question about the most recent step only. Do not direct the user in other steps.`;
+					needsContextFlag = true;
 					break;
 				case 2:
-					directions = `You are a Cisco TAC engineer and an expert at explaining technology in easy to understand terms. You are helping the user to understand how the objective ties into the step of the configuration step they are currently on. Help the user understand the factors to think about when applying best practices. Use the previous steps as a context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\nAlso of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The last step is the most important to pay attention to.\nThe objective of this article is ${$mountedArticlePreambleObjective}\n<context>:\n\t${context}\n</context>\nPlease provide any best practices related to the current step and the overall article context. If there are no best practices applicable to this step, just tell the user that there are no best practices to consider for this step.`;
+					directions = `You are a Cisco TAC engineer and an expert at explaining technology in easy to understand terms. You are helping the user to understand how the objective ties into the step of the configuration step they are currently on. Help the user understand the factors to think about when applying best practices. Use the previous steps as a context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\nAlso of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The last step is the most important to pay attention to.\nThe objective of this article is ${$mountedArticlePreambleObjective}\n<context>:\n\t${context}\n</context>\nPlease provide any best practices related to the current step and the overall article context. If there are no best practices applicable to this step, just tell the user that there are no best practices to consider for this step. Keep your answer simple, easy to understand and limited to answering the question about the most recent step only. Do not direct the user in other steps.`;
 					break;
 				default:
-					directions = `You are a Cisco TAC engineer and an expert at explaining technology in easy to understand terms. Use the previous article steps to understand the context of the article. Use the step-context and the context XML Tags to answer the users question and inform what steps to take next but most importantly pay attention to the latest step in the configuration.\nAlso of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The last step is the most important to pay attention to.\nThe objective of this article is ${$mountedArticlePreambleObjective}\n\n<step-context>\n\t${context}\n</step-context>\n\n<context>\n\t[[context]]\n\n<question>\n\t${askedQuestion}}\n</question>`;
+					directions = `You are a Cisco TAC engineer and an expert at explaining technology in easy to understand terms. Use the previous article steps to understand the context of the article. Use the step-context and the context XML Tags to answer the users question and inform what steps to take next but most importantly pay attention to the latest step in the configuration.\nAlso of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The last step is the most important to pay attention to.\nThe objective of this article is ${$mountedArticlePreambleObjective}\n\n<step-context>\n\t${context}\n</step-context>\n\n<context>\n\t[[context]]\n</context>\n\n<question>\n\t${question}}\n</question>\n\nKeep your answer simple, easy to understand and limited to answering the question about the most recent step only. Do not direct the user in other steps.`;
 					needsContextFlag = true;
 					break;
 			}
-			let documents: string[][] | null = null;
-			let metadatas: Record<string, any>[][] | null = null;
+			let distances: number[] | null = null;
+			let documents: string[] | null = null;
+			let metadatas: Record<string, any>[] | null = null;
 
 			if (needsContextFlag) {
-				const res = await queryDoc(localStorage.token, 'catalyst_1200_admin_guide', question, 2);
-				documents = res.documents;
-				metadatas = res.metadatas;
-				const ragContext = res.documents.flat(1).join('\n\n');
-				directions = directions.replace(/\[\[context\]\]/g, ragContext);
+				const res = await queryCollection(
+					localStorage.token,
+					['catalyst_1200_admin_guide', 'catalyst_1200_cli_guide'],
+					question
+				);
+				// const test = await queryDocWithSmallChunks(localStorage.token, 'catalyst_1200_cli_guide', question);
+				// console.log('test', test);
+				distances = res.distances?.flat(1) ?? null;
+				documents = res.documents?.flat(1) ?? null;
+				metadatas = res.metadatas?.flat(1) ?? null;
+				directions = directions.replace(/\[\[context\]\]/g, documents?.join('\n\n') ?? '');
 			}
 
-			let systemMessage = {
-				id: 'system2',
-				role: 'system',
-				content: directions,
-				timestamp: Math.floor(Date.now() / 1000),
-				model: model?.id ?? model!.name,
-				associatedQuestion: null
-			};
-			messages = [...messages, systemMessage];
-			console.log('messages after system message', messages);
-			// wait for messages to update
-			await tick();
-
 			if (model) {
-				const res = await generateOpenAIChatCompletionAnswers(localStorage.token, {
-					stream: false,
+				console.log('directions', directions);
+				const assistantMessageId = uuidv4();
+				let systemMessage = {
+					id: `system_${assistantMessageId}`,
+					role: 'system',
+					content: directions,
+					timestamp: Math.floor(Date.now() / 1000),
 					model: model.id,
-					messages: [systemMessage].map((m) => ({ role: m.role, content: m.content })),
-					temperature: 0
-				}).catch((e) => {
-					console.error(e);
-					throw e;
-				});
-
-				messages = [
-					...messages,
-					metadatas && documents
-						? {
-								id: uuidv4(),
-								role: 'assistant',
-								content: res,
-								timestamp: Math.floor(Date.now() / 1000),
-								model: model.id,
-								sources: metadatas.flat(1).map((m, i) => ({ ...m, content: documents.flat(1).at(i) })),
-								associatedQuestion: question
-						  }
-						: {
-								id: uuidv4(),
-								role: 'assistant',
-								content: res,
-								timestamp: Math.floor(Date.now() / 1000),
-								model: model.id,
-								associatedQuestion: question
-						  }
-				];
+					associatedQuestion: null
+				};
+				messages = updateMessages(systemMessage);
+				console.log('messages after system message', messages);
+				// wait for messages to update
+				await tick();
+				// Keep responseMessage here as if user stops generation, then continues, we can use the same responseMessage
+				let responseMessage: _CiscoArticleMessage = {
+					id: assistantMessageId,
+					role: 'assistant',
+					content: '',
+					timestamp: Math.floor(Date.now() / 1000),
+					model: model.id,
+					associatedQuestion: question,
+					qnaBtnId: btnId,
+					sources: metadatas?.map((m, i) => ({ ...m, content: documents?.at(i) }))
+				};
+				if (model.owned_by === 'openai') {
+					responseMessage = await sendPromptOpenAI(systemMessage, { model, responseMessage });
+				} else if (model.owned_by === 'ollama') {
+					responseMessage = await sendPromptOllama(systemMessage, { model, responseMessage });
+				} else {
+					responseMessage = await sendPromptOllama(systemMessage, { model, responseMessage });
+				}
+				await tick();
+				console.log('response message', responseMessage);
+				messages = updateMessages(responseMessage);
+				// await sendUpdateArticle(responseMessage, id);
+				// const updatedArticle = await updateArticleStep(localStorage.token, $activeArticleId, {
+				// 	step_index: activeStepNum,
+				// 	step: $activeArticle
+				// 		? {
+				// 				...$activeArticle.steps[activeStepNum],
+				// 				qna_pairs: $activeArticle.steps.at(activeStepNum)?.qna_pairs?.map((pair) => {
+				// 					if (pair.id.trim().toLowerCase() === btnId.trim().toLowerCase()) {
+				// 						return {
+				// 							...pair,
+				// 							answer: responseMessage.content === '' ? null : responseMessage.content,
+				// 							sources: metadatas?.map((m, i) => ({ ...m, content: documents?.at(i) })),
+				// 							model: model.id
+				// 						};
+				// 					}
+				// 					return pair;
+				// 				})
+				// 		  }
+				// 		: {
+				// 				...$activeArticle.steps[activeStepNum],
+				// 				qna_pairs: step.qna_pairs?.map((pair) => {
+				// 					if (pair.id.trim().toLowerCase() === btnId.trim().toLowerCase()) {
+				// 						return {
+				// 							...pair,
+				// 							answer: responseMessage.content === '' ? null : responseMessage.content,
+				// 							sources: metadatas?.map((m, i) => ({ ...m, content: documents?.at(i) })),
+				// 							model: model.id
+				// 						};
+				// 					}
+				// 					return pair;
+				// 				})
+				// 		  }
+				// });
+				// activeArticle.set(updatedArticle);
+				// console.log('updated article', updatedArticle);
 			}
 		} catch (err) {
 			if (isErrorWithDetail(err)) {
@@ -347,139 +511,394 @@
 				toast.error('An error occurred finding the answer. Please try your request again.');
 			}
 		} finally {
-			scrollToBottom();
+			// catch all for any errors
 			isLoading = false;
 		}
-	}
+	};
 
-	async function handleToggle() {
-		console.log('details is', details.open);
-		if (details.open) {
-			dispatch('openDialog', { open: true });
-			if (staticQuestionBtns.length > 3) {
-				return;
+	type SendPromptOptions = {
+		model: Model;
+		responseMessage: _CiscoArticleMessage;
+	};
+
+	const sendPromptOpenAI = async (sysMsg: _CiscoArticleMessage, { model, responseMessage }: SendPromptOptions) => {
+		try {
+			const [res, controller] = await generateOpenAIChatCompletion(
+				localStorage.token,
+				{
+					stream: true,
+					model: model.id,
+					stream_options:
+						model.info?.meta?.capabilities?.usage ?? false
+							? {
+									include_usage: true
+							  }
+							: undefined,
+					messages: [sysMsg].map((m) => ({ role: m.role, content: m.content })),
+					temperature: 0,
+					session_id: $socket?.id
+				},
+				`${WEBUI_BASE_URL}/api`
+			);
+			await tick();
+			scrollToBottom();
+
+			if (res && res.ok && res.body) {
+				const stream = await createOpenAITextStream(res.body, $settings.splitLargeChunks ?? true);
+				for await (const update of stream) {
+					const { value, done, error, usage } = update;
+					if (error) {
+						await handleOpenAIError(error, null, model, responseMessage);
+						break;
+					}
+
+					if (usage) {
+						responseMessage.info = { ...usage, openai: true };
+					}
+
+					if (done || _stopResponseFlag) {
+						responseMessage.done = true;
+
+						if (_stopResponseFlag) {
+							controller.abort('User: Stop Response');
+						}
+						messages = updateMessages(responseMessage);
+						await renderStyling();
+						break;
+					}
+
+					if (responseMessage.content == '' && value == '\n') {
+						continue;
+					} else {
+						// First chunk means we have a response, stop whowing Spinner and stream
+						isLoading = false;
+						responseMessage.content += value;
+						messages = updateMessages(responseMessage);
+					}
+				}
+
+				if ($settings.notificationEnabled && !document.hasFocus()) {
+					const notification = new Notification(`${model.id}`, {
+						body: responseMessage.content,
+						icon: `${WEBUI_BASE_URL}/static/favicon.png`
+					});
+				}
+				scrollToBottom();
 			} else {
-				await updateQuestions(activeStepNum);
+				await handleOpenAIError(null, res, model, responseMessage);
+			}
+		} catch (error) {
+			await handleOpenAIError(error, null, model, responseMessage);
+		}
+		await tick();
+		_stopResponseFlag = false;
+		scrollToBottom();
+		messages = updateMessages(responseMessage);
+		return responseMessage;
+	};
+
+	const sendPromptOllama = async (message: _CiscoArticleMessage, { model, responseMessage }: SendPromptOptions) => {
+		const [res, controller] = await generateChatCompletion(localStorage.token, {
+			stream: true,
+			model: model.id,
+			messages: [message].map((m) => ({ role: m.role, content: m.content })),
+			session_id: $socket?.id,
+			id: message.id
+		});
+		if (res === null) {
+			toast.error($i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, { provider: 'Ollama' }));
+			message.error = {
+				content: $i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, {
+					provider: 'Ollama'
+				})
+			};
+		}
+		await tick();
+		scrollToBottom();
+
+		if (res && res.ok && res.body) {
+			const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
+			while (true) {
+				const { value, done } = await reader.read();
+				console.log(value);
+				if (done || _stopResponseFlag) {
+					responseMessage.done = true;
+
+					if (_stopResponseFlag) {
+						controller.abort('User: Stop Response');
+					}
+
+					messages = updateMessages(responseMessage);
+					break;
+				}
+
+				try {
+					let lines = value.split('\n');
+
+					for (const line of lines) {
+						if (line !== '') {
+							console.log(line);
+							let data = JSON.parse(line);
+
+							if ('detail' in data) {
+								throw data;
+							}
+
+							if (data.done == false) {
+								if (responseMessage.content == '' && data.message.content == '\n') {
+									continue;
+								} else {
+									responseMessage.content += data.message.content;
+
+									messages = updateMessages(responseMessage);
+								}
+							} else {
+								isLoading = false;
+								responseMessage.done = true;
+
+								if (responseMessage.content == '') {
+									responseMessage.error = {
+										code: 400,
+										content: `Oops! No text generated from Ollama, Please try again.`
+									};
+								}
+
+								responseMessage.info = {
+									total_duration: data.total_duration,
+									load_duration: data.load_duration,
+									sample_count: data.sample_count,
+									sample_duration: data.sample_duration,
+									prompt_eval_count: data.prompt_eval_count,
+									prompt_eval_duration: data.prompt_eval_duration,
+									eval_count: data.eval_count,
+									eval_duration: data.eval_duration
+								};
+								messages = updateMessages(responseMessage);
+
+								if ($settings.notificationEnabled && !document.hasFocus()) {
+									const notification = new Notification(`${model.id}`, {
+										body: responseMessage.content,
+										icon: `${WEBUI_BASE_URL}/static/favicon.png`
+									});
+								}
+							}
+						}
+					}
+				} catch (error) {
+					console.log(error);
+					if (isErrorWithDetail(error)) {
+						toast.error(error.detail);
+					}
+					break;
+				} finally {
+					isLoading = false;
+				}
+			}
+		} else {
+			if (res !== null) {
+				const error = await res.json();
+				console.log(error);
+				if (isErrorWithDetail(error)) {
+					toast.error(error.detail);
+					responseMessage.error = { content: error.detail };
+				} else {
+					toast.error(error.error);
+					responseMessage.error = { content: error.error };
+				}
+			} else {
+				toast.error($i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, { provider: 'Ollama' }));
+				responseMessage.error = {
+					content: $i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, {
+						provider: 'Ollama'
+					})
+				};
+			}
+			responseMessage.done = true;
+			messages = updateMessages(responseMessage);
+		}
+		await tick();
+		_stopResponseFlag = false;
+		isLoading = false;
+		return responseMessage;
+	};
+
+	const handleOpenAIError = async (
+		error: any,
+		res: Response | null,
+		model: Model,
+		responseMessage: _CiscoArticleMessage
+	) => {
+		let errorMessage = '';
+		let innerError;
+
+		if (error) {
+			innerError = error;
+		} else if (res !== null) {
+			innerError = await res.json();
+		}
+		console.error(innerError);
+		if (isErrorWithDetail(innerError)) {
+			toast.error(innerError.detail);
+			errorMessage = innerError.detail;
+		} else if ('error' in innerError) {
+			if (isErrorWithMessage(innerError.error)) {
+				toast.error(innerError.error.message);
+				errorMessage = innerError.error.message;
+			} else {
+				toast.error(innerError.error);
+				errorMessage = innerError.error;
+			}
+		} else if (isErrorWithMessage(innerError)) {
+			toast.error(innerError.message);
+			errorMessage = innerError.message;
+		}
+
+		responseMessage.error = {
+			content:
+				$i18n.t(`Uh-oh! There was an issue connecting to {{provider}}.`, {
+					provider: model.name ?? model.id
+				}) +
+				'\n' +
+				errorMessage
+		};
+		responseMessage.done = true;
+
+		messages = updateMessages(responseMessage);
+	};
+
+	const renderStyling = async () => {
+		await tick();
+		if (messages.at(-1) && messages.at(-1)?.role === 'assistant') {
+			const message = messages.at(-1)!;
+			console.log('Component is rendering styling for message', message.id);
+			if (tooltipInstance && tooltipInstance !== null) {
+				tooltipInstance[0]?.destroy();
 			}
 
-			// let generatedQuestionsData = await generateAIQuestion($mostRecentStep, $mountedArticleSteps);
-			// if (generatedQuestionsData && $mostRecentStep > -1) {
-			// 	questionsFetched = true;
-			// 	questions = generatedQuestionsData.questions;
-			// 	console.log('questions are:', questions);
-			// 	console.log('questions', questions);
-			// 	let converted = questions.map((q, index) => {
-			// 		return {
-			// 			id: `dynamicAnswer${index + 1}`,
-			// 			text: q,
-			// 			clicked: false
-			// 		};
-			// 	});
-			// 	// promptQuestionButtons = promptQuestionButtons.concat(converted);
-			// 	promptQuestionButtons = [...promptQuestionButtons, ...converted];
-			// }
-		} else {
-			dispatch('closeDialog', { open: false });
-			$isSupportWidgetOpen = false;
-		}
-		// if (details.open) {
-		// 	if ($isSupportWidgetOpen) {
-		// 		details.open = true;
-		// 	} else {
-		// 		details.open = false;
-		// 	}
-		// } else if (!details.open) {
-		// 	$isSupportWidgetOpen = false;
-		// }
+			if (message.info) {
+				let tooltipContent = '';
+				if (message.info?.openai) {
+					tooltipContent = `prompt_tokens: ${message.info.prompt_tokens ?? 'N/A'}<br/>
+								  completion_tokens: ${message.info.completion_tokens ?? 'N/A'}<br/>
+								  total_tokens: ${message.info.total_tokens ?? 'N/A'}`;
+					console.log('tooltipContent', tooltipContent);
+				} else {
+					const responseTokens =
+						message.info.eval_duration !== undefined && message.info.eval_duration !== 0
+							? `${
+									Math.round(((message.info.eval_count ?? 0) / (message.info.eval_duration / 1000000000)) * 100) / 100
+							  } tokens`
+							: 'N/A';
 
-		console.log('details is now', details.open);
-	}
+					const promptTokens =
+						message.info.prompt_eval_duration !== undefined && message.info.prompt_eval_duration !== 0
+							? `${
+									Math.round(
+										((message.info.prompt_eval_count ?? 0) / (message.info.prompt_eval_duration / 1000000000)) * 100
+									) / 100
+							  } tokens`
+							: 'N/A';
+
+					const totalDuration =
+						message.info.total_duration !== undefined && message.info.total_duration !== 0
+							? `${Math.round(((message.info.total_duration ?? 0) / 1000000) * 100) / 100}ms`
+							: 'N/A';
+
+					const loadDuration =
+						message.info.load_duration !== undefined && message.info.load_duration !== 0
+							? `${Math.round(((message.info.load_duration ?? 0) / 1000000) * 100) / 100}ms`
+							: 'N/A';
+
+					const promptEvalDuration =
+						message.info.prompt_eval_duration !== undefined && message.info.prompt_eval_duration !== 0
+							? `${Math.round(((message.info.prompt_eval_duration ?? 0) / 1000000) * 100) / 100}ms`
+							: 'N/A';
+
+					const evalDuration =
+						message.info.eval_duration !== undefined && message.info.eval_duration !== 0
+							? `${Math.round(((message.info.eval_duration ?? 0) / 1000000) * 100) / 100}ms`
+							: 'N/A';
+
+					tooltipContent = `response_token/s: ${responseTokens}<br/>
+								prompt_token/s: ${promptTokens}<br/>
+								total_duration: ${totalDuration}<br/>
+								load_duration: ${loadDuration}<br/>
+								prompt_eval_count: ${message.info.prompt_eval_count ?? 'N/A'}<br/>
+								prompt_eval_duration: ${promptEvalDuration}<br/>
+								eval_count: ${message.info.eval_count ?? 'N/A'}<br/>
+								eval_duration: ${evalDuration}<br/>
+								approximate_total: ${approximateToHumanReadable(message.info?.total_duration ?? 0)}`;
+				}
+				tooltipInstance = tippy(`#info-${message.id}`, {
+					content: `<span class="text-xs" id="tooltip-${message.id}">${tooltipContent}</span>`,
+					allowHTML: true,
+					theme: 'dark',
+					arrow: false,
+					offset: [0, 4]
+				});
+			}
+		}
+	};
 
 	function handleClose() {
 		console.log('close button clicked');
 		dispatch('closeDialog', { open: false });
 	}
 
-	async function handleGenAIQuestion(index: number) {
-		try {
-			isLoading = true;
-			const btn = questions[index];
-			// let btn = promptQuestionButtons[index];
-			questions[index].clicked = true;
-			// promptQuestionButtons[index].clicked = true;
-			const questionAsked = btn.text.trim();
-			console.log('question asked', questionAsked);
-			messages = [...messages, { role: 'user', content: questionAsked }];
-			// messages = [...messages, { role: 'user', content: questionAsked }];
-			// messages.addMessage({ role: 'user', content: questionAsked });
-			const stepArrayContext =
-				$mostRecentStep > -1 && $mountedArticleSteps.length > 0
-					? $mountedArticleSteps.slice(0, $mostRecentStep + 1)
-					: [];
-
-			const stepContextString = stepArrayContext
-				.map((step, index) => `Step ${index + 1}: ${stripHtml(step.text)}`)
-				.join('\n');
-
-			let context;
-
-			if (index === 0) {
-				context = `\nCONTEXT: Also of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The most recent step is the most important to pay attention to.\nThe objective of this article is ${$mountedArticlePreambleObjective}\nStep context:\n${stepContextString}\nI don't understand this step, use the context of the previous steps to explain in simple language how the latest step ties into the objective of the article.`;
-			} else if (index === 1) {
-				context = `You are a one-shot troubleshooting helper. You should only provide hyperlinks that reference the context below. Do NOT make up hyperlinks. If you can't find the answer in the context below, just say "Hmm, I'm not sure." Don't try to make up an answer. If the question is not related to the context, politely respond that you are tuned to only answer questions that are related to the context. Use the previous steps as a context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\nAlso of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices} \n Below is the context of all steps leading to the current step. The last step is the most important to pay attention to.\nThe objective of this article is ${$mountedArticlePreambleObjective}\nStep context:\n${stepContextString}\nI need help troubleshooting, use the context of the previous steps to inform the steps to troubleshoot presented to the user. Be sure to cite the articles content when responding. `;
-			} else if (index === 2) {
-				context = `You are a TAC engineer and an expert at explaining technology in easy to understand terms. You are helping the user to understand how the objective ties into the step of the configuration step they are currently on. Help the user understand the factors to think about when applying best practices. Use the previous steps as a context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\nAlso of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The last step is the most important to pay attention to.\n The objective of this article is ${$mountedArticlePreambleObjective}\nStep context:\n${stepContextString}\nPlease provide any best practices related to the current step and the overall article context.\n `;
-			} else {
-				context = `You are a TAC engineer and an expert at explaining technology in easy to understand terms. Use the previous steps as a context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\nAlso of importance is the devices they are performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The last step is the most important to pay attention to.\n The objective of this article is ${$mountedArticlePreambleObjective}\nWhenever possible cite your answer from the Step context:\n${stepContextString}\n${questionAsked}}`;
-			}
-			messages = [...messages, { role: 'system', content: context }];
-			// messages.addMessage({ role: 'system', content: context });
-			let data = await answerGenAIQuestion(messages);
-			let answer = data.answer;
-			messages = [...messages, { role: 'assistant', content: answer }];
-
-			// messages.addMessage({ role: 'assistant', content: answer });
-		} catch (e) {
-			console.error(e);
-		} finally {
-			isLoading = false;
-			// messages.save(stepId, $messages);
-		}
-	}
-
 	export let open;
+
+	const [send, recieve] = crossfade({
+		duration: (d) => Math.sqrt(d * 200),
+		fallback(node, params) {
+			const style = getComputedStyle(node);
+			const transform = style.transform === 'none' ? '' : style.transform;
+
+			return {
+				duration: 600,
+				easing: cubicInOut,
+				css: (t) => `
+					transform: ${transform} scale(${t});
+					opacity: ${t}
+				`
+			};
+		}
+	});
 </script>
 
 {#if !open}
 	<Spinner />
 {:else}
 	<details
-		bind:this={details}
-		on:toggle={handleToggle}
+		on:toggle={startGenerateDynamicQuestions}
 		transition:slide={{ duration: 1000, easing: quintInOut }}
 		{open}
-		class="detailsGetSupport"
+		class="detailsGetSupport hover:shadow-[0_4px_20px_0_rgba(0,0,0,0.2)] bg-gray-50 text-[#414344] p-4 bg-white border border-[#d6d6d6] rounded-lg shadow-lg"
 		data-section="Objective"
 	>
-		<summary tabindex="-1" class="s-5e5kg2sOboz_"
-			><span id="stepNumberBreadcrumb" class="s-5e5kg2sOboz_">{$activeSupportStep}</span>
-			<h3 style="display:inline; margin-left: 0.5em;">
-				Get Support &gt;
-				<p style="color:#999899; display:inline;">{currentStep}</p>
-			</h3></summary
-		>
-		<div class="messageWell s-5e5kg2sOboz_" style="height: auto;">
-			<h1 class="text-2xl" style="text-align:center;">Need Answers?</h1>
-			<h3 class="text-2xl" style="text-align:center;margin-top:-1em;margin-bottom:4em;">
-				choose from our options below
-			</h3>
+		<summary class="flex items-center justify-between mb-4">
+			<div class="flex items-center space-x-2">
+				<span
+					id="stepNumberBreadcrumb"
+					class="inline flex items-center justify-center size-8 bg-[#0d274d] font-bold rounded-full text-gray-50"
+					>{$activeSupportStep}</span
+				>
+				<h3 class="inline ml-2">
+					Get Support <strong>&gt;</strong>
+					<p class="text-[#999899] inline">{activeStepSection}</p>
+				</h3>
+			</div>
+			<button on:click={handleClose} class="cursor-pointer bg-none text-xl">×</button>
+		</summary>
+		<div class="messageWell overflow-auto p-4 pb-20 min-h-[30dvh] max-h-[35dvh] h-auto">
+			<h1 class="text-2xl text-center">Need Answers?</h1>
+			<h3 class="text-2xl text-center -mt-4 mb-10">choose from our options below</h3>
 			{#each messages as message, index (index)}
 				{#if message && message.role === 'user' && index !== 1}
-					<div class="question user">
-						<h4>{@html message.content}</h4>
+					<div class="question user bg-[rgba(155,215,255,0.5)] text-[#2b5592] w-fit p-4 my-4 rounded-lg">
+						{@html message.content}
 					</div>
 				{:else if message.role === 'assistant' && index !== 0}
-					<div class="assistant">
+					<div class="assistant bg-[#f2f2f2] rounded-lg p-4 w-fit mb-0 relative text-[#414344]">
 						<p>
 							{@html message.content
 								?.replace(/\n/g, '<br>')
@@ -489,86 +908,6 @@
 								)}
 						</p>
 					</div>
-					<details id="sources" style=" border:none; cursor:pointer;">
-						<summary><h4 style="margin-bottom:0; background:#f2f2f2;">Sources used</h4></summary>
-						<h3>How did we use AI and Cisco experts to provide this answer?</h3>
-						<div id="sourcescontentcontainer">
-							<p>
-								We search our content database for similar text to the question and context. We then use small chunks of
-								the broader text to summarize or pick and choose which chunks are relevant. In the end the Gen AI uses
-								the chunks to arrive at the answer. The answer produced is then reviewed for accuracy and relevancy by
-								Cisco experts. <a href="">Cisco's Responsible AI Framework FAQ</a>
-							</p>
-							<img src="answerDiagram.png" style="box-shadow:none;" alt="Image description" />
-						</div>
-						<div class="icon-band icon-guide">
-							<i class=" " />
-							<p>
-								Business stackable switches. If you are stacking the legacy switches, consult the following link:
-								https://www.cisco.com/c/en/us/support/docs/smb/switches/cisco-350x-series-stackable-managed-switches/smb5367-feature-support-comparison-between-the-cisco-stackable-manag.html
-								The feature set of the CBS350 SKUs with 10G network ports and the feature CBS350 SKUs with 10G uplink
-								ports are nearly identical. However, there are a few differences in feature support and table sizes
-								between the 2
-							</p>
-							<p>
-								<a
-									href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350/cbs_350_chapter_01.html"
-								>
-									View Get To Know Your Switch in the Administration Guide</a
-								>
-							</p>
-						</div>
-						<div class="icon-band icon-guide">
-							<i class=" " />
-							<p>
-								in the user interfaces of the product software, language used based on RFP documentation, or language
-								that is used by a referenced third-party product. Learn more about how Cisco is using Inclusive
-								Language. Cisco Business 350 Series Switches Administration Guide Chapter Title View with Adobe Reader
-								on a variety of devices This chapter contains the following sections: A Smartport is an interface (port,
-								VLAN or LAG) to which a built-in (or user-defined) macro may be applied. This Smartport
-							</p>
-							<p>
-								<a
-									href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350/cbs_350_chapter_09.html"
-								>
-									View Smartport in the Administration Guide</a
-								>
-							</p>
-						</div>
-						<div class="icon-band icon-guide">
-							<i class=" " />
-							<p>
-								settings for your 10G Cisco Business 350 series switch. Click on the link below to access the tool.
-								https://www.cisco.com/c/en/us/support/docs/smb/switches/Cisco-Business-Switching/kmgmt-2799-switch-stack-selector-cbs.html
-								Note You cannot stack the legacy switches with the new Cisco Business stackable switches. If you are
-								stacking the legacy switches, consult the following link:
-							</p>
-							<p>
-								<a
-									href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350/cbs_350_chapter_01.html"
-								>
-									View Get To Know Your Switch in the Administration Guide</a
-								>
-							</p>
-						</div>
-						<div class="icon-band icon-guide">
-							<i class=" " />
-							<p>
-								and Reset button are located on the front panel of the switch, as well as the following components:
-								Cisco Business 350 Series Model Note Models may differ within the CBS 350 series and this is just a
-								representation of a model within the series. There are 2 device types with different console interface:
-								Console port with RJ-45 and mini USB connector if both are connected the Mini USB has precedence over
-								the RJ-45 RJ-45 connector only type of console. The console interface connects a serial cable
-							</p>
-							<p>
-								<a
-									href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350/cbs_350_chapter_01.html"
-								>
-									View Get To Know Your Switch in the Administration Guide</a
-								>
-							</p>
-						</div>
-					</details>
 				{/if}
 			{/each}
 			{#if isLoading}
@@ -580,179 +919,35 @@
 					<Spinner />
 				</div>
 			{/if}
-			<!-- <div class="question">
-		<h3
-			style="background:rgba(155,215,255,0.5);color:#2b5592;width:fit-content; padding:1.5em;margin:1em 0;border-radius:10px;"
-		>
-			I need help troubleshooting
-		</h3>
-	</div> -->
-			<!-- <div>
-		<div class="assistant animated-answer">
-			<p>
-				The latest step explains how to access the Cisco Business Switch Stack Selector tool,
-				which allows you to configure the settings for your 10G Cisco Business 350 series switch.
-				This tool is important for achieving the objective of the article, which is to explain
-				some best practices when dealing with Smartports on Cisco Business 250 or 350 series
-				switches.
-			</p>
-			<details id="sources" style=" border:none; cursor:pointer;">
-				<summary><h4 style="margin-bottom:0; background:#f2f2f2;">Sources used</h4></summary>
-				<h3>How did we use AI and Cisco experts to provide this answer?</h3>
-				<div id="sourcescontentcontainer">
-					<p>
-						We search our content database for similar text to the question and context. We then
-						use small chunks of the broader text to summarize or pick and choose which chunks are
-						relevant. In the end the Gen AI uses the chunks to arrive at the answer. The answer
-						produced is then reviewed for accuracy and relevancy by Cisco experts. <a href=""
-							>Cisco's Responsible AI Framework FAQ</a
-						>
-					</p>
-					<img src="answerDiagram.png" style="box-shadow:none;" alt="Image description" />
-				</div>
-				<div class="icon-band icon-guide">
-					<i class=" "></i>
-					<p>
-						Business stackable switches. If you are stacking the legacy switches, consult the
-						following link:
-						https://www.cisco.com/c/en/us/support/docs/smb/switches/cisco-350x-series-stackable-managed-switches/smb5367-feature-support-comparison-between-the-cisco-stackable-manag.html
-						The feature set of the CBS350 SKUs with 10G network ports and the feature CBS350 SKUs
-						with 10G uplink ports are nearly identical. However, there are a few differences in
-						feature support and table sizes between the 2
-					</p>
-					<p>
-						<a
-							href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350/cbs_350_chapter_01.html"
-						>
-							View Get To Know Your Switch in the Administration Guide</a
-						>
-					</p>
-				</div>
-				<div class="icon-band icon-guide">
-					<i class=" "></i>
-					<p>
-						in the user interfaces of the product software, language used based on RFP
-						documentation, or language that is used by a referenced third-party product. Learn
-						more about how Cisco is using Inclusive Language. Cisco Business 350 Series Switches
-						Administration Guide Chapter Title View with Adobe Reader on a variety of devices This
-						chapter contains the following sections: A Smartport is an interface (port, VLAN or
-						LAG) to which a built-in (or user-defined) macro may be applied. This Smartport
-					</p>
-					<p>
-						<a
-							href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350/cbs_350_chapter_09.html"
-						>
-							View Smartport in the Administration Guide</a
-						>
-					</p>
-				</div>
-				<div class="icon-band icon-guide">
-					<i class=" "></i>
-					<p>
-						settings for your 10G Cisco Business 350 series switch. Click on the link below to
-						access the tool.
-						https://www.cisco.com/c/en/us/support/docs/smb/switches/Cisco-Business-Switching/kmgmt-2799-switch-stack-selector-cbs.html
-						Note You cannot stack the legacy switches with the new Cisco Business stackable
-						switches. If you are stacking the legacy switches, consult the following link:
-					</p>
-					<p>
-						<a
-							href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350/cbs_350_chapter_01.html"
-						>
-							View Get To Know Your Switch in the Administration Guide</a
-						>
-					</p>
-				</div>
-				<div class="icon-band icon-guide">
-					<i class=" "></i>
-					<p>
-						and Reset button are located on the front panel of the switch, as well as the
-						following components: Cisco Business 350 Series Model Note Models may differ within
-						the CBS 350 series and this is just a representation of a model within the series.
-						There are 2 device types with different console interface: Console port with RJ-45 and
-						mini USB connector if both are connected the Mini USB has precedence over the RJ-45
-						RJ-45 connector only type of console. The console interface connects a serial cable
-					</p>
-					<p>
-						<a
-							href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/CBS_250_350/Administration-Guide/cbs-350/cbs_350_chapter_01.html"
-						>
-							View Get To Know Your Switch in the Administration Guide</a
-						>
-					</p>
-				</div>
-			</details>
-			<div class="feedbackContainer">
-				<div id="thumbsContainer">
-					<h4>Helpful?</h4>
-					<button
-						id="thumbsUp"
-						class="fa fa-thumbs-up"
-						disabled="true"
-						style="background: rgb(210, 210, 210);"
-					></button><button id="thumbsDown" class="fa fa-thumbs-down"></button>
-				</div>
-			</div>
 		</div>
-	</div> -->
-		</div>
-		<div class="genericSupportButtons s-5e5kg2sOboz_">
-			<details
-				class="custom-details s-5e5kg2sOboz_"
-				id="detailsFaqlike"
-				style="border:#d2d2d2 1px solid; margin:0;"
-				open
-			>
+		<div class="flex items-start gap-4 justify-evenly s-5e5kg2sOboz_">
+			<details class="rounded-bl-md rounded-br-md border border-[#d2d2d2] p-4" id="detailsFaqlike" open>
 				<summary class="s-5e5kg2sOboz_" />
-				<!-- <div class="buttonWell">
-			<button class="button" id="staticAnswer1" tabindex="0"
-				>Summarize the key points of this section</button
-			><button
-				class="button"
-				tabindex="0"
-				id="staticAnswer2"
-				data-clicked="true"
-				style="color: rgb(136, 136, 136); border: 1px solid rgb(136, 136, 136); border-radius: 6px;"
-				>I need help troubleshooting</button
-			><button tabindex="0" id="staticAnswer3" class="question-button button"
-				>Show Best Practices</button
-			><button class="question-button s-5e5kg2sOboz_" tabindex="0" id="dynamicAnswer1"
-				>What happens if I enable the Smartport feature?
-			</button><button class="question-button s-5e5kg2sOboz_" tabindex="0" id="dynamicAnswer2"
-				>How do I know if I have manual VLAN configurations?
-			</button><button class="question-button s-5e5kg2sOboz_" tabindex="0" id="dynamicAnswer3"
-				>What happens if I disable the Smartport feature?
-			</button>
-		</div> -->
-				<div class="buttonWell">
-					{#each questions as btn, index}
-						<button
-							in:slide={{ duration: 1000, easing: quintInOut }}
-							on:click={() => handleGenAIQuestion(index)}
-							class="button"
-							class:clicked={btn.clicked}
-							id={btn.id}
-							tabindex="0"
-							data-clicked={btn.clicked}>{btn.text}</button
-						>
-					{/each}
+				<div class="flex items-start justify-evenly flex-wrap gap-4">
+					{#key questions}
+						{#each questions as btn, i (i)}
+							<button
+								in:recieve={{ key: i, delay: i * 100 }}
+								out:send={{ key: i, delay: i * 100 }}
+								animate:flip={{ duration: 200 }}
+								on:click={async () => await generateLLMAnswer(i, btn.id, btn.text)}
+								disabled={btn.clicked}
+								class="button text-base py-2 px-4 rounded-md hover:cursor-pointer qna-button-{i}"
+								class:clicked={btn.clicked}
+								id={btn.id}
+								tabindex="0"
+								data-index={i}
+								data-clicked={btn.clicked}>{btn.text}</button
+							>
+						{/each}
+					{/key}
 				</div>
 			</details>
 		</div>
-		<button on:click={handleClose} id="closeDialogButton">×</button>
 	</details>
 {/if}
 
 <style>
-	#sources {
-		margin: 1em 0;
-		padding: 0;
-	}
-
-	#sources > h3 {
-		margin-left: 0;
-	}
-
 	.author-name {
 		margin-left: 1em;
 		text-align: center;
@@ -780,86 +975,6 @@
 	.icon-band {
 		padding: 0.5em 0 0 1em;
 	}
-	.icon-band a {
-		margin-top: 1em;
-	}
-
-	details {
-		color: #333;
-		padding: 1em;
-		border: #d2d2d2 1px solid;
-		-webkit-transition: all 0.25s ease-in;
-		-o-transition: all 0.25s ease-in;
-		transition: all 0.25s ease-in;
-		margin: 1em;
-		border-radius: 0 16px 16px 0;
-		position: relative;
-		background-color: var(--menu-background-gray);
-	}
-
-	details[open] > summary {
-		margin-bottom: 1em;
-		display: flex;
-		align-items: center;
-		justify-content: flex-start;
-	}
-
-	#stepNumberBreadcrumb {
-		/* position: absolute;
-		left: 0em;
-		top: 5%; */
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		/* margin-top: -1.3em; */
-		/* margin-right: 1em; */
-		background: #0d274d;
-		height: 2em;
-		width: 2em;
-		line-height: 2em;
-		border: 0.3em solid #fff;
-		text-align: center;
-		vertical-align: middle;
-		font-weight: 700;
-		border-radius: 2em;
-		transition: all 0.3s ease-out;
-		color: #fff;
-	}
-
-	#closeDialogButton {
-		position: absolute;
-		top: 20px;
-		right: 10px;
-		background: white;
-		border-radius: 35px;
-		color: #aaa;
-		font-size: 41px;
-		font-weight: bold;
-		background: none;
-		border: none;
-		cursor: pointer;
-	}
-	.detailsGetSupport {
-		border-radius: 16px;
-		/* background-color: white;
-		background-image: radial-gradient(
-				75.83% 78.18% at 51.72% 100%,
-				rgba(56, 96, 190, 0.03) 0%,
-				rgba(100, 187, 227, 0.03) 65.24%,
-				rgba(223, 223, 223, 0) 100%
-			),
-			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0) 0deg, rgba(56, 96, 190, 0.02) 360deg); */
-		margin-left: 40px;
-		transition: all 0.3s ease-in-out;
-	}
-
-	.detailsGetSupport h3 {
-		margin: 0;
-	}
-
-	.detailsGetSupport:hover {
-		box-shadow: 0px 4px 20px rgb(0 0 0 / 15%);
-	}
 
 	details summary::marker {
 		display: none;
@@ -868,17 +983,6 @@
 
 	summary::marker {
 		appearance: none;
-	}
-
-	.messageWell {
-		margin: 1em 0 0 0;
-		overflow: auto;
-		transition: all 0.5s ease-out;
-		border-radius: 5px 5px 0 0;
-		min-height: 30dvh;
-		max-height: 35dvh;
-		overflow: auto;
-		padding: 1em 1em 5em 1em;
 	}
 
 	.messageWell h1 {
@@ -905,60 +1009,17 @@
 			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0) 0deg, rgba(56, 96, 190, 0.02) 360deg);
 	}
 
-	.genericSupportButtons {
-		display: flex;
-		align-items: flex-start;
-		gap: 1em;
-		justify-content: space-evenly;
-	}
-
-	#detailsFaqlike {
-		border-radius: 0 0 5px 5px;
-		-webkit-transition: all 0.25s ease-in;
-		-o-transition: all 0.25s ease-in;
-		transition: all 0.25s ease-in;
-		color: var(--text-color-black3);
-		background: white;
-	}
-
-	.buttonWell {
-		display: flex;
-		align-items: flex-start;
-		flex-direction: row;
-		justify-content: space-evenly;
-		flex-wrap: wrap;
-		gap: 1em;
-	}
-
-	.button,
-	.question-button {
+	.button {
 		display: inline;
-		border: #333 1px solid;
-		color: #333;
-		background-color: white;
-		padding: 0.5em;
-		border-radius: 6px;
 		text-align: center;
-		font-size: var(--font-size-base);
-		cursor: pointer;
 		text-decoration: none;
+		color: #2b5592;
+		border: 1px solid #2b5592;
+		background-color: transparent;
 		transition: all 0.5s ease-in-out;
-	}
-	.assistant {
-		background-color: #f2f2f2;
-		border-radius: 10px;
-		padding: 1.5em;
-		color: var(--font-gray);
-		margin-bottom: 0;
-		position: relative;
-	}
-
-	.question h4 {
-		background: rgba(155, 215, 255, 0.5);
-		color: #2b5592 !important;
-		width: fit-content;
-		padding: 1.5em;
-		margin: 1em 0;
-		border-radius: 10px;
+		font-family: 'CiscoSansThin';
+		transform-origin: center center;
+		will-change: transform;
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 	}
 </style>

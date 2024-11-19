@@ -527,6 +527,7 @@
 												id={`${message.id}-${tokenIdx}`}
 												lang={token?.lang ?? ''}
 												code={revertSanitizedResponseContent(token?.text ?? '')}
+												text={token?.text ?? ''}
 											/>
 										{/if}
 									{:else}

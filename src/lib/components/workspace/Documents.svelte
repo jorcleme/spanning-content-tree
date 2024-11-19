@@ -274,25 +274,6 @@
 	</div>
 </div>
 
-<!-- <div>
-    <div
-        class="my-3 py-16 rounded-lg border-2 border-dashed dark:border-gray-600 {dragged &&
-            ' dark:bg-gray-700'} "
-        role="region"
-        on:drop={onDrop}
-        on:dragover={onDragOver}
-        on:dragleave={onDragLeave}
-    >
-        <div class="  pointer-events-none">
-            <div class="text-center dark:text-white text-2xl font-semibold z-50">{$i18n.t('Add Files')}</div>
-
-            <div class=" mt-2 text-center text-sm dark:text-gray-200 w-full">
-                Drop any files here to add to my documents
-            </div>
-        </div>
-    </div>
-</div> -->
-
 <hr class=" dark:border-gray-850 my-2.5" />
 
 {#if tags.length > 0}

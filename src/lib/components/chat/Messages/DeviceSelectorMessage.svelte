@@ -2,7 +2,7 @@
 	import type { Message } from '$lib/types';
 	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { models, settings, config } from '$lib/stores';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import dayjs from 'dayjs';
@@ -19,24 +19,45 @@
 	export let isLastMessage = true;
 	export let handleDeviceConfirm: (e: CustomEvent) => void;
 
+	let value: string | null = null;
+
+	onMount(() => {
+		if (message?.content) {
+			const content = JSON.parse(message.content);
+			if (content.value && content.value !== '') {
+				value = content.value;
+			}
+		} else {
+			value = null;
+		}
+	});
+
 	interface Device {
 		[key: string]: string;
 	}
 	const devices: Device[] = [
-		{ label: 'Catalyst 1200', value: 'Cisco Catalyst 1200 Series Switches', category: 'Switches' },
-		{ label: 'Catalyst 1300', value: 'Cisco Catalyst 1300 Series Switches', category: 'Switches' },
+		{ label: 'Cisco Catalyst 1200 Series', value: 'Cisco Catalyst 1200 Series Switches', category: 'Switches' },
+		{ label: 'Cisco Catalyst 1300 Series', value: 'Cisco Catalyst 1300 Series Switches', category: 'Switches' },
 		{ label: 'CBS110 Series', value: 'Cisco Business 110 Series Unmanaged Switches', category: 'Switches' },
 		{ label: 'CBS220 Series', value: 'Cisco Business 220 Series Smart Switches', category: 'Switches' },
 		{ label: 'CBS250 Series', value: 'Cisco Business 250 Series Smart Switches', category: 'Switches' },
 		{ label: 'CBS350 Series', value: 'Cisco Business 350 Series Managed Switches', category: 'Switches' },
-		{ label: '350 Series', value: 'Cisco 350 Series Managed Switches', category: 'Switches' },
-		{ label: '350X Series', value: 'Cisco 350X Series Stackable Managed Switches', category: 'Switches' },
-		{ label: '550X Series', value: 'Cisco 550X Series Stackable Managed Switches', category: 'Switches' },
+		{ label: 'Cisco 350 Series', value: 'Cisco 350 Series Managed Switches', category: 'Switches' },
+		{
+			label: 'Cisco 350X Stackable Series',
+			value: 'Cisco 350X Series Stackable Managed Switches',
+			category: 'Switches'
+		},
+		{
+			label: 'Cisco 550X Stackable Series',
+			value: 'Cisco 550X Series Stackable Managed Switches',
+			category: 'Switches'
+		},
 		{ label: 'RV100 Series', value: 'RV100 Product Family', category: 'Routers' },
 		{ label: 'RV320 Series', value: 'RV320 Product Family', category: 'Routers' },
 		{ label: 'RV340 Series', value: 'RV340 Product Family', category: 'Routers' },
-		{ label: 'RV160 VPN Series', value: 'RV160 VPN Router', category: 'Routers' },
-		{ label: 'RV260 VPN Series', value: 'RV260 VPN Router', category: 'Routers' },
+		{ label: 'Cisco RV160 VPN Series', value: 'RV160 VPN Router', category: 'Routers' },
+		{ label: 'Cisco RV260 VPN Series', value: 'RV260 VPN Router', category: 'Routers' },
 		{ label: 'CBW-AC', value: 'Cisco Business Wireless AC', category: 'Wireless' },
 		{ label: 'CBW-AX', value: 'Cisco Business Wireless AX', category: 'Wireless' }
 	];
@@ -84,7 +105,7 @@
 				<div>
 					<div class="w-full">
 						<div class="flex flex-col">
-							<Select items={devices} on:confirm={handleDeviceConfirm} on:toggle={onToggleSelect} />
+							<Select bind:value items={devices} on:confirm={handleDeviceConfirm} on:toggle={onToggleSelect} />
 						</div>
 
 						{#if message.error}

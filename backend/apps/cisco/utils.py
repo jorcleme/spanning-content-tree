@@ -16,7 +16,7 @@ def sort_devices(device_name):
 
     device_name_upper_str = device_name.upper()
     all_devices_List = {
-        "Catalyst 1200 Series": [
+        "Cisco Catalyst 1200 Series Switches": [
             "CATALYST 1200",
             "Catalyst 1200",
             "Cat 1200",
@@ -39,7 +39,7 @@ def sort_devices(device_name):
             "C1200-48P-4X",
             "C1200-48FP-4X",
         ],
-        "Catalyst 1300 Series": [
+        "Cisco Catalyst 1300 Series Switches": [
             "Catalyst 1300",
             "C1300-8T-D",
             "Cat 1300",
@@ -357,7 +357,7 @@ def sort_devices(device_name):
             "RV134W",
             "RV132W",
         ],
-        "Cisco RV160 VPN Router": [
+        "RV160 VPN Router": [
             "RV160W",
             "RV160W Wireless-AC VPN Router",
             "RV160",
@@ -384,7 +384,7 @@ def sort_devices(device_name):
             "RV160W-E-K9-JP",
             "RV160W-R-K8-RU",
         ],
-        "Cisco RV260 VPN Router": [
+        "RV260 VPN Router": [
             "Cisco RV260 VPN Router",
             "RV260W VPN router",
             "RV260P",

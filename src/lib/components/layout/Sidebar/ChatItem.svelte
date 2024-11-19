@@ -1,8 +1,11 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import { toast } from 'svelte-sonner';
 	import { goto, invalidate, invalidateAll } from '$app/navigation';
 	import { onMount, getContext, createEventDispatcher, tick } from 'svelte';
-	const i18n = getContext('i18n');
+
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 
@@ -33,19 +36,19 @@
 
 	let chatTitle = chat.title;
 
-	const editChatTitle = async (id, _title) => {
+	const editChatTitle = async (id: string, _title: string) => {
 		if (_title === '') {
 			toast.error($i18n.t('Title cannot be an empty string.'));
 		} else {
 			await updateChatById(localStorage.token, id, {
 				title: _title
 			});
-			await chats.set(await getChatList(localStorage.token));
-			await pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned'));
+			 chats.set(await getChatList(localStorage.token));
+			pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned') ?? []);
 		}
 	};
 
-	const cloneChatHandler = async (id) => {
+	const cloneChatHandler = async (id: string) => {
 		const res = await cloneChatById(localStorage.token, id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -53,18 +56,18 @@
 
 		if (res) {
 			goto(`/c/${res.id}`);
-			await chats.set(await getChatList(localStorage.token));
-			await pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned'));
+			chats.set(await getChatList(localStorage.token));
+			pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned') ?? []);
 		}
 	};
 
-	const archiveChatHandler = async (id) => {
+	const archiveChatHandler = async (id: string) => {
 		await archiveChatById(localStorage.token, id);
-		await chats.set(await getChatList(localStorage.token));
-		await pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned'));
+		chats.set(await getChatList(localStorage.token));
+		pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned') ?? []);
 	};
 
-	const focusEdit = async (node: HTMLInputElement) => {
+	const focusEdit = (node: HTMLInputElement) => {
 		node.focus();
 	};
 </script>
@@ -80,11 +83,7 @@
 				? 'bg-gray-100 dark:bg-gray-950'
 				: 'group-hover:bg-gray-100 dark:group-hover:bg-gray-950'}  whitespace-nowrap text-ellipsis"
 		>
-			<input
-				use:focusEdit
-				bind:value={chatTitle}
-				class=" bg-transparent w-full outline-none mr-10"
-			/>
+			<input use:focusEdit bind:value={chatTitle} class=" bg-transparent w-full outline-none mr-10" />
 		</div>
 	{:else}
 		<a
@@ -151,12 +150,7 @@
 							chatTitle = '';
 						}}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 							<path
 								fill-rule="evenodd"
 								d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
@@ -174,12 +168,7 @@
 							chatTitle = '';
 						}}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 							<path
 								d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 							/>
@@ -238,7 +227,7 @@
 						dispatch('unselect');
 					}}
 					on:change={async () => {
-						await pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned'));
+						pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned') ?? []);
 					}}
 				>
 					<button
@@ -248,12 +237,7 @@
 							dispatch('select');
 						}}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 							<path
 								d="M2 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM6.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM12.5 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"
 							/>
@@ -270,12 +254,7 @@
 							dispatch('delete');
 						}}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 							<path
 								d="M2 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM6.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM12.5 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"
 							/>

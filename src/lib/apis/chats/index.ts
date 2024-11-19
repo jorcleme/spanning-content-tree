@@ -291,7 +291,7 @@ export const getChatListByTagName = async (
 
 	return res.map((chat: Partial<ChatResponse>) => ({
 		...chat,
-		time_range: getTimeRange(chat.updated_at)
+		time_range: getTimeRange(chat.updated_at!)
 	}));
 };
 

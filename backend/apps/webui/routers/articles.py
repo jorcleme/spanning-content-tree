@@ -1,7 +1,8 @@
 import logging
-
+import aiohttp
 from fastapi import HTTPException, status, APIRouter, Depends
-
+from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 from typing import List, Optional
 from pydantic import BaseModel, HttpUrl
 
@@ -13,7 +14,7 @@ from apps.webui.models.articles import (
 )
 import json
 from apps.webui.models.articles import ArticleResponse
-from utils.utils import get_verified_user
+from utils.utils import get_verified_user, get_admin_user
 from apps.webui.models.series import Series_Table
 from constants import ERROR_MESSAGES
 from config import SRC_LOG_LEVELS
@@ -114,11 +115,22 @@ async def get_article_by_url(request: ArticleUrlRequest):
 # AddNewArticle
 ################
 
+import uuid
+
+
+def is_valid_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+
 
 @router.post("/add", response_model=Optional[ArticleModel])
 async def add_new_article(form_data: InsertNewArticleForm):
 
     article = Article_Table.insert_new_article(
+        id=form_data.id,
         title=form_data.title,
         document_id=form_data.document_id,
         url=form_data.url,
@@ -132,6 +144,7 @@ async def add_new_article(form_data: InsertNewArticleForm):
     )
 
     if article:
+        log.debug(f"Article: {article.title}")
         return article
     else:
         raise HTTPException(
@@ -247,12 +260,27 @@ async def generate_new_article(
 ):
     from apps.cisco.article_creator import build_article
 
-    article = build_article(form_data.query, form_data.device)
+    article = await build_article(form_data.query, form_data.device)
 
     if article:
         return article
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ERROR_MESSAGES.DEFAULT(),
+            detail=ERROR_MESSAGES.DEFAULT(
+                "Oops! Something went wrong during article generation."
+            ),
+        )
+
+
+@router.delete("/{id}")
+async def delete_article_by_id(id: str, user=Depends(get_admin_user)):
+    article = Article_Table.get_article_by_id(id)
+    if article:
+        Article_Table.delete_article_by_id(id)
+        return {"message": "Article deleted successfully"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.DEFAULT("Article not found"),
         )

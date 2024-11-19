@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import sha256 from 'js-sha256';
 import { WEBUI_BASE_URL } from '$lib/constants';
-import type { MessageHistory, Message } from '$lib/types';
+import type { MessageHistory, Message, Article } from '$lib/types';
 
 //////////////////////////
 // Helper functions
@@ -76,7 +76,7 @@ export const capitalizeFirstLetter = (string: string) => {
 
 export const splitStream = (splitOn: string) => {
 	let buffer = '';
-	return new TransformStream({
+	return new TransformStream<any, any>({
 		transform(chunk, controller) {
 			buffer += chunk;
 			const parts = buffer.split(splitOn);
@@ -777,7 +777,7 @@ export const stripHtml = (text: string) => {
 };
 
 export const titleizeWords = (str: string) => {
-	return str.replace(/\b\w/g, (char) => char.toUpperCase());
+	return str.replace(/\w\S*/g, (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase());
 };
 
 const isStringArray = (arr: any): arr is string[] => {
@@ -854,4 +854,19 @@ export const getSelectItems = async ({ dispatch, loadOptions, convertStringItems
 			listOpen: true
 		};
 	}
+};
+
+export const generateReadingText = (article: Article) => {
+	return [
+		article.title,
+		article.objective,
+		article.document_id,
+		article.introduction,
+		...article.applicable_devices.map((device) => `${device.device || ''} ${device.software || ''}`),
+		article.category,
+		...article.steps.map((step) => `${step.section} Step ${step.step_number} ${step.text} ${step.note || ''}`),
+		...article.revision_history.map(
+			(revision) => `${revision.revision ?? ''} ${revision.publish_date ?? ''} ${revision.comments ?? ''}`
+		)
+	].join(' ');
 };

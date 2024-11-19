@@ -2,7 +2,7 @@
 	import type { Message, Article } from '$lib/types';
 	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
-	import { getContext, onMount } from 'svelte';
+	import { getContext, onMount, beforeUpdate, afterUpdate } from 'svelte';
 	import { models, settings } from '$lib/stores';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import { toast } from 'svelte-sonner';
@@ -36,24 +36,33 @@
 	let loading = false;
 	let showInfo = false;
 
-	onMount(async () => {
-		// Fetch articles from the database
-		console.log(seriesId);
-		if (seriesId && seriesId !== '') {
-			loading = true;
-			const res = await getArticlesBySeriesId(localStorage.token, seriesId).catch((err) => {
-				console.error(err);
-				loading = false;
-				return null;
-			});
-			console.log(res);
-			if (res) {
-				articles = res;
-				filteredArticles = [...articles];
-			}
+	const fetchArticles = async () => {
+		loading = true;
+		const res = await getArticlesBySeriesId(localStorage.token, seriesId).catch((err) => {
+			console.error(err);
 			loading = false;
+			return null;
+		});
+		if (res) {
+			articles = res;
+			filteredArticles = [...articles];
+		}
+		loading = false;
+	};
+
+	onMount(async () => {
+		// Necessary for loaded chat history, we save the seriesId from the message content
+		if (message?.content) {
+			const content = JSON.parse(message.content);
+			if (content.seriesId && content.seriesId !== '') {
+				seriesId = content.seriesId;
+			}
 		}
 	});
+
+	$: if (seriesId && seriesId !== '') {
+		fetchArticles();
+	}
 
 	const onHandleWheel = (event: WheelEvent & { currentTarget: EventTarget & HTMLDivElement }) => {
 		if (event.deltaY !== 0) {
@@ -63,17 +72,9 @@
 			event.currentTarget.scrollLeft += event.currentTarget.scrollWidth * (event.deltaY / 1000);
 		}
 	};
-
-	const handleSearch = () => {
-		filteredArticles = articles.filter((article) => article.title.toLowerCase().includes(searchQuery.toLowerCase()));
-	};
-
-	const handleGenerateNewArticle = () => {
-		dispatch('generate');
-	};
 </script>
 
-{#key message.id}
+{#key seriesId}
 	<div class=" flex w-full message-{message.id}" id="message-{message.id}" dir={$settings.chatDirection}>
 		<ProfileImage
 			src={model?.info?.meta?.profile_image_url ??
@@ -115,11 +116,17 @@
 									type="text"
 									placeholder="Search articles..."
 									bind:value={searchQuery}
-									on:input={handleSearch}
+									on:input={() => {
+										filteredArticles = articles.filter((a) =>
+											a.title.toLowerCase().includes(searchQuery.toLowerCase())
+										);
+									}}
 								/>
 								<div class="flex">
 									{#if loading}
-										<Spinner />
+										<div class="self-center">
+											<Spinner />
+										</div>
 									{:else}
 										<div
 											on:wheel={onHandleWheel}
@@ -135,15 +142,15 @@
 									{/if}
 								</div>
 								<small class="mt-2"
-									>Not seeing the article you're looking for? Our writers are publishing new content all the time. In
-									the meantime, we can use AI to generate one for you.</small
+									>Not seeing the article you're looking for? Our writers publish new content all the time. In the
+									meantime, we can use AI to generate one for you.</small
 								>
-								<div class="grid grid-cols-4">
+								<div class="grid grid-cols-4 items-center">
 									<button
 										class="btn col-start-2 col-span-2 self-center px-4 py-2 bg-[#1990fa] text-white"
-										on:click={handleGenerateNewArticle}>Generate New Article</button
+										on:click={() => dispatch('generate')}>Generate New Article</button
 									>
-									<div class="col-start-4 col-span-1 justify-self-end mb-2 flex space-x-1 mr-1">
+									<div class="col-start-4 col-span-1 justify-self-end flex space-x-1 mr-1">
 										<Tooltip content={$i18n.t('Info')}>
 											<button
 												class="text-gray-600 dark:text-gray-300 bg-gray-300/20 size-5 flex items-center justify-center text-[0.7rem] rounded-full"
@@ -194,7 +201,7 @@
 <Modal bind:show={showInfo}>
 	<div class="p-4">
 		<div class="flex justify-between dark:text-gray-300 px-5 pb-4">
-			<div class="text-lg font-medium self-center">{$i18n.t('Generated Articles')}</div>
+			<div class="text-lg font-medium font-bold self-center">{$i18n.t('Generated Articles')}</div>
 			<button
 				class="self-center"
 				on:click={() => {
@@ -211,7 +218,7 @@
 		<div class="flex flex-col space-y-3">
 			<div class="flex">
 				<span class="font-bold mr-2">1.</span>
-				<p>Generated articles are created by AI using Cisco Documentation. It can stil make mistakes.</p>
+				<p>Generated articles are created by AI using Cisco Documentation. It can still make mistakes.</p>
 			</div>
 			<div class="flex">
 				<span class="font-bold mr-2">2.</span>

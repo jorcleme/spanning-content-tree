@@ -2,7 +2,17 @@
 from langchain.schema import Document
 from typing import Optional, List, TypedDict, Literal, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict, HttpUrl
-from sqlalchemy import String, Column, Text, Enum, ForeignKey, BigInteger, Table, text
+from sqlalchemy import (
+    String,
+    Column,
+    Text,
+    Enum,
+    ForeignKey,
+    BigInteger,
+    Table,
+    text,
+    Boolean,
+)
 from sqlalchemy.orm import relationship, Mapped
 from enum import Enum as PyEnum
 import uuid
@@ -57,7 +67,7 @@ class Article(Base):
     introduction = Column(Text, nullable=True)
     steps = Column(JSONField, nullable=True)
     revision_history = Column(JSONField, nullable=True)
-
+    # published = Column(Boolean, nullable=False, default=False)
     created_at = Column(BigInteger, nullable=False)
     updated_at = Column(BigInteger, nullable=False)
 
@@ -115,6 +125,7 @@ class ArticleResponse(BaseModel):
 
 
 class InsertNewArticleForm(BaseModel):
+    id: Optional[str] = None
     title: str
     document_id: str
     objective: Optional[str]
@@ -202,6 +213,8 @@ class CreatedArticle(BaseModel):
 
 class GraphStateKeys(TypedDict, total=False):
     question: str
+    subtopics: Optional[List[str]]
+    device: Optional[str]
     documents: List[Document]
     article: Optional[List[CreatedArticle]]
     html: Optional[str]
@@ -230,6 +243,7 @@ class ArticlesTable:
     def insert_new_article(
         self,
         *,
+        id: Optional[str] = None,
         title: str,
         document_id: str,
         objective: str,
@@ -246,9 +260,9 @@ class ArticlesTable:
         with get_db() as db:
             # Check if the article already exists
             article = db.query(Article).filter_by(document_id=document_id).first()
-            if article:
+            series = db.query(Series).filter_by(id=series_id).first()
+            if article and series:
                 # Update the article.series if the series is not already associated.
-                series = db.query(Series).filter_by(id=series_id).first()
                 log.info(f"Series: {series}")
                 if series.id not in [series.id for series in article.series]:
                     article.series.append(series)
@@ -275,8 +289,6 @@ class ArticlesTable:
                 )
                 return ArticleModel.model_validate(article_model)
             else:
-                # Fetch the series to associate with the article
-                series = db.query(Series).filter_by(id=series_id).first()
                 if not series:
                     raise ValueError(
                         f"Series with id {series_id} not found. Articles must be associated with a series."
@@ -284,6 +296,7 @@ class ArticlesTable:
 
                 # Insert the new article into the database
                 result = Article(
+                    id=id,
                     title=title,
                     document_id=document_id,
                     objective=objective,
@@ -308,8 +321,6 @@ class ArticlesTable:
                 return ArticleModel.model_validate(result)
 
     def get_article_by_id(self, id: str) -> Optional[ArticleModel]:
-        from apps.webui.models.series import SeriesModel
-
         try:
             with get_db() as db:
                 article = db.query(Article).filter_by(id=id).first()
@@ -327,7 +338,13 @@ class ArticlesTable:
         try:
             with get_db() as db:
                 article = db.query(Article).filter_by(document_id=document_id).first()
-                return ArticleModel.model_validate(article)
+                series_ids = [series.id for series in article.series]
+                article_data = {
+                    column.name: getattr(article, column.name)
+                    for column in article.__table__.columns
+                }
+                article_data.update({"series_ids": series_ids})
+                return ArticleModel.model_validate(article_data)
         except Exception as e:
             return None
 
@@ -363,17 +380,42 @@ class ArticlesTable:
                 .filter(ARTICLE_ON_SERIES.c.series == series_id)
                 .all()
             )
-            return [ArticleModel.model_validate(article) for article in articles]
+            a = []
+            for article in articles:
+                series_ids = [series.id for series in article.series]
+                article_data = {
+                    column.name: getattr(article, column.name)
+                    for column in article.__table__.columns
+                }
+                article_data["series_ids"] = series_ids
+                a.append(article_data)
+
+            return [ArticleModel.model_validate(article) for article in a]
 
     def update_article_by_id(self, id: str, updated: dict) -> Optional[ArticleModel]:
+        from apps.webui.models.series import SeriesModel, Series
+
         try:
             with get_db() as db:
-                db.query(Article).filter_by(id=id).update(updated)
+                article = db.get(Article, id)
+                for key, value in updated.items():
+                    if hasattr(article, key):
+                        setattr(article, key, value)
+                article.updated_at = int(time.time())
+                if "series_ids" in updated:
+                    series_ids = updated["series_ids"]
+                    series = db.query(Series).filter(Series.id.in_(series_ids)).all()
+                    article.series = series
+
                 db.commit()
-                article_obj = db.query(Article).filter_by(id=id).first()
-                article_obj.updated_at = int(time.time())
-                db.commit()
-                db.refresh(article_obj)
+                db.refresh(article)
+                return ArticleModel.model_validate(article)
+                # db.query(Article).filter_by(id=id).update(updated)
+                # db.commit()
+                # article_obj = db.query(Article).filter_by(id=id).first()
+                # article_obj.updated_at = int(time.time())
+                # db.commit()
+                # db.refresh(article_obj)
                 return ArticleModel.model_validate(article_obj)
         except Exception as e:
             return None
@@ -418,6 +460,16 @@ class ArticlesTable:
             ]
 
             return article_series_relations
+
+    def delete_article_by_id(self, id: str) -> bool:
+        with get_db() as db:
+            article = db.query(Article).filter_by(id=id).first()
+            if article:
+                db.delete(article)
+                db.commit()
+                return True
+            else:
+                return False
 
 
 Article_Table = ArticlesTable()

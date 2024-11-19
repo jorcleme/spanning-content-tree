@@ -7,11 +7,8 @@
 	import { debounce } from 'lodash';
 	// import { createCounter } from '../runeTest.svelte.ts';
 
-	export let submitPrompt: (prompt: string) => void;
 	export let showPromptTemplateGenerator: boolean;
 	import { explanationStore, promptStore, variablesStore } from '$lib/stores';
-	export let onSubmit: (data: { customizedPrompt: string; promptTemplate: string; explanation: string }) => void;
-	export let sendPrompt: (prompt: string) => void;
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import {
 		X,
@@ -40,11 +37,6 @@
 	export let isTextareaTruthy: boolean;
 	export let fetchAndProcessData: (template: string) => Promise<any>;
 	export let generatePrompt: (existingText: string) => Promise<void>;
-	export let parseReceivedPrompt: (rawPrompt: string) => {
-		prompt: string;
-		explanation: string;
-		variables: Record<string, string>;
-	};
 	let varName;
 	export let extractVariablesFromPrompt: (prompt: string) => Record<string, string>;
 	import _ from 'lodash';
@@ -64,7 +56,7 @@
 	let formattedEditablePrompt = '';
 	let updateTimeout;
 	let variableUpdateTimeouts = {};
-	let observer;
+	let observer: MutationObserver;
 
 	const dispatch = createEventDispatcher();
 
@@ -187,12 +179,12 @@
 	let debounceUpdatePromptInput = _.debounce((content) => {
 		handlePromptInput(content);
 	}, 300);
-	function preserveCaretPosition(element) {
+	function preserveCaretPosition(element: HTMLElement) {
 		const selection = window.getSelection();
-		if (selection.rangeCount > 0) {
+		if (selection && selection.rangeCount > 0) {
 			const range = selection.getRangeAt(0);
-			const startOffset = Math.min(range.startOffset, element.textContent.length);
-			const endOffset = Math.min(range.endOffset, element.textContent.length);
+			const startOffset = Math.min(range.startOffset, element.textContent!.length);
+			const endOffset = Math.min(range.endOffset, element.textContent!.length);
 
 			setTimeout(() => {
 				try {
@@ -211,7 +203,7 @@
 	}
 
 	// Usage when updating the editable area
-	function handlePromptInput(newContent) {
+	function handlePromptInput(newContent: string) {
 		const element = editableElement; // The element where content is edited
 		updateTimeout = setTimeout(() => {
 			const currentContent = $promptStore;

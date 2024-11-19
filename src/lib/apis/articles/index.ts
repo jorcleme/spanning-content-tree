@@ -141,6 +141,33 @@ export const getArticleByDocumentId = async (token: string, documentId: string):
 	return res;
 };
 
+export const addNewArticle = async (token: string, data: object): Promise<Article> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/add`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify(data)
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			console.error(err);
+			error = err.detail;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+	return res;
+};
+
 export const generateArticleSupportQuestions = async (token: string, context: string) => {
 	let error = null;
 
@@ -235,30 +262,11 @@ export const updateArticleStep = async (
 	return res;
 };
 
-interface CreatedArticleStep {
-	section: string;
-	step_number: number;
-	text: string;
-	note?: string;
-}
-interface CreatedArticle {
-	objective: string;
-	title: string;
-	introduction: string;
-	steps: CreatedArticleStep[];
-	document_id?: string;
-	revision_history?: {
-		revision: number;
-		date: string;
-		comments?: string;
-	};
-}
-
 export const createNewArticle = async (
 	token: string,
 	query: string,
-	device: string = 'Cisco Catalyst 1200 Series Switch'
-): Promise<CreatedArticle> => {
+	device: string = 'Cisco Catalyst 1200 Series Switches'
+): Promise<Article> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/generate`, {

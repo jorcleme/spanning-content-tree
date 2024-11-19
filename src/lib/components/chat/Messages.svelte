@@ -360,7 +360,6 @@
 										<PublishedArticlesMessage {message} {seriesId} {seriesName} on:generate={generateNewArticle} />
 									{/if}
 								{/key}
-								<!-- <svelte:component this={Select} on:confirm={handleDeviceConfirm} /> -->
 							{:else if $mobile || ((message.parentId && history.messages[message.parentId]?.models?.length) ?? 1) === 1}
 								{#key message.id && history.currentId}
 									<ResponseMessage

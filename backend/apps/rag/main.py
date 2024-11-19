@@ -15,7 +15,7 @@ import os, shutil, logging, re
 from datetime import datetime
 
 from pathlib import Path
-from typing import List, Union, Sequence, Iterator, Any
+from typing import List, Union, Sequence, Iterator, Any, Iterable
 
 from chromadb.utils.batch_utils import create_batches
 from langchain_core.documents import Document
@@ -608,6 +608,21 @@ async def update_query_settings(
     }
 
 
+@app.get("/list_collections")
+async def list_collections(user=Depends(get_verified_user)):
+    try:
+        return {
+            "status": True,
+            "collections": list([c.name for c in CHROMA_CLIENT.list_collections()]),
+        }
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(e),
+        )
+
+
 class QueryDocForm(BaseModel):
     collection_name: str
     query: str
@@ -1020,7 +1035,10 @@ def store_web_search(form_data: SearchForm, user=Depends(get_verified_user)):
 
 
 def store_data_in_vector_db(
-    data, collection_name, metadata: Optional[dict] = None, overwrite: bool = False
+    data: Iterable[Document],
+    collection_name: str,
+    metadata: Optional[dict] = None,
+    overwrite: bool = False,
 ) -> bool:
 
     text_splitter = RecursiveCharacterTextSplitter(

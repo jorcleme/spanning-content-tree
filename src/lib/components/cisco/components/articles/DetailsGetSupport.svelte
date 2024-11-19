@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ArticleStep } from '$lib/types';
+	import type { Article, ArticleStep } from '$lib/types';
 	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
 	import type { Model, _CiscoArticleMessage } from '$lib/stores';
@@ -28,7 +28,8 @@
 		ciscoArticleMessages,
 		activeArticle,
 		socket,
-		activeSupportStep
+		activeSupportStep,
+		globalMessages
 	} from '$lib/stores';
 	import {
 		approximateToHumanReadable,
@@ -64,7 +65,7 @@
 	export let index: number;
 	export let open: boolean;
 	export let step: ArticleStep;
-	export let readOnly: boolean = true;
+	export let readOnly: boolean = false;
 	export let selectedModels: string[];
 
 	const i18n: Writable<i18nType> = getContext('i18n');
@@ -128,31 +129,42 @@
 		}
 	];
 
-	$: tokens = (function (messages: { role: string; content: string }[]): TokensList {
-		const initialTokens: TokensList = [] as unknown as TokensList;
-		initialTokens.links = {};
+	const generateTokens = (message: _CiscoArticleMessage) => {
+		const initTokens: TokensList = [] as unknown as TokensList;
+		initTokens.links = {};
 
-		return messages.reduce((acc: TokensList, m) => {
-			if (m.role === 'assistant') {
-				const messageTokens = marked.lexer(
-					replaceTokens(sanitizeResponseContent(m.content), model?.name, $user?.name)
-				) as TokensList;
-				acc.push(...messageTokens);
-				Object.assign(acc.links, messageTokens.links);
-			}
-			return acc;
-		}, initialTokens);
-	})(messages);
+		if (message.role === 'assistant') {
+			const messageTokens = marked.lexer(
+				replaceTokens(sanitizeResponseContent(message.content), model?.name, $user?.name)
+			) as TokensList;
+			initTokens.push(...messageTokens);
+			Object.assign(initTokens.links, messageTokens.links);
+		}
+		return initTokens;
+	};
+	let tokenMap: { [id: string]: TokensList } = {};
+	$: messages.forEach((m) => {
+		if (m.role === 'assistant') {
+			tokenMap[m.id] = generateTokens(m);
+		}
+	});
 
 	$: if (currentQuestion) {
 		currentQuestion = titleizeWords(currentQuestion);
 	}
 
 	$: if ($activeArticle) {
-		staticQuestionBtns =
-			$activeArticle.steps[index].qna_pairs
-				?.filter((pair) => STATIC_IDS.includes(pair.id))
-				.map((pair) => ({ id: pair.id, text: pair.question, clicked: false })) ?? [];
+		// For Generated Articles, set the default static buttons
+		// Articles saved in the database will have these set already but generated articles will not
+		// Article.svelte will set the default QNA Pairs for generated articles + Insert the generated article into the database
+		// This is just a backup in case the default QNA Pairs are not set
+		staticQuestionBtns = $activeArticle.steps[index].qna_pairs
+			?.filter((pair) => STATIC_IDS.includes(pair.id))
+			.map((pair) => ({ id: pair.id, text: pair.question, clicked: false })) ?? [
+			{ id: 'static_1', text: "I don't understand this step", clicked: false },
+			{ id: 'static_2', text: 'Help me troubleshoot', clicked: false },
+			{ id: 'static_3', text: 'Show best practices', clicked: false }
+		];
 
 		dynamicQuestionBtns =
 			$activeArticle.steps[index].qna_pairs
@@ -173,6 +185,10 @@
 	renderer.link = (href, title, text) => {
 		const html = origLinkRenderer.call(renderer, href, title, text);
 		return html.replace(/^<a /, '<a target="_blank" rel="nofollow" ');
+	};
+
+	renderer.paragraph = (text) => {
+		return `<p>${marked.parseInline(text, { renderer })}`;
 	};
 
 	const { extensions, ...defaults } = marked.getDefaults() as MarkedOptions & {
@@ -517,6 +533,7 @@
 
 	const updateMessages = (newMessage: _CiscoArticleMessage) => {
 		const unique = new Set(messages.map((m) => m.id));
+		console.log(unique);
 		if (!unique.has(newMessage.id)) {
 			return [...messages, newMessage];
 		} else {
@@ -722,7 +739,13 @@
 			}).catch((e) => {
 				throw e;
 			});
-			_responses = data.map((text, i) => ({ id: `dynamic_${i + 1}`, text, clicked: false }));
+			_responses = data
+				.split(/[\n;]|1\.\s*|2\.\s*|3\.\s*/)
+				.filter((x) => x)
+				.map((x) => x.replace(/^-+\s*/, ''))
+				.slice(0, 3)
+				.map((text, i) => ({ id: `dynamic_${i + 1}`, text, clicked: false }));
+			// _responses = data.map((text, i) => ({ id: `dynamic_${i + 1}`, text, clicked: false }));
 		} catch (error) {
 			console.error(error);
 			if (isErrorWithDetail(error)) {
@@ -771,16 +794,6 @@
 		return _responses;
 	};
 
-	const simulateServerResponse = async (message: _CiscoArticleMessage) => {
-		return new Promise((resolve) => {
-			setTimeout(() => {
-				resolve((messages = updateMessages(message)));
-			}, 1500);
-		});
-	};
-
-	const buildSystemMessage = async () => {};
-
 	const generateLLMAnswer = async (i: number, btnId: string, question: string) => {
 		isLoading = true;
 		// If the user had opened the feedback form, close it
@@ -807,7 +820,7 @@
 		if ($activeArticle && $activeArticle.steps.at(index)?.qna_pairs) {
 			const pairs = $activeArticle.steps.at(index)?.qna_pairs ?? [];
 			const match = pairs.find((pair) => pair.id.trim().toLowerCase() === btnId.trim().toLowerCase());
-			if (match && match.answer !== null) {
+			if (match && match.answer !== null && match.answer !== '') {
 				await tick();
 
 				messages = updateMessages({
@@ -816,16 +829,16 @@
 					content: match.answer,
 					timestamp: Math.floor(Date.now() / 1000),
 					model: model?.id ?? selectedModels.at(0)!,
-					sources: match.sources,
+					sources: match.sources ?? [],
 					associatedQuestion: question,
 					qnaBtnId: btnId,
 					done: true
 				});
 				isLoading = false;
+				console.log('messages', messages);
 				return;
 			}
 		}
-
 		try {
 			const context = generateContext();
 			let directions: string;
@@ -902,6 +915,7 @@
 				console.log('response message', responseMessage);
 				messages = updateMessages(responseMessage);
 				// await sendUpdateArticle(responseMessage, id);
+				console.log('messages after response message', messages);
 				const updatedArticle = await updateArticleStep(localStorage.token, $activeArticleId, {
 					step_index: index,
 					step: $activeArticle
@@ -999,7 +1013,7 @@
 						if (_stopResponseFlag) {
 							controller.abort('User: Stop Response');
 						}
-						messages = updateMessages(responseMessage);
+						messages = messages;
 						await renderStyling();
 						break;
 					}
@@ -1010,7 +1024,6 @@
 						// First chunk means we have a response, stop whowing Spinner and stream
 						isLoading = false;
 						responseMessage.content += value;
-						messages = updateMessages(responseMessage);
 					}
 				}
 
@@ -1030,7 +1043,7 @@
 		await tick();
 		_stopResponseFlag = false;
 		scrollToBottom();
-		messages = updateMessages(responseMessage);
+		messages = messages;
 		return responseMessage;
 	};
 
@@ -1087,7 +1100,7 @@
 								} else {
 									responseMessage.content += data.message.content;
 
-									messages = updateMessages(responseMessage);
+									messages = messages;
 								}
 							} else {
 								isLoading = false;
@@ -1110,7 +1123,7 @@
 									eval_count: data.eval_count,
 									eval_duration: data.eval_duration
 								};
-								messages = updateMessages(responseMessage);
+								messages = messages;
 
 								if ($settings.notificationEnabled && !document.hasFocus()) {
 									const notification = new Notification(`${model.id}`, {
@@ -1151,7 +1164,6 @@
 				};
 			}
 			responseMessage.done = true;
-			messages = updateMessages(responseMessage);
 		}
 		await tick();
 		_stopResponseFlag = false;
@@ -1257,9 +1269,13 @@
 		});
 	});
 
-	$: if (messages.length > 2) {
-		ciscoArticleMessages.set(messages);
-	}
+	// $: if (messages.length > 2) {
+	// 	ciscoArticleMessages.set(messages);
+	// 	globalMessages.update((store) => {
+	// 		store.set(index, messages);
+	// 		return store;
+	// 	});
+	// }
 
 	let latest: HTMLDivElement | null;
 
@@ -1269,6 +1285,7 @@
 
 	afterUpdate(async () => {
 		await renderStyling();
+		scrollToBottom();
 	});
 </script>
 
@@ -1282,21 +1299,19 @@
 		<span id="stepNumberBreadcrumb" class="bg-blue-500 text-white w-8 h-8 flex items-center justify-center rounded-full"
 			>?</span
 		>
-		<h3 style="display:inline;" class="inline text-base font-bold">
+		<h3 class="inline text-base font-bold">
 			Get Support &gt; <p class="text-gray-500 inline">{currentStepStr}</p>
 		</h3></summary
 	>
 
 	<div
-		class="messageWell max-h-[50vh] min-h-[30vh] overflow-auto p-4 bg-white rounded-t-lg text-2xl pt-8"
+		class="messageWell max-h-[50vh] min-h-[30vh] overflow-auto p-4 bg-white rounded-t-lg text-base pt-8"
 		id="messages-well"
 	>
-		<h1 class="text-2xl mt-4" style="text-align: center;">Need Answers?</h1>
-		<h3 class="text-2xl" style="text-align: center; margin-top: -1em; margin-bottom: 4rem;">
-			Choose from our options below
-		</h3>
+		<h1 class="text-2xl mt-4 text-center">Need Answers?</h1>
+		<h3 class="text-2xl -mt-2.5 mb-20 text-center">Choose from our options below</h3>
 
-		{#each messages as message, i (i)}
+		{#each messages as message, i (message.id)}
 			{#key message.id}
 				{#if message && message.role === 'user' && i !== 1}
 					<ProfileImage
@@ -1378,7 +1393,7 @@
 							{:else if message.content && message.error !== true}
 								<!-- always show message contents even if there's an error -->
 								<!-- unless message.error === true which is legacy error handling, where the error message is stored in message.content -->
-								{#each tokens as token, tokenIdx}
+								{#each tokenMap[message.id] as token, tokenIdx}
 									{#if token.type === 'code'}
 										{#if token.lang === 'mermaid'}
 											<pre class="mermaid">{revertSanitizedResponseContent(token.text)}</pre>
@@ -1399,12 +1414,6 @@
 									{/if}
 								{/each}
 							{/if}
-							<!-- {@html marked.parse(message.content, {
-								...defaults,
-								gfm: true,
-								breaks: true,
-								renderer
-							})} -->
 							{#if message.error}
 								<div
 									class="flex mt-2 mb-4 space-x-2 border px-4 py-3 border-red-800 bg-red-800/30 font-medium rounded-lg"

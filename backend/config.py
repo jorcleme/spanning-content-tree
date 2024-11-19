@@ -1382,7 +1382,6 @@ MONGODB_PASS = os.environ.get("MONGODB_APP_PASS", "")
 class BaseCollections:
     def __init__(self, collection_type: str) -> None:
         self._collection_type = collection_type
-        self._collections = {}
 
     @classmethod
     def resolve_collection_name(cls, family: str) -> str:

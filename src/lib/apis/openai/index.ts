@@ -345,7 +345,7 @@ export const generateOpenAIChatCompletionQuestions = async (
 	token: string = '',
 	body: object,
 	url: string = OPENAI_API_BASE_URL
-): Promise<string[]> => {
+): Promise<string> => {
 	const controller = new AbortController();
 
 	let error = null;
@@ -371,11 +371,7 @@ export const generateOpenAIChatCompletionQuestions = async (
 	if (error) {
 		throw error;
 	}
-	return res.choices[0].message.content
-		.split(/[\n;]|1\.\s*|2\.\s*|3\.\s*/)
-		.filter((x) => x)
-		.map((x) => x.replace(/^-+\s*/, ''))
-		.slice(0, 3);
+	return res.choices[0].message.content;
 };
 
 export const generateOpenAIChatCompletionAnswers = async (token: string = '', body: object): Promise<string> => {

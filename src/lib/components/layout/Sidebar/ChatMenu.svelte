@@ -1,4 +1,7 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
+	import type { ChatTag } from '$lib/types';
 	import { DropdownMenu } from 'bits-ui';
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { getContext, createEventDispatcher } from 'svelte';
@@ -17,7 +20,7 @@
 	import BookmarkSlash from '$lib/components/icons/BookmarkSlash.svelte';
 	import { addTagById, deleteTagById, getTagsById } from '$lib/apis/chats';
 
-	const i18n = getContext('i18n');
+	const i18n: Writable<i18nType> = getContext('i18n');
 
 	export let shareHandler: Function;
 	export let cloneChatHandler: Function;
@@ -29,7 +32,7 @@
 	export let chatId = '';
 
 	let show = false;
-	let pinned = false;
+	let pinned: boolean | ChatTag = false;
 
 	const pinHandler = async () => {
 		if (pinned) {
@@ -41,11 +44,10 @@
 	};
 
 	const checkPinned = async () => {
-		pinned = (
-			await getTagsById(localStorage.token, chatId).catch(async (error) => {
-				return [];
-			})
-		).find((tag) => tag.name === 'pinned');
+		const tags = await getTagsById(localStorage.token, chatId).catch(async (error) => {
+			return [];
+		}) ?? [];
+		pinned = tags.find((tag) => tag.name === 'pinned') || false;
 	};
 
 	$: if (show) {
