@@ -986,7 +986,7 @@
 					await tick();
 					toast.message('Redirecting to article...');
 					window.setTimeout(() => {
-						goto(`/article/${chatContent.article!.id}`);
+						goto(`/article/${chatContent.article}`);
 					}, 2000);
 				}
 
@@ -1679,7 +1679,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 					history: history,
 					params: params,
 					files: chatFiles,
-					article: article
+					article: article.id
 				});
 				chats.set(await getChatList(localStorage.token));
 			}

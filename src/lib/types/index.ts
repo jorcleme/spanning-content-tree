@@ -120,7 +120,7 @@ export interface Chat extends BaseEntity, TimestampEntity {
 	timestamp: number; // epoch time in seconds
 	files: ClientFile[];
 	mapping?: Record<string, any>;
-	article?: Article;
+	article?: string; // article id
 }
 
 interface TagByUser extends BaseEntity, UserEntity {

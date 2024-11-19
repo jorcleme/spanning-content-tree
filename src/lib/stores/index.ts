@@ -1,5 +1,4 @@
 import { APP_NAME } from '$lib/constants';
-import { page } from '$app/stores';
 import { derived, type Writable, writable } from 'svelte/store';
 import type { ChatListResponse, TagsByUserResponse, Article, Tool } from '$lib/types';
 import type { ModelConfig } from '$lib/apis';
