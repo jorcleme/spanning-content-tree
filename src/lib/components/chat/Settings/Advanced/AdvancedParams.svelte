@@ -1,16 +1,14 @@
 <script lang="ts">
-	import type { ChatParams } from '$lib/stores';
-	import type { Writable } from 'svelte/store';
-	import { type i18n as i18nType } from 'i18next';
+	import type { AdvancedModelParams, ModelParams, i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext } from 'svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
-	import { getContext, createEventDispatcher } from 'svelte';
 
 	const dispatch = createEventDispatcher();
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let admin = false;
 
-	export let params: ChatParams = {
+	export let params: AdvancedModelParams = {
 		// Advanced
 		system: null,
 		seed: null,
@@ -28,15 +26,12 @@
 		num_batch: null,
 		num_keep: null,
 		max_tokens: null,
-		use_mmap: null,
-		use_mlock: null,
+		use_mmap: undefined,
+		use_mlock: undefined,
 		num_thread: null,
 		template: null,
 		proficiency: 0
 	};
-
-	let customFieldName = '';
-	let customFieldValue = '';
 
 	$: if (params) {
 		dispatch('change', params);
@@ -715,7 +710,7 @@
 					class="p-1 px-3 text-xs flex rounded transition flex-shrink-0 outline-none"
 					type="button"
 					on:click={() => {
-						params.use_mmap = (params?.use_mmap ?? null) === null ? true : null;
+						params.use_mmap = (params?.use_mmap ?? null) === null ? true : undefined;
 					}}
 				>
 					{#if (params?.use_mmap ?? null) === null}
@@ -747,7 +742,7 @@
 					class="p-1 px-3 text-xs flex rounded transition flex-shrink-0 outline-none"
 					type="button"
 					on:click={() => {
-						params.use_mlock = (params?.use_mlock ?? null) === null ? true : null;
+						params.use_mlock = (params?.use_mlock ?? null) === null ? true : undefined;
 					}}
 				>
 					{#if (params?.use_mlock ?? null) === null}

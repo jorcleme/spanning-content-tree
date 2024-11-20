@@ -1,3 +1,5 @@
+import type { Nullable } from '$lib/types';
+import type { RAGConfigForm } from '$lib/types';
 import { RAG_API_BASE_URL } from '$lib/constants';
 
 type DocumentsResponse = {
@@ -16,29 +18,6 @@ type EmbeddingModelUpdateForm = {
 	openai_config?: OpenAIConfigForm;
 	embedding_engine: string;
 	embedding_model: string;
-};
-
-type ChunkConfigForm = {
-	chunk_size: number;
-	chunk_overlap: number;
-};
-
-type ContentExtractConfigForm = {
-	engine: string;
-	tika_server_url: string | null;
-};
-
-type YoutubeConfigForm = {
-	language: string[];
-	translation?: string | null;
-};
-
-type RAGConfigForm = {
-	pdf_extract_images?: boolean;
-	chunk?: ChunkConfigForm;
-	content_extraction?: ContentExtractConfigForm;
-	web_loader_ssl_verification?: boolean;
-	youtube?: YoutubeConfigForm;
 };
 
 export interface SearchDocument {
@@ -89,7 +68,7 @@ export const updateRAGConfig = async (token: string, payload: RAGConfigForm) => 
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
+			return await res.json();
 		})
 		.catch((err) => {
 			console.log(err);
@@ -194,7 +173,13 @@ export const updateQuerySettings = async (token: string, settings: QuerySettings
 	return res;
 };
 
-export const processDocToVectorDB = async (token: string, file_id: string) => {
+interface ProcessedDocument {
+	status: boolean;
+	collection_name: string;
+	known_type: boolean;
+	filename: string;
+}
+export const processDocToVectorDB = async (token: string, file_id: string): Promise<Nullable<ProcessedDocument>> => {
 	let error = null;
 
 	const res = await fetch(`${RAG_API_BASE_URL}/process/doc`, {

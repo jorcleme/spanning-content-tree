@@ -1,13 +1,11 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import { onMount, tick, getContext } from 'svelte';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
-
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount, tick } from 'svelte';
 	import ShortcutsModal from '../chat/ShortcutsModal.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
 	import HelpMenu from './Help/HelpMenu.svelte';
+
+	const i18n: i18nType = getContext('i18n');
 
 	let showShortcuts = false;
 </script>

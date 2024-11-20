@@ -1,10 +1,10 @@
 <script lang="ts">
+	import type { AdvancedModelParams, ChatFile } from '$lib/types';
+	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import type { ChatParams, Model } from '$lib/stores';
 	import Modal from '../common/Modal.svelte';
 	import Controls from './Controls/Controls.svelte';
-	import { onMount } from 'svelte';
-	import type { ChatFile } from '$lib/types';
-	import type { Model, ChatParams } from '$lib/stores';
 
 	export let show = false;
 
@@ -14,7 +14,7 @@
 
 	export let chatFiles: ChatFile[] = [];
 	export let valves = {};
-	export let params: ChatParams = {};
+	export let params: AdvancedModelParams = {};
 
 	let largeScreen = false;
 	onMount(() => {

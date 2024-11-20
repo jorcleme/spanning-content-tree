@@ -1,32 +1,27 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Valve } from '$lib/types';
+	import type { Valve, i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
-
-	import { config, functions, models, settings, tools, user } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
-
 	import {
-		getUserValvesSpecById as getToolUserValvesSpecById,
-		getUserValvesById as getToolUserValvesById,
-		updateUserValvesById as updateToolUserValvesById
-	} from '$lib/apis/tools';
-	import {
-		getUserValvesSpecById as getFunctionUserValvesSpecById,
 		getUserValvesById as getFunctionUserValvesById,
+		getUserValvesSpecById as getFunctionUserValvesSpecById,
 		updateUserValvesById as updateFunctionUserValvesById
 	} from '$lib/apis/functions';
-
-	import ManageModal from './Personalization/ManageModal.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import {
+		getUserValvesById as getToolUserValvesById,
+		getUserValvesSpecById as getToolUserValvesSpecById,
+		updateUserValvesById as updateToolUserValvesById
+	} from '$lib/apis/tools';
+	import { config, functions, models, settings, tools, user } from '$lib/stores';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Valves from '$lib/components/common/Valves.svelte';
+	import ManageModal from './Personalization/ManageModal.svelte';
 
 	const dispatch = createEventDispatcher();
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveSettings: Function;
 

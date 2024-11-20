@@ -1,17 +1,17 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
 	import type { Tool } from '$lib/types';
-	import Checkbox from '$lib/components/common/Checkbox.svelte';
+	import type { i18nType } from '$lib/types';
 	import { getContext, onMount } from 'svelte';
+	import Checkbox from '$lib/components/common/Checkbox.svelte';
 
 	type ToolByIdWithSelected = { [key: string]: Tool & { selected: boolean } };
-	const i18n: Writable<i18nType> = getContext('i18n');
+
+	const i18n: i18nType = getContext('i18n');
 
 	export let tools: Tool[] = [];
 	export let selectedToolIds: string[] = [];
 
-	let _tools: { [key: string]: Tool & { selected: boolean } } = {};
+	let _tools: ToolByIdWithSelected = {};
 
 	onMount(() => {
 		_tools = tools.reduce<ToolByIdWithSelected>((acc, tool) => {

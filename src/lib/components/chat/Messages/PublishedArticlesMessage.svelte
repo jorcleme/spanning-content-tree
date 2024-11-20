@@ -1,26 +1,25 @@
 <script lang="ts">
-	import type { Message, Article } from '$lib/types';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import { getContext, onMount, beforeUpdate, afterUpdate } from 'svelte';
-	import { models, settings } from '$lib/stores';
-	import { WEBUI_BASE_URL } from '$lib/constants';
-	import { toast } from 'svelte-sonner';
-	import dayjs from 'dayjs';
-	import Name from './Name.svelte';
-	import ProfileImage from './ProfileImage.svelte';
-	import Image from '$lib/components/common/Image.svelte';
+	import type { Article, Message } from '$lib/types';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
-	import { getArticlesBySeriesId } from '$lib/apis/articles';
-	import Card from '$lib/components/cisco/components/common/Card.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Modal from '$lib/components/common/Modal.svelte';
+	import { toast } from 'svelte-sonner';
 	import { flip } from 'svelte/animate';
 	import { cubicInOut } from 'svelte/easing';
+	import { getArticlesBySeriesId } from '$lib/apis/articles';
+	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { models, settings } from '$lib/stores';
+	import dayjs from 'dayjs';
+	import Card from '$lib/components/cisco/components/common/Card.svelte';
+	import Image from '$lib/components/common/Image.svelte';
+	import Modal from '$lib/components/common/Modal.svelte';
+	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Name from './Name.svelte';
+	import ProfileImage from './ProfileImage.svelte';
 	import { InfoIcon } from 'lucide-svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
 	export let message: Message;
@@ -69,7 +68,7 @@
 			// If scrolling vertically, prevent default behavior
 			event.preventDefault();
 			// Adjust horizontal scroll position based on vertical scroll
-			event.currentTarget.scrollLeft += event.currentTarget.scrollWidth * (event.deltaY / 1000);
+			event.currentTarget.scrollLeft += event.deltaY * 2;
 		}
 	};
 </script>
@@ -147,7 +146,7 @@
 								>
 								<div class="grid grid-cols-4 items-center">
 									<button
-										class="btn col-start-2 col-span-2 self-center px-4 py-2 bg-[#1990fa] text-white"
+										class="btn col-start-2 col-span-2 self-center px-4 py-2 bg-[#1990fa] text-white rounded-md shadow-md"
 										on:click={() => dispatch('generate')}>Generate New Article</button
 									>
 									<div class="col-start-4 col-span-1 justify-self-end flex space-x-1 mr-1">
@@ -215,18 +214,29 @@
 				</svg>
 			</button>
 		</div>
-		<div class="flex flex-col space-y-3">
-			<div class="flex">
+		<div class="flex flex-col space-y-3 text-base">
+			<div class="flex items-center">
 				<span class="font-bold mr-2">1.</span>
-				<p>Generated articles are created by AI using Cisco Documentation. It can still make mistakes.</p>
+				<p class="font-light">
+					Generated articles are created by AI using Cisco Documentation. It can still make mistakes.
+				</p>
 			</div>
-			<div class="flex">
+			<div class="flex items-center">
 				<span class="font-bold mr-2">2.</span>
-				<p>Articles must be reviewed by a Cisco team member prior to publishing.</p>
+				<p class="font-light">Articles must be reviewed by a Cisco team member prior to publishing.</p>
 			</div>
-			<div class="flex">
+			<div class="flex items-center">
 				<span class="font-bold mr-2">3.</span>
-				<p>We can notify you once the article becomes publicly available.</p>
+				<p class="font-light">We can notify you once the article becomes publicly available.</p>
+			</div>
+			<div class="flex self-center">
+				<button
+					class="btn flex items-center justify-center px-4 py-2 bg-[#1990fa] text-white rounded-md shadow-md"
+					on:click={() => {
+						showInfo = false;
+						toast.success('We will notify you once the article is available.');
+					}}>{$i18n.t('Yes, notify me')}</button
+				>
 			</div>
 		</div>
 	</div>

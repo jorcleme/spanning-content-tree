@@ -1,18 +1,18 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
-	import { createEventDispatcher, onMount, getContext } from 'svelte';
-
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 
-	export let messageId = null;
+	export let messageId: string | null = null;
 	export let show = false;
 	export let message;
 
-	let LIKE_REASONS = [];
-	let DISLIKE_REASONS = [];
+	let LIKE_REASONS: string[] = [];
+	let DISLIKE_REASONS: string[] = [];
 
 	function loadReasons() {
 		LIKE_REASONS = [
@@ -35,8 +35,8 @@
 		];
 	}
 
-	let reasons = [];
-	let selectedReason = null;
+	let reasons: string[] = [];
+	let selectedReason: string | null = null;
 	let comment = '';
 
 	$: if (message?.annotation?.rating === 1) {
@@ -64,10 +64,7 @@
 	};
 </script>
 
-<div
-	class=" my-2.5 rounded-xl px-4 py-3 border dark:border-gray-850"
-	id="message-feedback-{messageId}"
->
+<div class=" my-2.5 rounded-xl px-4 py-3 border dark:border-gray-850" id="message-feedback-{messageId}">
 	<div class="flex justify-between items-center">
 		<div class=" text-sm">{$i18n.t('Tell us more:')}</div>
 

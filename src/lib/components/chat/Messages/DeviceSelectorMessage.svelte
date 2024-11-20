@@ -1,18 +1,17 @@
 <script lang="ts">
 	import type { Message } from '$lib/types';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
 	import { getContext, onMount } from 'svelte';
-	import { models, settings, config } from '$lib/stores';
 	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { config, models, settings } from '$lib/stores';
 	import dayjs from 'dayjs';
 	import Select from '$lib/components/cisco/components/common/Select.svelte';
-	import Name from './Name.svelte';
-	import ProfileImage from './ProfileImage.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Name from './Name.svelte';
+	import ProfileImage from './ProfileImage.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let message: Message;
 	export let siblings;

@@ -1,29 +1,24 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Document } from '$lib/stores';
-	import type { ClientFile } from '$lib/types';
+	import type { ClientFile, i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { transcribeAudio } from '$lib/apis/audio';
+	import { createNewDoc, deleteDocByName, getDocs } from '$lib/apis/documents';
+	import { uploadFile } from '$lib/apis/files';
+	import { processDocToVectorDB } from '$lib/apis/rag';
+	import { SUPPORTED_FILE_EXTENSIONS, SUPPORTED_FILE_TYPE } from '$lib/constants';
+	import type { Document } from '$lib/stores';
+	import { WEBUI_NAME, documents, showSidebar } from '$lib/stores';
+	import { blobToFile, transformFileName } from '$lib/utils';
 	import fileSaver from 'file-saver';
+	import AddFilesPlaceholder from '$lib/components/AddFilesPlaceholder.svelte';
+	import Checkbox from '$lib/components/common/Checkbox.svelte';
+	import AddDocModal from '$lib/components/documents/AddDocModal.svelte';
+	import EditDocModal from '$lib/components/documents/EditDocModal.svelte';
+
 	const { saveAs } = fileSaver;
 
-	import { onMount, getContext } from 'svelte';
-	import { WEBUI_NAME, documents, showSidebar } from '$lib/stores';
-	import { createNewDoc, deleteDocByName, getDocs } from '$lib/apis/documents';
-
-	import { SUPPORTED_FILE_TYPE, SUPPORTED_FILE_EXTENSIONS } from '$lib/constants';
-	import { processDocToVectorDB, uploadDocToVectorDB } from '$lib/apis/rag';
-	import { blobToFile, transformFileName } from '$lib/utils';
-
-	import Checkbox from '$lib/components/common/Checkbox.svelte';
-
-	import EditDocModal from '$lib/components/documents/EditDocModal.svelte';
-	import AddFilesPlaceholder from '$lib/components/AddFilesPlaceholder.svelte';
-	import AddDocModal from '$lib/components/documents/AddDocModal.svelte';
-	import { transcribeAudio } from '$lib/apis/audio';
-	import { type FileUpload, uploadFile } from '$lib/apis/files';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	let importFiles: FileList;
 

@@ -1,19 +1,17 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Func } from '$lib/stores';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
-
-	import { functions, models } from '$lib/stores';
-	import { createNewFunction, getFunctions } from '$lib/apis/functions';
-	import FunctionEditor from '$lib/components/workspace/Functions/FunctionEditor.svelte';
 	import { getModels } from '$lib/apis';
-	import { compareVersion, extractFrontmatter } from '$lib/utils';
+	import { createNewFunction, getFunctions } from '$lib/apis/functions';
 	import { WEBUI_VERSION } from '$lib/constants';
+	import type { Func } from '$lib/stores';
+	import { functions, models } from '$lib/stores';
+	import { compareVersion, extractFrontmatter } from '$lib/utils';
+	import FunctionEditor from '$lib/components/workspace/Functions/FunctionEditor.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	let mounted = false;
 	let clone = false;

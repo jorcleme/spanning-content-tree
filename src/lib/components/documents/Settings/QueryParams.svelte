@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
 	import { getDocs } from '$lib/apis/documents';
 	import {
 		getRAGConfig,
@@ -19,7 +20,7 @@
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveHandler: Function;
 

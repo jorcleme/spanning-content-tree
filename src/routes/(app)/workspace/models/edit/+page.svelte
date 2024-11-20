@@ -1,47 +1,35 @@
-<script>
-	import { v4 as uuidv4 } from 'uuid';
+<script lang="ts">
+	import type { AdvancedModelParams, Collection, ModelConfig, i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
-
-	import { onMount, getContext } from 'svelte';
 	import { page } from '$app/stores';
-	import { settings, user, config, models, tools, functions } from '$lib/stores';
-	import { splitStream } from '$lib/utils';
-
-	import { getModelInfos, updateModelById } from '$lib/apis/models';
-
-	import AdvancedParams from '$lib/components/chat/Settings/Advanced/AdvancedParams.svelte';
 	import { getModels } from '$lib/apis';
+	import { updateModelById } from '$lib/apis/models';
+	import { type Model, functions, models, tools } from '$lib/stores';
+	import AdvancedParams from '$lib/components/chat/Settings/Advanced/AdvancedParams.svelte';
 	import Checkbox from '$lib/components/common/Checkbox.svelte';
 	import Tags from '$lib/components/common/Tags.svelte';
+	import FiltersSelector from '$lib/components/workspace/Models/FiltersSelector.svelte';
 	import Knowledge from '$lib/components/workspace/Models/Knowledge.svelte';
 	import ToolsSelector from '$lib/components/workspace/Models/ToolsSelector.svelte';
-	import FiltersSelector from '$lib/components/workspace/Models/FiltersSelector.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	let loading = false;
-	let success = false;
 
-	let filesInputElement;
-	let inputFiles;
-
-	let digest = '';
-	let pullProgress = null;
+	let filesInputElement: HTMLInputElement;
+	let inputFiles: FileList | null;
 
 	let showAdvanced = false;
 	let showPreview = false;
 
-	// ///////////
-	// model
-	// ///////////
-
-	let model = null;
+	let model: Model | null = null;
 
 	let id = '';
 	let name = '';
 
-	let info = {
+	let info: ModelConfig = {
 		id: '',
 		base_model_id: null,
 		name: '',
@@ -49,21 +37,34 @@
 			profile_image_url: '/static/favicon.png',
 			description: '',
 			suggestion_prompts: null,
-			tags: []
+			tags: [],
+			capabilities: {
+				vision: true,
+				usage: true,
+				audio: true
+			},
+			knowledge: [],
+			toolIds: [],
+			filterIds: []
 		},
 		params: {
-			system: ''
+			system: '',
+			stop: null
 		}
 	};
 
-	let params = {};
-	let capabilities = {
-		vision: true
+	let params: AdvancedModelParams = {
+		system: '',
+		stop: null
+	};
+	let capabilities: { [key: string]: any } = {
+		vision: true,
+		usage: true
 	};
 
-	let knowledge = [];
-	let toolIds = [];
-	let filterIds = [];
+	let knowledge: Collection[] = [];
+	let toolIds: any[] = [];
+	let filterIds: any[] = [];
 
 	const updateHandler = async () => {
 		loading = true;
@@ -96,7 +97,12 @@
 			}
 		}
 
-		info.params.stop = params.stop ? params.stop.split(',').filter((s) => s.trim()) : null;
+		info.params.stop = params.stop
+			? Array.isArray(params.stop)
+				? params.stop.filter((s) => s.trim())
+				: params.stop.split(',').filter((s) => s.trim())
+			: null;
+
 		Object.keys(info.params).forEach((key) => {
 			if (info.params[key] === '' || info.params[key] === null) {
 				delete info.params[key];
@@ -106,20 +112,19 @@
 		const res = await updateModelById(localStorage.token, info.id, info);
 
 		if (res) {
-			await models.set(await getModels(localStorage.token));
+			models.set(await getModels(localStorage.token));
 			toast.success($i18n.t('Model updated successfully'));
 			await goto('/workspace/models');
 		}
 
 		loading = false;
-		success = false;
 	};
 
 	onMount(() => {
 		const _id = $page.url.searchParams.get('id');
 
 		if (_id) {
-			model = $models.find((m) => m.id === _id);
+			model = $models.find((m) => m.id === _id) ?? null;
 			if (model) {
 				id = model.id;
 				name = model.name;
@@ -138,15 +143,13 @@
 					)
 				};
 
-				if (model.preset && model.owned_by === 'ollama' && !info.base_model_id.includes(':')) {
+				if (model.preset && model.owned_by === 'ollama' && !info?.base_model_id?.includes(':')) {
 					info.base_model_id = `${info.base_model_id}:latest`;
 				}
 
 				params = { ...params, ...model?.info?.params };
 				params.stop = params?.stop
-					? (typeof params.stop === 'string' ? params.stop.split(',') : params?.stop ?? []).join(
-							','
-					  )
+					? (typeof params.stop === 'string' ? params.stop.split(',') : params?.stop ?? []).join(',')
 					: null;
 
 				if (model?.info?.meta?.knowledge) {
@@ -162,7 +165,11 @@
 				}
 
 				if (model?.owned_by === 'openai') {
-					capabilities.usage = false;
+					if (model?.id === 'gpt-4o') {
+						capabilities.usage = true;
+					} else {
+						capabilities.usage = false;
+					}
 				}
 
 				if (model?.info?.meta?.capabilities) {
@@ -177,6 +184,66 @@
 			goto('/workspace/models');
 		}
 	});
+
+	const onChange = (e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
+		let reader = new FileReader();
+		reader.onload = (event) => {
+			let originalImageUrl = `${event.target?.result}`;
+			const img = new Image();
+			img.src = originalImageUrl;
+			img.onload = function () {
+				const canvas = document.createElement('canvas');
+				const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+				// Calculate the aspect ratio of the image
+				const aspectRatio = img.width / img.height;
+
+				// Calculate the new width and height to fit within 100x100
+				let newWidth, newHeight;
+				if (aspectRatio > 1) {
+					newWidth = 250 * aspectRatio;
+					newHeight = 250;
+				} else {
+					newWidth = 250;
+					newHeight = 250 / aspectRatio;
+				}
+
+				// Set the canvas size
+				canvas.width = 250;
+				canvas.height = 250;
+
+				// Calculate the position to center the image
+				const offsetX = (250 - newWidth) / 2;
+				const offsetY = (250 - newHeight) / 2;
+
+				// Draw the image on the canvas
+				ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
+
+				// Get the base64 representation of the compressed image
+				const compressedSrc = canvas.toDataURL('image/jpeg');
+
+				// Display the compressed image
+				info.meta.profile_image_url = compressedSrc;
+
+				inputFiles = null;
+			};
+		};
+		if (
+			inputFiles &&
+			inputFiles.length > 0 &&
+			['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
+		) {
+			reader.readAsDataURL(inputFiles[0]);
+		} else {
+			console.log(`Unsupported File Type '${inputFiles?.item(0)?.type}'.`);
+			inputFiles = null;
+		}
+	};
+
+	const onSuggestionPromptClick = () => {
+		if (info.meta?.suggestion_prompts?.length === 0 || info.meta?.suggestion_prompts?.at(-1)?.content !== '') {
+			info.meta.suggestion_prompts = [...(info.meta?.suggestion_prompts ?? []), { content: '' }];
+		}
+	};
 </script>
 
 <div class="w-full max-h-full">
@@ -186,63 +253,7 @@
 		type="file"
 		hidden
 		accept="image/*"
-		on:change={() => {
-			let reader = new FileReader();
-			reader.onload = (event) => {
-				let originalImageUrl = `${event.target.result}`;
-
-				const img = new Image();
-				img.src = originalImageUrl;
-
-				img.onload = function () {
-					const canvas = document.createElement('canvas');
-					const ctx = canvas.getContext('2d');
-
-					// Calculate the aspect ratio of the image
-					const aspectRatio = img.width / img.height;
-
-					// Calculate the new width and height to fit within 100x100
-					let newWidth, newHeight;
-					if (aspectRatio > 1) {
-						newWidth = 250 * aspectRatio;
-						newHeight = 250;
-					} else {
-						newWidth = 250;
-						newHeight = 250 / aspectRatio;
-					}
-
-					// Set the canvas size
-					canvas.width = 250;
-					canvas.height = 250;
-
-					// Calculate the position to center the image
-					const offsetX = (250 - newWidth) / 2;
-					const offsetY = (250 - newHeight) / 2;
-
-					// Draw the image on the canvas
-					ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
-
-					// Get the base64 representation of the compressed image
-					const compressedSrc = canvas.toDataURL('image/jpeg');
-
-					// Display the compressed image
-					info.meta.profile_image_url = compressedSrc;
-
-					inputFiles = null;
-				};
-			};
-
-			if (
-				inputFiles &&
-				inputFiles.length > 0 &&
-				['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
-			) {
-				reader.readAsDataURL(inputFiles[0]);
-			} else {
-				console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
-				inputFiles = null;
-			}
-		}}
+		on:change={onChange}
 	/>
 
 	<button
@@ -252,12 +263,7 @@
 		}}
 	>
 		<div class=" self-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 20 20"
-				fill="currentColor"
-				class="w-4 h-4"
-			>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 				<path
 					fill-rule="evenodd"
 					d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
@@ -293,12 +299,7 @@
 								class=" rounded-full size-16 object-cover"
 							/>
 						{:else}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 24 24"
-								fill="currentColor"
-								class="size-8"
-							>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-8">
 								<path
 									fill-rule="evenodd"
 									d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z"
@@ -351,8 +352,8 @@
 							required
 						>
 							<option value={null} class=" text-gray-900">{$i18n.t('Select a base model')}</option>
-							{#each $models.filter((m) => m.id !== model.id && !m?.preset) as model}
-								<option value={model.id} class=" text-gray-900">{model.name}</option>
+							{#each $models.filter((m) => m.id !== model?.id && !m?.preset) as mod}
+								<option value={mod.id} class=" text-gray-900">{mod.name}</option>
 							{/each}
 						</select>
 					</div>
@@ -387,7 +388,7 @@
 						class="mt-1 px-3 py-1.5 text-sm w-full bg-transparent border dark:border-gray-600 outline-none rounded-lg"
 						placeholder={$i18n.t('Add a short description about what this model does')}
 						bind:value={info.meta.description}
-						row="3"
+						rows="3"
 					/>
 				{/if}
 			</div>
@@ -475,24 +476,8 @@
 					</div>
 
 					{#if (info?.meta?.suggestion_prompts ?? null) !== null}
-						<button
-							class="p-1 px-2 text-xs flex rounded transition"
-							type="button"
-							on:click={() => {
-								if (
-									info.meta.suggestion_prompts.length === 0 ||
-									info.meta.suggestion_prompts.at(-1).content !== ''
-								) {
-									info.meta.suggestion_prompts = [...info.meta.suggestion_prompts, { content: '' }];
-								}
-							}}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								class="w-4 h-4"
-							>
+						<button class="p-1 px-2 text-xs flex rounded transition" type="button" on:click={onSuggestionPromptClick}>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 								<path
 									d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"
 								/>
@@ -512,20 +497,8 @@
 										bind:value={prompt.content}
 									/>
 
-									<button
-										class="px-2"
-										type="button"
-										on:click={() => {
-											info.meta.suggestion_prompts.splice(promptIdx, 1);
-											info.meta.suggestion_prompts = info.meta.suggestion_prompts;
-										}}
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 20 20"
-											fill="currentColor"
-											class="w-4 h-4"
-										>
+									<button class="px-2" type="button" on:click={onSuggestionPromptClick}>
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 											<path
 												d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 											/>
@@ -586,14 +559,14 @@
 					<Tags
 						tags={info?.meta?.tags ?? []}
 						deleteTag={(tagName) => {
-							info.meta.tags = info.meta.tags.filter((tag) => tag.name !== tagName);
+							info.meta.tags = info.meta.tags?.filter((tag) => tag.name !== tagName);
 						}}
 						addTag={(tagName) => {
 							console.log(tagName);
 							if (!(info?.meta?.tags ?? null)) {
 								info.meta.tags = [{ name: tagName }];
 							} else {
-								info.meta.tags = [...info.meta.tags, { name: tagName }];
+								info.meta.tags = [...(info.meta.tags ?? []), { name: tagName }];
 							}
 						}}
 					/>
@@ -644,11 +617,7 @@
 
 					{#if loading}
 						<div class="ml-1.5 self-center">
-							<svg
-								class=" w-4 h-4"
-								viewBox="0 0 24 24"
-								fill="currentColor"
-								xmlns="http://www.w3.org/2000/svg"
+							<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
 								><style>
 									.spinner_ajPY {
 										transform-origin: center;

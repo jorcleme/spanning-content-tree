@@ -1,32 +1,32 @@
 <script lang="ts">
+	import type { Memory } from '$lib/types';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { deleteMemoriesByUserId, deleteMemoryById, getMemories } from '$lib/apis/memories';
 	import dayjs from 'dayjs';
-	import { getContext, createEventDispatcher } from 'svelte';
+	import Modal from '$lib/components/common/Modal.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import AddMemoryModal from './AddMemoryModal.svelte';
+	import EditMemoryModal from './EditMemoryModal.svelte';
 
 	const dispatch = createEventDispatcher();
 
-	import Modal from '$lib/components/common/Modal.svelte';
-	import AddMemoryModal from './AddMemoryModal.svelte';
-	import { deleteMemoriesByUserId, deleteMemoryById, getMemories } from '$lib/apis/memories';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import { error } from '@sveltejs/kit';
-	import EditMemoryModal from './EditMemoryModal.svelte';
-
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let show = false;
 
-	let memories = [];
+	let memories: Memory[] = [];
 	let loading = true;
 
 	let showAddMemoryModal = false;
 	let showEditMemoryModal = false;
 
-	let selectedMemory = null;
+	let selectedMemory: Memory | null = null;
 
 	$: if (show && memories.length === 0 && loading) {
 		(async () => {
-			memories = await getMemories(localStorage.token);
+			memories = (await getMemories(localStorage.token)) ?? [];
 			loading = false;
 		})();
 	}
@@ -42,12 +42,7 @@
 					show = false;
 				}}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="w-5 h-5"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 					<path
 						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 					/>
@@ -84,9 +79,7 @@
 											</td>
 											<td class=" px-3 py-1 hidden md:flex h-[2.5rem]">
 												<div class="my-auto whitespace-nowrap">
-													{dayjs(memory.updated_at * 1000).format(
-														$i18n.t('MMMM DD, YYYY hh:mm:ss A')
-													)}
+													{dayjs(memory.updated_at * 1000).format($i18n.t('MMMM DD, YYYY hh:mm:ss A'))}
 												</div>
 											</td>
 											<td class="px-3 py-1">
@@ -120,17 +113,14 @@
 														<button
 															class="self-center w-fit text-sm px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
 															on:click={async () => {
-																const res = await deleteMemoryById(
-																	localStorage.token,
-																	memory.id
-																).catch((error) => {
+																const res = await deleteMemoryById(localStorage.token, memory.id).catch((error) => {
 																	toast.error(error);
 																	return null;
 																});
 
 																if (res) {
 																	toast.success($i18n.t('Memory deleted successfully'));
-																	memories = await getMemories(localStorage.token);
+																	memories = (await getMemories(localStorage.token)) ?? [];
 																}
 															}}
 														>
@@ -195,7 +185,7 @@
 <AddMemoryModal
 	bind:show={showAddMemoryModal}
 	on:save={async () => {
-		memories = await getMemories(localStorage.token);
+		memories = (await getMemories(localStorage.token)) ?? [];
 	}}
 />
 
@@ -203,6 +193,6 @@
 	bind:show={showEditMemoryModal}
 	memory={selectedMemory}
 	on:save={async () => {
-		memories = await getMemories(localStorage.token);
+		memories = (await getMemories(localStorage.token)) ?? [];
 	}}
 />

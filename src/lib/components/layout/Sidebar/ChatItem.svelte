@@ -1,14 +1,8 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto, invalidate, invalidateAll } from '$app/navigation';
-	import { onMount, getContext, createEventDispatcher, tick } from 'svelte';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
-
-	const dispatch = createEventDispatcher();
-
 	import {
 		archiveChatById,
 		cloneChatById,
@@ -18,12 +12,15 @@
 		updateChatById
 	} from '$lib/apis/chats';
 	import { chatId, chats, mobile, pinnedChats, showSidebar } from '$lib/stores';
-
-	import ChatMenu from './ChatMenu.svelte';
 	import ShareChatModal from '$lib/components/chat/ShareChatModal.svelte';
-	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
+	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
+	import ChatMenu from './ChatMenu.svelte';
+
+	const i18n: i18nType = getContext('i18n');
+
+	const dispatch = createEventDispatcher();
 
 	export let chat;
 	export let selected = false;
@@ -43,8 +40,8 @@
 			await updateChatById(localStorage.token, id, {
 				title: _title
 			});
-			 chats.set(await getChatList(localStorage.token));
-			pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned') ?? []);
+			chats.set(await getChatList(localStorage.token));
+			pinnedChats.set((await getChatListByTagName(localStorage.token, 'pinned')) ?? []);
 		}
 	};
 
@@ -57,14 +54,14 @@
 		if (res) {
 			goto(`/c/${res.id}`);
 			chats.set(await getChatList(localStorage.token));
-			pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned') ?? []);
+			pinnedChats.set((await getChatListByTagName(localStorage.token, 'pinned')) ?? []);
 		}
 	};
 
 	const archiveChatHandler = async (id: string) => {
 		await archiveChatById(localStorage.token, id);
 		chats.set(await getChatList(localStorage.token));
-		pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned') ?? []);
+		pinnedChats.set((await getChatListByTagName(localStorage.token, 'pinned')) ?? []);
 	};
 
 	const focusEdit = (node: HTMLInputElement) => {
@@ -227,7 +224,7 @@
 						dispatch('unselect');
 					}}
 					on:change={async () => {
-						pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned') ?? []);
+						pinnedChats.set((await getChatListByTagName(localStorage.token, 'pinned')) ?? []);
 					}}
 				>
 					<button

@@ -1,16 +1,9 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Func } from '$lib/stores';
+	import type { i18nType } from '$lib/types';
+	import { getContext, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import fileSaver from 'file-saver';
-	const { saveAs } = fileSaver;
-
-	import { WEBUI_NAME, functions, models } from '$lib/stores';
-	import { onMount, getContext, tick } from 'svelte';
-	import { createNewPrompt, deletePromptByCommand, getPrompts } from '$lib/apis/prompts';
-
 	import { goto } from '$app/navigation';
+	import { getModels } from '$lib/apis';
 	import {
 		createNewFunction,
 		deleteFunctionById,
@@ -20,20 +13,22 @@
 		toggleFunctionById,
 		toggleGlobalById
 	} from '$lib/apis/functions';
-
-	import ArrowDownTray from '../icons/ArrowDownTray.svelte';
-	import Tooltip from '../common/Tooltip.svelte';
-	import ConfirmDialog from '../common/ConfirmDialog.svelte';
-	import { getModels } from '$lib/apis';
-	import FunctionMenu from './Functions/FunctionMenu.svelte';
-	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
-	import Switch from '../common/Switch.svelte';
-	import ValvesModal from './common/ValvesModal.svelte';
-	import ManifestModal from './common/ManifestModal.svelte';
-	import Heart from '../icons/Heart.svelte';
+	import type { Func } from '$lib/stores';
+	import { WEBUI_NAME, functions, models } from '$lib/stores';
+	import fileSaver from 'file-saver';
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import ConfirmDialog from '../common/ConfirmDialog.svelte';
+	import Switch from '../common/Switch.svelte';
+	import Tooltip from '../common/Tooltip.svelte';
+	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
+	import Heart from '../icons/Heart.svelte';
+	import FunctionMenu from './Functions/FunctionMenu.svelte';
+	import ManifestModal from './common/ManifestModal.svelte';
+	import ValvesModal from './common/ValvesModal.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const { saveAs } = fileSaver;
+
+	const i18n: i18nType = getContext('i18n');
 
 	let functionsImportInputElement: HTMLInputElement;
 	let importFiles: FileList;

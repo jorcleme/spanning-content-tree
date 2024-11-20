@@ -1,21 +1,18 @@
 <script lang="ts">
-	import { get, type Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { onMount, getContext } from 'svelte';
-
-	import { user } from '$lib/stores';
-	import { updateUserProfile, createAPIKey, getAPIKey } from '$lib/apis/auths';
-
-	import UpdatePassword from './Account/UpdatePassword.svelte';
+	import { createAPIKey, getAPIKey, updateUserProfile } from '$lib/apis/auths';
 	import { getGravatarUrl } from '$lib/apis/utils';
-	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
+	import { user } from '$lib/stores';
+	import { canvasPixelTest, generateInitialsImage } from '$lib/utils';
 	import { copyToClipboard } from '$lib/utils';
-	import Plus from '$lib/components/icons/Plus.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Plus from '$lib/components/icons/Plus.svelte';
+	import UpdatePassword from './Account/UpdatePassword.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveHandler: Function;
 

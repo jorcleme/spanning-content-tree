@@ -1,15 +1,14 @@
 <script lang="ts">
-	import { getBackendConfig } from '$lib/apis';
-	import { setDefaultPromptSuggestions } from '$lib/apis/configs';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
+	import { settings } from '$lib/stores';
 	import Switch from '$lib/components/common/Switch.svelte';
-	import { config, models, settings, user } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
-	import { toast } from 'svelte-sonner';
-	import ManageModal from './Personalization/ManageModal.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import ManageModal from './Personalization/ManageModal.svelte';
+
 	const dispatch = createEventDispatcher();
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveSettings: Function;
 
@@ -88,10 +87,7 @@
 	</div>
 
 	<div class="flex justify-end text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

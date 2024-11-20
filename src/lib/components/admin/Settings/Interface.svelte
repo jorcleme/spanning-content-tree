@@ -1,23 +1,18 @@
 <script lang="ts">
-	import { v4 as uuidv4 } from 'uuid';
-	import { toast } from 'svelte-sonner';
-
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { getBackendConfig, getTaskConfig, updateTaskConfig } from '$lib/apis';
 	import { setDefaultPromptSuggestions } from '$lib/apis/configs';
-	import { config, models, settings, user } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext } from 'svelte';
-
-	import { banners as _banners } from '$lib/stores';
-	import type { Banner } from '$lib/types';
-
 	import { getBanners, setBanners } from '$lib/apis/configs';
-
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import { config, models, user } from '$lib/stores';
+	import { type Banner, type PromptSuggestion, banners as _banners } from '$lib/stores';
+	import { v4 as uuidv4 } from 'uuid';
 	import Switch from '$lib/components/common/Switch.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
 	const dispatch = createEventDispatcher();
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	let taskConfig = {
 		TASK_MODEL: '',
@@ -27,7 +22,7 @@
 		SEARCH_QUERY_PROMPT_LENGTH_THRESHOLD: 0
 	};
 
-	let promptSuggestions = [];
+	let promptSuggestions: PromptSuggestion[] = [];
 	let banners: Banner[] = [];
 
 	const updateInterfaceHandler = async () => {
@@ -42,7 +37,7 @@
 	onMount(async () => {
 		taskConfig = await getTaskConfig(localStorage.token);
 
-		promptSuggestions = $config?.default_prompt_suggestions;
+		promptSuggestions = $config?.default_prompt_suggestions ?? [];
 
 		banners = await getBanners(localStorage.token);
 	});
@@ -160,7 +155,7 @@
 					class="p-1 px-3 text-xs flex rounded transition"
 					type="button"
 					on:click={() => {
-						if (banners.length === 0 || banners.at(-1).content !== '') {
+						if (banners.length === 0 || banners[-1].content !== '') {
 							banners = [
 								...banners,
 								{
@@ -175,12 +170,7 @@
 						}
 					}}
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="w-4 h-4"
-					>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 						<path
 							d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"
 						/>
@@ -197,8 +187,7 @@
 								required
 							>
 								{#if banner.type == ''}
-									<option value="" selected disabled class="text-gray-900">{$i18n.t('Type')}</option
-									>
+									<option value="" selected disabled class="text-gray-900">{$i18n.t('Type')}</option>
 								{/if}
 								<option value="info" class="text-gray-900">{$i18n.t('Info')}</option>
 								<option value="warning" class="text-gray-900">{$i18n.t('Warning')}</option>
@@ -227,12 +216,7 @@
 								banners = banners;
 							}}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								class="w-4 h-4"
-							>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 								<path
 									d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 								/>
@@ -243,7 +227,7 @@
 			</div>
 		</div>
 
-		{#if $user.role === 'admin'}
+		{#if $user?.role === 'admin'}
 			<div class=" space-y-3">
 				<div class="flex w-full justify-between mb-2">
 					<div class=" self-center text-sm font-semibold">
@@ -254,17 +238,12 @@
 						class="p-1 px-3 text-xs flex rounded transition"
 						type="button"
 						on:click={() => {
-							if (promptSuggestions.length === 0 || promptSuggestions.at(-1).content !== '') {
+							if (promptSuggestions.length === 0 || promptSuggestions[-1].content !== '') {
 								promptSuggestions = [...promptSuggestions, { content: '', title: ['', ''] }];
 							}
 						}}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 							<path
 								d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"
 							/>
@@ -273,9 +252,7 @@
 				</div>
 				<div class="grid lg:grid-cols-2 flex-col gap-1.5">
 					{#each promptSuggestions as prompt, promptIdx}
-						<div
-							class=" flex border border-gray-100 dark:border-none dark:bg-gray-850 rounded-xl py-1.5"
-						>
+						<div class=" flex border border-gray-100 dark:border-none dark:bg-gray-850 rounded-xl py-1.5">
 							<div class="flex flex-col flex-1 pl-1">
 								<div class="flex border-b border-gray-100 dark:border-gray-800 w-full">
 									<input
@@ -306,12 +283,7 @@
 									promptSuggestions = promptSuggestions;
 								}}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 20 20"
-									fill="currentColor"
-									class="w-4 h-4"
-								>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 									<path
 										d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 									/>
@@ -331,10 +303,7 @@
 	</div>
 
 	<div class="flex justify-end text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

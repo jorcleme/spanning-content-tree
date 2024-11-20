@@ -1,26 +1,23 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { ChatTag } from '$lib/types';
-	import { DropdownMenu } from 'bits-ui';
+	import type { ChatTag, i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext } from 'svelte';
+	import { addTagById, deleteTagById, getTagsById } from '$lib/apis/chats';
 	import { flyAndScale } from '$lib/utils/transitions';
-	import { getContext, createEventDispatcher } from 'svelte';
+	import { DropdownMenu } from 'bits-ui';
+	import Tags from '$lib/components/chat/Tags.svelte';
+	import Dropdown from '$lib/components/common/Dropdown.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
+	import Bookmark from '$lib/components/icons/Bookmark.svelte';
+	import BookmarkSlash from '$lib/components/icons/BookmarkSlash.svelte';
+	import DocumentDuplicate from '$lib/components/icons/DocumentDuplicate.svelte';
+	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
+	import Pencil from '$lib/components/icons/Pencil.svelte';
+	import Share from '$lib/components/icons/Share.svelte';
 
 	const dispatch = createEventDispatcher();
 
-	import Dropdown from '$lib/components/common/Dropdown.svelte';
-	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
-	import Pencil from '$lib/components/icons/Pencil.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Tags from '$lib/components/chat/Tags.svelte';
-	import Share from '$lib/components/icons/Share.svelte';
-	import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
-	import DocumentDuplicate from '$lib/components/icons/DocumentDuplicate.svelte';
-	import Bookmark from '$lib/components/icons/Bookmark.svelte';
-	import BookmarkSlash from '$lib/components/icons/BookmarkSlash.svelte';
-	import { addTagById, deleteTagById, getTagsById } from '$lib/apis/chats';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let shareHandler: Function;
 	export let cloneChatHandler: Function;
@@ -44,9 +41,10 @@
 	};
 
 	const checkPinned = async () => {
-		const tags = await getTagsById(localStorage.token, chatId).catch(async (error) => {
-			return [];
-		}) ?? [];
+		const tags =
+			(await getTagsById(localStorage.token, chatId).catch(async (error) => {
+				return [];
+			})) ?? [];
 		pinned = tags.find((tag) => tag.name === 'pinned') || false;
 	};
 

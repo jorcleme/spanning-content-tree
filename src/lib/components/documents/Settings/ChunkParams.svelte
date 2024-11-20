@@ -1,25 +1,24 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { getDocs } from '$lib/apis/documents';
 	import {
-		getRAGConfig,
-		updateRAGConfig,
-		getQuerySettings,
-		scanDocs,
-		updateQuerySettings,
-		resetVectorDB,
 		getEmbeddingConfig,
-		updateEmbeddingConfig,
+		getQuerySettings,
+		getRAGConfig,
 		getRerankingConfig,
+		resetVectorDB,
+		scanDocs,
+		updateEmbeddingConfig,
+		updateQuerySettings,
+		updateRAGConfig,
 		updateRerankingConfig
 	} from '$lib/apis/rag';
-
 	import { documents, models } from '$lib/stores';
-	import { onMount, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
-
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveHandler: Function;
 
@@ -34,7 +33,7 @@
 	let pdfExtractImages = true;
 
 	const submitHandler = async () => {
-		const res = await updateRAGConfig(localStorage.token, {
+		await updateRAGConfig(localStorage.token, {
 			pdf_extract_images: pdfExtractImages,
 			chunk: {
 				chunk_overlap: chunkOverlap,
@@ -116,10 +115,7 @@
 		</div>
 	</div>
 	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher, tick } from 'svelte';
 	import { Switch } from 'bits-ui';
+
 	export let state: boolean = true;
 
 	const dispatch = createEventDispatcher();

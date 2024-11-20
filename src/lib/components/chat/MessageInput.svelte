@@ -1,50 +1,28 @@
 <script lang="ts">
+	import type { ClientFile, i18nType } from '$lib/types';
+	import { SvelteComponent, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { onMount, tick, getContext, SvelteComponent } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import {
-		type Model,
-		mobile,
-		settings,
-		showSidebar,
-		models,
-		config,
-		showCallOverlay,
-		tools,
-		user as _user
-	} from '$lib/stores';
-	import { blobToFile, calculateSHA256, findWordIndices, isErrorAsString, isErrorWithDetail } from '$lib/utils';
-
-	import {
-		processDocToVectorDB,
-		uploadDocToVectorDB,
-		uploadWebToVectorDB,
-		uploadYoutubeTranscriptionToVectorDB
-	} from '$lib/apis/rag';
-
-	import { uploadFile } from '$lib/apis/files';
-	import { SUPPORTED_FILE_TYPE, SUPPORTED_FILE_EXTENSIONS, WEBUI_BASE_URL, WEBUI_API_BASE_URL } from '$lib/constants';
-
-	import Prompts from './MessageInput/PromptCommands.svelte';
-	import Suggestions from './MessageInput/Suggestions.svelte';
-	import AddFilesPlaceholder from '../AddFilesPlaceholder.svelte';
-
-	import Documents from './MessageInput/Documents.svelte';
-	import Models from './MessageInput/Models.svelte';
-	import Tooltip from '../common/Tooltip.svelte';
-	import XMark from '$lib/components/icons/XMark.svelte';
-	import InputMenu from './MessageInput/InputMenu.svelte';
-	import Headphone from '../icons/Headphone.svelte';
-	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
-	import VoiceRecording from './MessageInput/VoiceRecording.svelte';
+	import { goto } from '$app/navigation';
 	import { transcribeAudio } from '$lib/apis/audio';
-	import FileItem from '../common/FileItem.svelte';
-	import FilesOverlay from './MessageInput/FilesOverlay.svelte';
+	import { uploadFile } from '$lib/apis/files';
+	import { processDocToVectorDB, uploadWebToVectorDB, uploadYoutubeTranscriptionToVectorDB } from '$lib/apis/rag';
+	import { SUPPORTED_FILE_EXTENSIONS, SUPPORTED_FILE_TYPE, WEBUI_API_BASE_URL } from '$lib/constants';
+	import { type Model, user as _user, config, mobile, models, settings, showCallOverlay, tools } from '$lib/stores';
+	import { blobToFile, findWordIndices, isErrorAsString, isErrorWithDetail } from '$lib/utils';
+	import XMark from '$lib/components/icons/XMark.svelte';
 	import GuideMeMenu from '../cisco/gen/GuideMeMenu.svelte';
-	import type { ClientFile } from '$lib/types';
+	import FileItem from '../common/FileItem.svelte';
+	import Tooltip from '../common/Tooltip.svelte';
+	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
+	import Headphone from '../icons/Headphone.svelte';
+	import Documents from './MessageInput/Documents.svelte';
+	import FilesOverlay from './MessageInput/FilesOverlay.svelte';
+	import InputMenu from './MessageInput/InputMenu.svelte';
+	import Models from './MessageInput/Models.svelte';
+	import Prompts from './MessageInput/PromptCommands.svelte';
+	import VoiceRecording from './MessageInput/VoiceRecording.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export const transparentBackground: string | boolean = false;
 
@@ -80,6 +58,8 @@
 
 	export let prompt = '';
 	export let messages: any[] = [];
+	export let chatHasArticle: boolean = false;
+	export let articleId: string;
 
 	let visionCapableModels = [];
 	$: visionCapableModels = [...(atSelectedModel ? [atSelectedModel] : selectedModels)].filter(
@@ -726,6 +706,18 @@
 										</button>
 									</InputMenu>
 								</div>
+								{#if chatHasArticle}
+									<div>
+										<button
+											class="text-sm bg-gray-50 hover:bg-gray-100 text-gray-800 dark:bg-gray-850 dark:text-white dark:hover:bg-gray-800 transition rounded-xl p-2 ml-1 outline-none focus:outline-none"
+											type="button"
+											on:click={async () => {
+												chatHasArticle = false;
+												await goto(`/article/${articleId}`);
+											}}>View Article</button
+										>
+									</div>
+								{/if}
 								<GuideMeMenu {openConfigAssistant} {handleGeneratePromptClick} onClose={() => {}}>
 									<button
 										class="self-center w-fit text-sm p-1.5 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
@@ -742,10 +734,7 @@
 									placeholder={chatInputPlaceholder !== '' ? chatInputPlaceholder : $i18n.t('Send a Message')}
 									bind:value={prompt}
 									on:keypress={(e) => {
-										if (
-											!$mobile ||
-											!('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0)
-										) {
+										if (!$mobile || !('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
 											// Prevent Enter key from creating a new line
 											if (e.key === 'Enter' && !e.shiftKey) {
 												e.preventDefault();
@@ -928,19 +917,6 @@
 </div>
 
 <style>
-	.generate-btn {
-		background-color: #efefef;
-		margin: 0.5rem 0.75rem;
-		color: #565656;
-		border-radius: 0.5rem;
-		padding: 0.5rem 1rem;
-		font-size: 1rem;
-		font-weight: 500;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-	}
 	.scrollbar-hidden:active::-webkit-scrollbar-thumb,
 	.scrollbar-hidden:focus::-webkit-scrollbar-thumb,
 	.scrollbar-hidden:hover::-webkit-scrollbar-thumb {

@@ -1,30 +1,25 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { onMount, getContext } from 'svelte';
-
-	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
-	import { WEBUI_NAME, models, MODEL_DOWNLOAD_POOL, user, config } from '$lib/stores';
-	import { splitStream } from '$lib/utils';
-
+	import { getModels as _getModels } from '$lib/apis';
 	import {
 		createModel,
 		deleteModel,
 		downloadModel,
+		getOllamaConfig,
 		getOllamaUrls,
 		getOllamaVersion,
 		pullModel,
-		uploadModel,
-		getOllamaConfig
+		uploadModel
 	} from '$lib/apis/ollama';
-	import { getModels as _getModels } from '$lib/apis';
-
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
+	import { MODEL_DOWNLOAD_POOL, models } from '$lib/stores';
+	import { isErrorWithMessage, splitStream } from '$lib/utils';
 	import ModelDeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	const getModels = async () => {
 		return await _getModels(localStorage.token);
@@ -41,8 +36,8 @@
 	let OLLAMA_URLS: string[] = [];
 	let selectedOllamaUrlIdx: string | null = null;
 
-	let updateModelId = null;
-	let updateProgress = null;
+	let updateModelId: string | null = null;
+	let updateProgress: number | null = null;
 
 	let showExperimentalOllama = false;
 
@@ -56,18 +51,18 @@
 	let createModelTag = '';
 	let createModelContent = '';
 	let createModelDigest = '';
-	let createModelPullProgress = null;
+	let createModelPullProgress: number | null = null;
 
 	let digest = '';
 	let pullProgress = null;
 
 	let modelUploadMode = 'file';
-	let modelInputFile: File[] | null = null;
+	let modelInputFile: FileList | null = null;
 	let modelFileUrl = '';
 	let modelFileContent = `TEMPLATE """{{ .System }}\nUSER: {{ .Prompt }}\nASSISTANT: """\nPARAMETER num_ctx 4096\nPARAMETER stop "</s>"\nPARAMETER stop "USER:"\nPARAMETER stop "ASSISTANT:"`;
 	let modelFileDigest = '';
 
-	let uploadProgress = null;
+	let uploadProgress: number | null = null;
 	let uploadMessage = '';
 
 	let deleteModelTag = '';
@@ -82,12 +77,17 @@
 			console.log(model);
 
 			updateModelId = model.id;
-			const [res, controller] = await pullModel(localStorage.token, model.id, selectedOllamaUrlIdx).catch((error) => {
-				toast.error(error);
-				return null;
-			});
+			const [res, controller]: [Response | null, AbortController] = await pullModel(
+				localStorage.token,
+				model.id,
+				selectedOllamaUrlIdx
+			);
 
-			if (res) {
+			if (!res || !res.ok) {
+				toast.error('Failed to update model');
+			}
+
+			if (res && res.ok && res.body) {
 				const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 				while (true) {
@@ -149,14 +149,14 @@
 			return;
 		}
 
-		const [res, controller] = await pullModel(localStorage.token, sanitizedModelTag, selectedOllamaUrlIdx).catch(
-			(error) => {
-				toast.error(error);
-				return null;
-			}
-		);
+		const [res, controller] = await pullModel(localStorage.token, sanitizedModelTag, selectedOllamaUrlIdx);
 
-		if (res) {
+		if (!(res && res.ok)) {
+			toast.error('Failed to pull model');
+			return;
+		}
+
+		if (res && res.body) {
 			const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			MODEL_DOWNLOAD_POOL.set({
@@ -220,12 +220,11 @@
 					}
 				} catch (error) {
 					console.log(error);
-					if (typeof error !== 'string') {
+					if (isErrorWithMessage(error)) {
 						error = error.message;
 					}
 
-					toast.error(error);
-					// opts.callback({ success: false, error, modelName: opts.modelName });
+					toast.error(error as string);
 				}
 			}
 
@@ -258,7 +257,7 @@
 		modelTransferring = true;
 
 		let uploaded = false;
-		let fileResponse = null;
+		let fileResponse: Response | null = null;
 		let name = '';
 
 		if (modelUploadMode === 'file') {
@@ -280,7 +279,7 @@
 			});
 		}
 
-		if (fileResponse && fileResponse.ok) {
+		if (fileResponse && fileResponse.ok && fileResponse.body) {
 			const reader = fileResponse.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			while (true) {
@@ -328,7 +327,7 @@
 				`FROM @${modelFileDigest}\n${modelFileContent}`
 			);
 
-			if (res && res.ok) {
+			if (res && res.ok && res.body) {
 				const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 				while (true) {
@@ -370,7 +369,7 @@
 						}
 					} catch (error) {
 						console.log(error);
-						toast.error(error);
+						toast.error(error as string);
 					}
 				}
 			}
@@ -426,7 +425,7 @@
 			}
 		);
 
-		if (res && res.ok) {
+		if (res && res.ok && res.body) {
 			const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			while (true) {
@@ -468,7 +467,7 @@
 					}
 				} catch (error) {
 					console.log(error);
-					toast.error(error);
+					toast.error(error as string);
 				}
 			}
 		}
@@ -703,7 +702,7 @@
 										{/if}
 										{#each $models.filter((m) => !(m?.preset ?? false) && m.owned_by === 'ollama' && (selectedOllamaUrlIdx === null ? true : (m?.ollama?.urls ?? []).includes(selectedOllamaUrlIdx))) as model}
 											<option value={model.name} class="bg-gray-50 dark:bg-gray-700"
-												>{model.name + ' (' + (model.ollama.size / 1024 ** 3).toFixed(1) + ' GB)'}</option
+												>{model.name + ' (' + ((model.ollama?.size ?? 0) / 1024 ** 3).toFixed(1) + ' GB)'}</option
 											>
 										{/each}
 									</select>

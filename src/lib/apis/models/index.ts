@@ -1,6 +1,9 @@
-import { WEBUI_API_BASE_URL } from '$lib/constants';
+import type { Nullable } from '$lib/types';
 
-export const addNewModel = async (token: string, model: object) => {
+import { WEBUI_API_BASE_URL } from '$lib/constants';
+import type { Model } from '$lib/stores';
+
+export const addNewModel = async (token: string, model: object): Promise<Nullable<Model>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/models/add`, {
@@ -95,7 +98,7 @@ export const getModelById = async (token: string, id: string) => {
 	return res;
 };
 
-export const updateModelById = async (token: string, id: string, model: object) => {
+export const updateModelById = async (token: string, id: string, model: object): Promise<Nullable<Model>> => {
 	let error = null;
 
 	const searchParams = new URLSearchParams();

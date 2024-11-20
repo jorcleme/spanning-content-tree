@@ -1,65 +1,61 @@
 <script lang="ts">
-	import type { Article, ArticleStep } from '$lib/types';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Model, _CiscoArticleMessage } from '$lib/stores';
-	import type { MarkedOptions, TokensList } from 'marked';
-	import type { Instance } from 'tippy.js';
-
-	import tippy from 'tippy.js';
-	import { ThumbsUp, ThumbsDown, FileText, FileCode, SquareCode } from 'lucide-svelte';
-	import dayjs from 'dayjs';
-	import { marked } from 'marked';
-	import { settings, config } from '$lib/stores';
-	import { generateOpenAIChatCompletionQuestions, generateOpenAIChatCompletion } from '$lib/apis/openai';
-	import { v4 as uuidv4 } from 'uuid';
+	import type { Article, ArticleStep, i18nType } from '$lib/types';
+	import { afterUpdate, createEventDispatcher, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { createEventDispatcher, getContext, tick, onMount, afterUpdate } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import { slide, fly, fade, crossfade } from 'svelte/transition';
 	import { cubicIn, cubicInOut, quintInOut } from 'svelte/easing';
+	import { crossfade, fade, fly, slide } from 'svelte/transition';
+	import { updateArticleStep } from '$lib/apis/articles';
+	import { synthesizeOpenAISpeech } from '$lib/apis/audio';
+	import { generateChatCompletion, generateOllamaChatCompletion } from '$lib/apis/ollama';
+	import { generateOpenAIChatCompletion, generateOpenAIChatCompletionQuestions } from '$lib/apis/openai';
+	import { queryCollection, queryDoc, queryDocWithSmallChunks } from '$lib/apis/rag';
+	import { createOpenAITextStream } from '$lib/apis/streaming';
+	import { WEBUI_BASE_URL } from '$lib/constants';
+	import type { Model, _CiscoArticleMessage } from '$lib/stores';
+	import { config, settings } from '$lib/stores';
 	import {
+		activeArticle,
 		activeArticleId,
-		mountedArticleSteps,
+		activeSupportStep,
+		ciscoArticleMessages,
+		globalMessages,
+		models,
 		mountedArticlePreambleDevices,
 		mountedArticlePreambleObjective,
-		models,
-		user,
-		ciscoArticleMessages,
-		activeArticle,
+		mountedArticleSteps,
 		socket,
-		activeSupportStep,
-		globalMessages
+		user
 	} from '$lib/stores';
 	import {
 		approximateToHumanReadable,
+		copyToClipboard,
+		extractSentences,
 		isErrorAsString,
-		replaceTokens,
-		sanitizeResponseContent,
-		revertSanitizedResponseContent,
 		isErrorWithDetail,
 		isErrorWithMessage,
-		stripHtml,
-		titleizeWords,
+		replaceTokens,
+		revertSanitizedResponseContent,
+		sanitizeResponseContent,
 		splitStream,
-		copyToClipboard,
-		extractSentences
+		stripHtml,
+		titleizeWords
 	} from '$lib/utils';
-
-	import { WEBUI_BASE_URL } from '$lib/constants';
+	import dayjs from 'dayjs';
+	import type { MarkedOptions, TokensList } from 'marked';
+	import { marked } from 'marked';
 	import mermaid from 'mermaid';
-	import { queryDoc, queryCollection, queryDocWithSmallChunks } from '$lib/apis/rag';
-	import { updateArticleStep } from '$lib/apis/articles';
-	import { synthesizeOpenAISpeech } from '$lib/apis/audio';
-	import { createOpenAITextStream } from '$lib/apis/streaming';
-	import { generateChatCompletion, generateOllamaChatCompletion } from '$lib/apis/ollama';
-	import Spinner from '$lib/components/common/Spinner.svelte';
-	import Feedback from './Feedback.svelte';
-	import ProfileImage from '$lib/components/chat/Messages/ProfileImage.svelte';
-	import Name from '$lib/components/chat/Messages/Name.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Skeleton from '$lib/components/chat/Messages/Skeleton.svelte';
+	import type { Instance } from 'tippy.js';
+	import tippy from 'tippy.js';
+	import { v4 as uuidv4 } from 'uuid';
 	import CodeBlock from '$lib/components/chat/Messages/CodeBlock.svelte';
+	import Name from '$lib/components/chat/Messages/Name.svelte';
+	import ProfileImage from '$lib/components/chat/Messages/ProfileImage.svelte';
+	import Skeleton from '$lib/components/chat/Messages/Skeleton.svelte';
+	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Feedback from './Feedback.svelte';
+	import { FileCode, FileText, SquareCode, ThumbsDown, ThumbsUp } from 'lucide-svelte';
 
 	export let currentStepStr: string;
 	export let index: number;
@@ -68,7 +64,7 @@
 	export let readOnly: boolean = false;
 	export let selectedModels: string[];
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 	const dispatch = createEventDispatcher();
 	const renderer = new marked.Renderer();
 

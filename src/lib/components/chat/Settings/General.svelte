@@ -1,18 +1,15 @@
 <script lang="ts">
+	import type { AdvancedModelParams, i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { createEventDispatcher, onMount, getContext } from 'svelte';
 	import { getLanguages } from '$lib/i18n';
-	import type { Writable } from 'svelte/store';
-	import { type i18n as i18nType } from 'i18next';
 	import type { ChatParams } from '$lib/stores';
+	import { models, settings, theme, user } from '$lib/stores';
+	import AdvancedParams from './Advanced/AdvancedParams.svelte';
 
 	const dispatch = createEventDispatcher();
 
-	import { models, settings, theme, user } from '$lib/stores';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
-
-	import AdvancedParams from './Advanced/AdvancedParams.svelte';
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveSettings: Function;
 	export let getModels: Function;
@@ -47,7 +44,7 @@
 	let requestFormat = '';
 	let keepAlive: string | number | null = null;
 
-	let params: ChatParams = {
+	let params: AdvancedModelParams = {
 		// Advanced
 		seed: null,
 		temperature: null,
@@ -131,6 +128,38 @@
 			document.documentElement.classList.add('dark');
 		}
 		applyTheme(_theme);
+	};
+
+	const onClick = () => {
+		saveSettings({
+			system: system !== '' ? system : undefined,
+			params: {
+				seed: (params.seed !== null ? params.seed : undefined) ?? undefined,
+				stop: params.stop
+					? Array.isArray(params.stop)
+						? params.stop
+						: params.stop.split(',').filter((e) => e)
+					: undefined,
+				temperature: params.temperature !== null ? params.temperature : undefined,
+				frequency_penalty: params.frequency_penalty !== null ? params.frequency_penalty : undefined,
+				repeat_last_n: params.repeat_last_n !== null ? params.repeat_last_n : undefined,
+				mirostat: params.mirostat !== null ? params.mirostat : undefined,
+				mirostat_eta: params.mirostat_eta !== null ? params.mirostat_eta : undefined,
+				mirostat_tau: params.mirostat_tau !== null ? params.mirostat_tau : undefined,
+				top_k: params.top_k !== null ? params.top_k : undefined,
+				top_p: params.top_p !== null ? params.top_p : undefined,
+				tfs_z: params.tfs_z !== null ? params.tfs_z : undefined,
+				num_ctx: params.num_ctx !== null ? params.num_ctx : undefined,
+				num_batch: params.num_batch !== null ? params.num_batch : undefined,
+				num_keep: params.num_keep !== null ? params.num_keep : undefined,
+				max_tokens: params.max_tokens !== null ? params.max_tokens : undefined,
+				use_mmap: params.use_mmap !== null ? params.use_mmap : undefined,
+				use_mlock: params.use_mlock !== null ? params.use_mlock : undefined,
+				num_thread: params.num_thread !== null ? params.num_thread : undefined
+			},
+			keepAlive: keepAlive ? (isNaN(keepAlive as number) ? keepAlive : parseInt(keepAlive as string)) : undefined
+		});
+		dispatch('save');
 	};
 </script>
 
@@ -304,33 +333,7 @@
 	<div class="flex justify-end pt-3 text-sm font-medium">
 		<button
 			class="  px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			on:click={() => {
-				saveSettings({
-					system: system !== '' ? system : undefined,
-					params: {
-						seed: (params.seed !== null ? params.seed : undefined) ?? undefined,
-						stop: params.stop ? params.stop.split(',').filter((e) => e) : undefined,
-						temperature: params.temperature !== null ? params.temperature : undefined,
-						frequency_penalty: params.frequency_penalty !== null ? params.frequency_penalty : undefined,
-						repeat_last_n: params.repeat_last_n !== null ? params.repeat_last_n : undefined,
-						mirostat: params.mirostat !== null ? params.mirostat : undefined,
-						mirostat_eta: params.mirostat_eta !== null ? params.mirostat_eta : undefined,
-						mirostat_tau: params.mirostat_tau !== null ? params.mirostat_tau : undefined,
-						top_k: params.top_k !== null ? params.top_k : undefined,
-						top_p: params.top_p !== null ? params.top_p : undefined,
-						tfs_z: params.tfs_z !== null ? params.tfs_z : undefined,
-						num_ctx: params.num_ctx !== null ? params.num_ctx : undefined,
-						num_batch: params.num_batch !== null ? params.num_batch : undefined,
-						num_keep: params.num_keep !== null ? params.num_keep : undefined,
-						max_tokens: params.max_tokens !== null ? params.max_tokens : undefined,
-						use_mmap: params.use_mmap !== null ? params.use_mmap : undefined,
-						use_mlock: params.use_mlock !== null ? params.use_mlock : undefined,
-						num_thread: params.num_thread !== null ? params.num_thread : undefined
-					},
-					keepAlive: keepAlive ? (isNaN(keepAlive) ? keepAlive : parseInt(keepAlive)) : undefined
-				});
-				dispatch('save');
-			}}
+			on:click={() => onClick()}
 		>
 			{$i18n.t('Save')}
 		</button>

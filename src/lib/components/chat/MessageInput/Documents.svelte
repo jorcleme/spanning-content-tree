@@ -1,15 +1,14 @@
 <script lang="ts">
-	import type { Document } from '$lib/stores';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { Collection, Or } from '$lib/types';
+	import type { i18nType } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
-
-	import { documents } from '$lib/stores';
-	import { removeFirstHashWord, isValidHttpUrl } from '$lib/utils';
-	import { tick, getContext } from 'svelte';
+	import { getContext, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import type { Document } from '$lib/stores';
+	import { documents } from '$lib/stores';
+	import { isValidHttpUrl, removeFirstHashWord } from '$lib/utils';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let prompt = '';
 
@@ -17,9 +16,9 @@
 	let selectedIdx = 0;
 
 	let filteredItems = [];
-	let filteredDocs = [];
+	let filteredDocs: Document[] = [];
 
-	let collections = [];
+	let collections: Collection[] = [];
 
 	$: collections = [
 		...($documents.length > 0
@@ -44,30 +43,6 @@
 					.map((doc) => doc.collection_name)
 			}))
 	];
-
-	// $: collections = [
-	// 	...($documents.length > 0
-	// 		? [
-	// 				{
-	// 					name: 'All Documents',
-	// 					type: 'collection',
-	// 					title: $i18n.t('All Documents'),
-	// 					collection_names: $documents.map((doc) => doc.collection_name)
-	// 				}
-	// 		  ]
-	// 		: []),
-	// 	...$documents
-	// 		.reduce((a: Document[], e, i: number, arr) => {
-	// 			return [...new Set([...a, ...(e?.content?.tags ?? []).map((tag) => tag.name)])];
-	// 		}, [] as Document[])
-	// 		.map((tag) => ({
-	// 			name: tag,
-	// 			type: 'collection',
-	// 			collection_names: $documents
-	// 				.filter((doc) => (doc?.content?.tags ?? []).map((tag) => tag.name).includes(tag))
-	// 				.map((doc) => doc.collection_name)
-	// 		}))
-	// ];
 
 	$: filteredCollections = collections
 		.filter((collection) => findByName(collection, prompt))
@@ -100,7 +75,7 @@
 		selectedIdx = Math.min(selectedIdx + 1, filteredItems.length - 1);
 	};
 
-	const confirmSelect = async (doc) => {
+	const confirmSelect = async (doc: Or<Document, Collection>) => {
 		dispatch('select', doc);
 
 		prompt = removeFirstHashWord(prompt);
@@ -111,7 +86,7 @@
 		await tick();
 	};
 
-	const confirmSelectWeb = async (url) => {
+	const confirmSelectWeb = async (url: string) => {
 		dispatch('url', url);
 
 		prompt = removeFirstHashWord(prompt);
@@ -122,7 +97,7 @@
 		await tick();
 	};
 
-	const confirmSelectYoutube = async (url) => {
+	const confirmSelectYoutube = async (url: string) => {
 		dispatch('youtube', url);
 
 		prompt = removeFirstHashWord(prompt);
@@ -161,13 +136,13 @@
 						>
 							{#if doc.type === 'collection'}
 								<div class=" font-medium text-black dark:text-gray-100 line-clamp-1">
-									{doc?.title ?? `#${doc.name}`}
+									{doc.title ?? `#${doc.name}`}
 								</div>
 
 								<div class=" text-xs text-gray-600 dark:text-gray-100 line-clamp-1">
 									{$i18n.t('Collection')}
 								</div>
-							{:else}
+							{:else if doc.type === 'doc'}
 								<div class=" font-medium text-black dark:text-gray-100 line-clamp-1">
 									#{doc.name} ({doc.filename})
 								</div>
@@ -188,7 +163,7 @@
 							class="px-3 py-1.5 rounded-xl w-full text-left bg-gray-50 dark:bg-gray-850 dark:text-gray-100 selected-command-option-button"
 							type="button"
 							on:click={() => {
-								const url = prompt.split(' ')?.at(0)?.substring(1);
+								const url = prompt.split(' ')?.at(0)?.substring(1) ?? '';
 								if (isValidHttpUrl(url)) {
 									confirmSelectYoutube(url);
 								} else {
@@ -207,7 +182,7 @@
 							class="px-3 py-1.5 rounded-xl w-full text-left bg-gray-50 dark:bg-gray-850 dark:text-gray-100 selected-command-option-button"
 							type="button"
 							on:click={() => {
-								const url = prompt.split(' ')?.at(0)?.substring(1);
+								const url = prompt.split(' ')?.at(0)?.substring(1) ?? '';
 								if (isValidHttpUrl(url)) {
 									confirmSelectWeb(url);
 								} else {

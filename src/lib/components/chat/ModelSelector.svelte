@@ -1,16 +1,13 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import { models, showSettings, settings, user, mobile } from '$lib/stores';
-	import { onMount, tick, getContext } from 'svelte';
+	import type { i18nType } from '$lib/types';
+	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import Selector from './ModelSelector/Selector.svelte';
-	import Tooltip from '../common/Tooltip.svelte';
-
-	import { setDefaultModels } from '$lib/apis/configs';
 	import { updateUserSettings } from '$lib/apis/users';
+	import { mobile, models, settings, showSettings, user } from '$lib/stores';
+	import Tooltip from '../common/Tooltip.svelte';
+	import Selector from './ModelSelector/Selector.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let selectedModels = [''];
 	export let disabled = false;

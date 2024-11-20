@@ -468,7 +468,7 @@ class WebSearchConfig(BaseModel):
 
 class WebConfig(BaseModel):
     search: WebSearchConfig
-    web_loader_ssl_verification: Optional[bool] = None
+    ssl_verification: Optional[bool] = None
 
 
 class ConfigUpdateForm(BaseModel):
@@ -502,7 +502,7 @@ async def update_rag_config(form_data: ConfigUpdateForm, user=Depends(get_admin_
 
     if form_data.web is not None:
         app.state.config.ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION = (
-            form_data.web.web_loader_ssl_verification
+            form_data.web.ssl_verification
         )
 
         app.state.config.ENABLE_RAG_WEB_SEARCH = form_data.web.search.enabled

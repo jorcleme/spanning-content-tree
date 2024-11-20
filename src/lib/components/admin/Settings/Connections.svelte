@@ -1,11 +1,8 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import { models, user } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
-
-	const dispatch = createEventDispatcher();
-
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount, tick } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import { getModels as _getModels } from '$lib/apis';
 	import {
 		getOllamaConfig,
 		getOllamaUrls,
@@ -22,14 +19,15 @@
 		updateOpenAIKeys,
 		updateOpenAIUrls
 	} from '$lib/apis/openai';
-	import { toast } from 'svelte-sonner';
-	import Switch from '$lib/components/common/Switch.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import { getModels as _getModels } from '$lib/apis';
+	import { models, user } from '$lib/stores';
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
+	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Switch from '$lib/components/common/Switch.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const dispatch = createEventDispatcher();
+
+	const i18n: i18nType = getContext('i18n');
 
 	const getModels = async () => {
 		const models = await _getModels(localStorage.token);

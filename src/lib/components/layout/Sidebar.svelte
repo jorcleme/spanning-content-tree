@@ -1,42 +1,38 @@
 <script lang="ts">
+	import type { ChatListResponse, i18nType } from '$lib/types';
+	import { getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import {
-		user,
-		chats,
-		settings,
-		chatId,
-		tags,
-		showSidebar,
-		mobile,
-		showArchivedChats,
-		pinnedChats
-	} from '$lib/stores';
-	import { onMount, getContext, tick } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
-
-	import { updateUserSettings } from '$lib/apis/users';
-	import {
-		deleteChatById,
-		getChatList,
-		getChatById,
-		getChatListByTagName,
-		updateChatById,
-		getAllChatTags,
 		archiveChatById,
-		cloneChatById
+		cloneChatById,
+		deleteChatById,
+		getAllChatTags,
+		getChatById,
+		getChatList,
+		getChatListByTagName,
+		updateChatById
 	} from '$lib/apis/chats';
+	import { updateUserSettings } from '$lib/apis/users';
 	import { WEBUI_BASE_URL } from '$lib/constants';
-
-	import ArchivedChatsModal from './Sidebar/ArchivedChatsModal.svelte';
-	import UserMenu from './Sidebar/UserMenu.svelte';
-	import ChatItem from './Sidebar/ChatItem.svelte';
+	import {
+		chatId,
+		chats,
+		mobile,
+		pinnedChats,
+		settings,
+		showArchivedChats,
+		showSidebar,
+		tags,
+		user
+	} from '$lib/stores';
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
-	import type { ChatListResponse } from '$lib/types';
 	import Tooltip from '../common/Tooltip.svelte';
+	import ArchivedChatsModal from './Sidebar/ArchivedChatsModal.svelte';
+	import ChatItem from './Sidebar/ChatItem.svelte';
+	import UserMenu from './Sidebar/UserMenu.svelte';
+
+	const i18n: i18nType = getContext('i18n');
 
 	const BREAKPOINT = 768;
 

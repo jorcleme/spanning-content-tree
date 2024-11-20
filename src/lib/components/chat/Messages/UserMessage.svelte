@@ -1,21 +1,17 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, tick } from 'svelte';
+	import { getFileContentById } from '$lib/apis/files';
 	import type { SessionUser } from '$lib/stores';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import { models, settings } from '$lib/stores';
+	import { user as _user } from '$lib/stores';
 	import dayjs from 'dayjs';
-
-	import { tick, createEventDispatcher, getContext } from 'svelte';
+	import FileItem from '$lib/components/common/FileItem.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Name from './Name.svelte';
 	import ProfileImage from './ProfileImage.svelte';
-	import { models, settings } from '$lib/stores';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	import { user as _user } from '$lib/stores';
-
-	import { getFileContentById } from '$lib/apis/files';
-	import FileItem from '$lib/components/common/FileItem.svelte';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 

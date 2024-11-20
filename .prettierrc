@@ -2,8 +2,22 @@
 	"useTabs": true,
 	"singleQuote": true,
 	"trailingComma": "none",
+	"semi": true,
 	"printWidth": 120,
 	"plugins": ["prettier-plugin-svelte"],
 	"pluginSearchDirs": ["."],
-	"overrides": [{ "files": "*.svelte", "options": { "parser": "svelte" } }]
+	"overrides": [{ "files": "*.svelte", "options": { "parser": "svelte" } }],
+	"importOrder": [
+		"^\\$lib/types$",
+		"^app/(.*)$",
+		"^svelte/store$",
+		"^svelte",
+		"^\\$lib/(!?>components)(.*)$",
+		"<THIRD_PARTY_MODULES>",
+		"^\\$lib/components(.*).svelte$",
+		"(.svelte)$",
+		"^[./]"
+	],
+	"importOrderSeparation": false,
+	"importOrderSortSpecifiers": true
 }

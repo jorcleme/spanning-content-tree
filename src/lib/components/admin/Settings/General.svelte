@@ -1,6 +1,7 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import {
 		getCommunitySharingEnabledStatus,
 		getWebhookUrl,
@@ -18,10 +19,8 @@
 		updateJWTExpiresDuration
 	} from '$lib/apis/auths';
 	import Switch from '$lib/components/common/Switch.svelte';
-	import { onMount, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveHandler: Function;
 

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Model } from '$lib/stores';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
 	import { config, models, settings, showCallOverlay } from '$lib/stores';
 	import { onMount, tick, getContext } from 'svelte';
 
@@ -14,7 +13,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import VideoInputMenu from './CallOverlay/VideoInputMenu.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let eventTarget: EventTarget;
 
@@ -87,9 +86,7 @@
 		if (video) {
 			if (selectedVideoInputDeviceId === 'screen') {
 				cameraStream = await navigator.mediaDevices.getDisplayMedia({
-					video: {
-						cursor: 'always'
-					},
+					video: true,
 					audio: false
 				});
 			} else {

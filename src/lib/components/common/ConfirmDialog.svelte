@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onMount, getContext, createEventDispatcher } from 'svelte';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
-	const i18n = getContext('i18n');
-
 	import { flyAndScale } from '$lib/utils/transitions';
+
+	const i18n: i18nType = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 

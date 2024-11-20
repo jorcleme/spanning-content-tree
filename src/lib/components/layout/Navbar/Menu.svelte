@@ -1,22 +1,17 @@
 <script lang="ts">
-	import type { ChatResponse } from '$lib/types';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import { DropdownMenu } from 'bits-ui';
+	import type { ChatResponse, i18nType } from '$lib/types';
 	import { getContext } from 'svelte';
-
-	import fileSaver from 'file-saver';
-	const { saveAs } = fileSaver;
-
+	import { downloadChatAsPDF } from '$lib/apis/utils';
 	import { showSettings } from '$lib/stores';
 	import { flyAndScale } from '$lib/utils/transitions';
-
-	import Dropdown from '$lib/components/common/Dropdown.svelte';
+	import { DropdownMenu } from 'bits-ui';
+	import fileSaver from 'file-saver';
 	import Tags from '$lib/components/chat/Tags.svelte';
+	import Dropdown from '$lib/components/common/Dropdown.svelte';
 
-	import { downloadChatAsPDF } from '$lib/apis/utils';
+	const { saveAs } = fileSaver;
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let shareEnabled: boolean = false;
 	export let shareHandler: Function;

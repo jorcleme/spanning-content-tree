@@ -1,15 +1,13 @@
 <script lang="ts">
 	import type { Or } from '$lib/types';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { createEventDispatcher, tick, getContext } from 'svelte';
-	import { config, settings } from '$lib/stores';
-	import { blobToFile, calculateSHA256, findWordIndices } from '$lib/utils';
-
 	import { transcribeAudio } from '$lib/apis/audio';
+	import { config, settings } from '$lib/stores';
+	import { blobToFile } from '$lib/utils';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 
@@ -421,15 +419,3 @@
 		{/if}
 	</div>
 </div>
-
-<style>
-	.visualizer {
-		display: flex;
-		height: 100%;
-	}
-
-	.visualizer-bar {
-		width: 2px;
-		background-color: #4a5aba; /* or whatever color you need */
-	}
-</style>

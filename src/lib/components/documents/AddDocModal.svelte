@@ -1,25 +1,20 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import dayjs from 'dayjs';
-	import { onMount, getContext } from 'svelte';
-
-	import { createNewDoc, getDocs, tagDocByName, updateDocByName } from '$lib/apis/documents';
-	import Modal from '../common/Modal.svelte';
-	import { documents } from '$lib/stores';
-	import TagInput from '../common/Tags/TagInput.svelte';
-	import Tags from '../common/Tags.svelte';
-	import { addTagById } from '$lib/apis/chats';
-	import { uploadDocToVectorDB } from '$lib/apis/rag';
-	import { transformFileName } from '$lib/utils';
+	import { getDocs } from '$lib/apis/documents';
 	import { SUPPORTED_FILE_EXTENSIONS, SUPPORTED_FILE_TYPE } from '$lib/constants';
+	import { documents } from '$lib/stores';
+	import Modal from '../common/Modal.svelte';
+	import Tags from '../common/Tags.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let show = false;
 	export let uploadDoc: Function;
 	let uploadDocInputElement: HTMLInputElement;
-	let inputFiles;
-	let tags = [];
+	let inputFiles: FileList | null;
+	let tags: Array<{ name: string }> = [];
 
 	let doc = {
 		name: '',
@@ -33,13 +28,11 @@
 				console.log(file, file.name.split('.').at(-1));
 				if (
 					SUPPORTED_FILE_TYPE.includes(file['type']) ||
-					SUPPORTED_FILE_EXTENSIONS.includes(file.name.split('.').at(-1))
+					SUPPORTED_FILE_EXTENSIONS.includes(file.name.split('.').at(-1)!.toLowerCase())
 				) {
 					uploadDoc(file);
 				} else {
-					toast.error(
-						`Unknown File Type '${file['type']}', but accepting and treating as plain text`
-					);
+					toast.error(`Unknown File Type '${file['type']}', but accepting and treating as plain text`);
 					uploadDoc(file);
 				}
 			}
@@ -54,7 +47,7 @@
 		documents.set(await getDocs(localStorage.token));
 	};
 
-	const addTagHandler = async (tagName) => {
+	const addTagHandler = async (tagName: string) => {
 		if (!tags.find((tag) => tag.name === tagName) && tagName !== '') {
 			tags = [...tags, { name: tagName }];
 		} else {
@@ -62,7 +55,7 @@
 		}
 	};
 
-	const deleteTagHandler = async (tagName) => {
+	const deleteTagHandler = async (tagName: string) => {
 		tags = tags.filter((tag) => tag.name !== tagName);
 	};
 
@@ -79,12 +72,7 @@
 					show = false;
 				}}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="w-5 h-5"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 					<path
 						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 					/>
@@ -152,18 +140,5 @@
 		/* display: none; <- Crashes Chrome on hover */
 		-webkit-appearance: none;
 		margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
-	}
-
-	.tabs::-webkit-scrollbar {
-		display: none; /* for Chrome, Safari and Opera */
-	}
-
-	.tabs {
-		-ms-overflow-style: none; /* IE and Edge */
-		scrollbar-width: none; /* Firefox */
-	}
-
-	input[type='number'] {
-		-moz-appearance: textfield; /* Firefox */
 	}
 </style>

@@ -1,29 +1,24 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Tool } from '$lib/types';
-
+	import type { Tool, i18nType } from '$lib/types';
+	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import fileSaver from 'file-saver';
-	const { saveAs } = fileSaver;
-
-	import { onMount, getContext } from 'svelte';
-	import { WEBUI_NAME, prompts, tools } from '$lib/stores';
-	import { createNewPrompt, deletePromptByCommand, getPrompts } from '$lib/apis/prompts';
-
 	import { goto } from '$app/navigation';
 	import { createNewTool, deleteToolById, exportTools, getToolById, getTools } from '$lib/apis/tools';
-	import ArrowDownTray from '../icons/ArrowDownTray.svelte';
-	import Tooltip from '../common/Tooltip.svelte';
-	import ConfirmDialog from '../common/ConfirmDialog.svelte';
-	import ToolMenu from './Tools/ToolMenu.svelte';
-	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
-	import ValvesModal from './common/ValvesModal.svelte';
-	import ManifestModal from './common/ManifestModal.svelte';
-	import Heart from '../icons/Heart.svelte';
+	import { WEBUI_NAME, prompts, tools } from '$lib/stores';
+	import fileSaver from 'file-saver';
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import ConfirmDialog from '../common/ConfirmDialog.svelte';
+	import Tooltip from '../common/Tooltip.svelte';
+	import ArrowDownTray from '../icons/ArrowDownTray.svelte';
+	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
+	import Heart from '../icons/Heart.svelte';
+	import ToolMenu from './Tools/ToolMenu.svelte';
+	import ManifestModal from './common/ManifestModal.svelte';
+	import ValvesModal from './common/ValvesModal.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const { saveAs } = fileSaver;
+
+	const i18n: i18nType = getContext('i18n');
 
 	let toolsImportInputElement: HTMLInputElement;
 	let importFiles: FileList;

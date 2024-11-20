@@ -1,7 +1,8 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
 	import { createEventDispatcher, getContext } from 'svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
 	export let className = 'w-72';
@@ -24,9 +25,9 @@
 			if (clickHandler === null) {
 				if (url) {
 					if (type === 'file') {
-						window.open(`${url}/content`, '_blank').focus();
+						window.open(`${url}/content`, '_blank')?.focus();
 					} else {
-						window.open(`${url}`, '_blank').focus();
+						window.open(`${url}`, '_blank')?.focus();
 					}
 				}
 			} else {
@@ -36,12 +37,7 @@
 	>
 		<div class="p-4 py-[1.1rem] bg-red-400 text-white rounded-l-xl">
 			{#if status === 'processed'}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 24 24"
-					fill="currentColor"
-					class=" size-5"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class=" size-5">
 					<path
 						fill-rule="evenodd"
 						d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z"
@@ -119,12 +115,7 @@
 					dispatch('dismiss');
 				}}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="w-4 h-4"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 					<path
 						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 					/>

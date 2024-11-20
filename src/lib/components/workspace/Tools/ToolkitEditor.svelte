@@ -1,14 +1,11 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import { getContext, createEventDispatcher, onMount, SvelteComponent } from 'svelte';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
-
-	import CodeEditor from '$lib/components/common/CodeEditor.svelte';
-
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
+	import CodeEditor from '$lib/components/common/CodeEditor.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+
+	const i18n: i18nType = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 

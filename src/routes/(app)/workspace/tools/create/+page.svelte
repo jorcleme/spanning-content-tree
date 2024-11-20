@@ -1,17 +1,15 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { Tool, i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { createNewTool, getTools } from '$lib/apis/tools';
-	import ToolkitEditor from '$lib/components/workspace/Tools/ToolkitEditor.svelte';
 	import { WEBUI_VERSION } from '$lib/constants';
 	import { tools } from '$lib/stores';
-	import type { Tool } from '$lib/types';
 	import { compareVersion, extractFrontmatter } from '$lib/utils';
-	import { onMount, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
+	import ToolkitEditor from '$lib/components/workspace/Tools/ToolkitEditor.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	let mounted = false;
 	let clone = false;

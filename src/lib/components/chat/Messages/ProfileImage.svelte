@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { settings } from '$lib/stores';
 	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { settings } from '$lib/stores';
 
 	export let className = 'size-8';
 

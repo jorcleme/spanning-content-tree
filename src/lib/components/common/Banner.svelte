@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { Banner } from '$lib/types';
-	import { onMount, createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
+
+	import type { Banner } from '$lib/stores';
 
 	const dispatch = createEventDispatcher();
 
@@ -11,7 +12,7 @@
 		title: '',
 		content: '',
 		url: '',
-		dismissable: true,
+		dismissible: true,
 		timestamp: Math.floor(Date.now() / 1000)
 	};
 
@@ -26,7 +27,7 @@
 		error: 'bg-red-500/20 text-red-700 dark:text-red-200'
 	};
 
-	const dismiss = (id) => {
+	const dismiss = (id: string) => {
 		dismissed = true;
 		dispatch('dismiss', id);
 	};
@@ -59,16 +60,9 @@
 								target="_blank">Learn More</a
 							>
 
-							<div
-								class=" ml-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-white"
-							>
+							<div class=" ml-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-white">
 								<!--  -->
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 16 16"
-									fill="currentColor"
-									class="w-4 h-4"
-								>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 									<path
 										fill-rule="evenodd"
 										d="M4.22 11.78a.75.75 0 0 1 0-1.06L9.44 5.5H5.75a.75.75 0 0 1 0-1.5h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V6.56l-5.22 5.22a.75.75 0 0 1-1.06 0Z"
@@ -87,20 +81,13 @@
 
 			{#if banner.url}
 				<div class="hidden md:flex group w-fit md:items-center">
-					<a
-						class="text-gray-700 dark:text-white text-xs font-semibold underline"
-						href="/"
-						target="_blank">Learn More</a
+					<a class="text-gray-700 dark:text-white text-xs font-semibold underline" href="/" target="_blank"
+						>Learn More</a
 					>
 
 					<div class=" ml-1 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-white">
 						<!--  -->
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="size-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
 							<path
 								fill-rule="evenodd"
 								d="M4.22 11.78a.75.75 0 0 1 0-1.06L9.44 5.5H5.75a.75.75 0 0 1 0-1.5h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V6.56l-5.22 5.22a.75.75 0 0 1-1.06 0Z"
@@ -116,8 +103,7 @@
 						on:click={() => {
 							dismiss(banner.id);
 						}}
-						class="  -mt-1 -mb-2 -translate-y-[1px] ml-1.5 mr-1 text-gray-400 dark:hover:text-white"
-						>&times;</button
+						class="  -mt-1 -mb-2 -translate-y-[1px] ml-1.5 mr-1 text-gray-400 dark:hover:text-white">&times;</button
 					>
 				{/if}
 			</div>

@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { user, settings, config } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext } from 'svelte';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { config, settings, user } from '$lib/stores';
 	import Switch from '$lib/components/common/Switch.svelte';
+
 	const dispatch = createEventDispatcher();
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveSettings: Function;
 
@@ -13,11 +15,11 @@
 	let conversationMode = false;
 	let speechAutoSend = false;
 	let responseAutoPlayback = false;
-	let nonLocalVoices = false;
+	let nonLocalVoices: boolean = false;
 
 	let STTEngine = '';
 
-	let voices = [];
+	let voices: Array<{ name: string; localService?: boolean }> = [];
 	let voice = '';
 
 	const getOpenAIVoices = () => {
@@ -33,7 +35,7 @@
 
 	const getWebAPIVoices = () => {
 		const getVoicesLoop = setInterval(async () => {
-			voices = await speechSynthesis.getVoices();
+			voices = speechSynthesis.getVoices();
 
 			// do your loop
 			if (voices.length > 0) {
@@ -58,10 +60,10 @@
 		responseAutoPlayback = $settings.responseAutoPlayback ?? false;
 
 		STTEngine = $settings?.audio?.stt?.engine ?? '';
-		voice = $settings?.audio?.tts?.voice ?? $config.audio.tts.voice ?? '';
+		voice = $settings?.audio?.tts?.voice ?? $config?.audio?.tts?.voice ?? '';
 		nonLocalVoices = $settings.audio?.tts?.nonLocalVoices ?? false;
 
-		if ($config.audio.tts.engine === 'openai') {
+		if ($config?.audio?.tts?.engine === 'openai') {
 			getOpenAIVoices();
 		} else {
 			getWebAPIVoices();
@@ -79,7 +81,7 @@
 				},
 				tts: {
 					voice: voice !== '' ? voice : undefined,
-					nonLocalVoices: $config.audio.tts.engine === '' ? nonLocalVoices : undefined
+					nonLocalVoices: $config?.audio?.tts?.engine === '' ? nonLocalVoices : undefined
 				}
 			}
 		});
@@ -90,7 +92,7 @@
 		<div>
 			<div class=" mb-1 text-sm font-medium">{$i18n.t('STT Settings')}</div>
 
-			{#if $config.audio.stt.engine !== 'web'}
+			{#if $config?.audio?.stt?.engine !== 'web'}
 				<div class=" py-0.5 flex w-full justify-between">
 					<div class=" self-center text-xs font-medium">{$i18n.t('Speech-to-Text Engine')}</div>
 					<div class="flex items-center relative">
@@ -151,7 +153,7 @@
 
 		<hr class=" dark:border-gray-850" />
 
-		{#if $config.audio.tts.engine === ''}
+		{#if $config?.audio?.tts?.engine === ''}
 			<div>
 				<div class=" mb-2.5 text-sm font-medium">{$i18n.t('Set Voice')}</div>
 				<div class="flex w-full">
@@ -162,10 +164,8 @@
 						>
 							<option value="" selected={voice !== ''}>{$i18n.t('Default')}</option>
 							{#each voices.filter((v) => nonLocalVoices || v.localService === true) as _voice}
-								<option
-									value={_voice.name}
-									class="bg-gray-100 dark:bg-gray-700"
-									selected={voice === _voice.name}>{_voice.name}</option
+								<option value={_voice.name} class="bg-gray-100 dark:bg-gray-700" selected={voice === _voice.name}
+									>{_voice.name}</option
 								>
 							{/each}
 						</select>
@@ -181,7 +181,7 @@
 					</div>
 				</div>
 			</div>
-		{:else if $config.audio.tts.engine === 'openai'}
+		{:else if $config?.audio?.tts?.engine === 'openai'}
 			<div>
 				<div class=" mb-2.5 text-sm font-medium">{$i18n.t('Set Voice')}</div>
 				<div class="flex w-full">
@@ -205,10 +205,7 @@
 	</div>
 
 	<div class="flex justify-end text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

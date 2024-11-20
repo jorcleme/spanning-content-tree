@@ -1,52 +1,50 @@
 <script lang="ts">
-	import type { _CiscoArticleMessage, Model } from '$lib/stores';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Instance } from 'tippy.js';
-
-	import tippy from 'tippy.js';
-	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
-	import { v4 as uuidv4 } from 'uuid';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { slide, fly, fade, crossfade } from 'svelte/transition';
-	import { quintInOut, cubicInOut } from 'svelte/easing';
-	import Spinner from '$lib/components/common/Spinner.svelte';
+	import { flip } from 'svelte/animate';
+	import { cubicInOut, quintInOut } from 'svelte/easing';
+	import { crossfade, fade, fly, slide } from 'svelte/transition';
+	import { page } from '$app/stores';
+	import { getArticleById, updateArticleStep } from '$lib/apis/articles';
+	import { generateChatCompletion, generateOllamaChatCompletion } from '$lib/apis/ollama';
 	import {
-		mostRecentStep,
-		mountedArticleSteps,
-		mountedArticlePreambleObjective,
-		mountedArticlePreambleDevices,
-		ciscoArticleMessages,
-		isSupportWidgetOpen,
+		generateOpenAIChatCompletion,
+		generateOpenAIChatCompletionAnswers,
+		generateOpenAIChatCompletionQuestions
+	} from '$lib/apis/openai';
+	import { queryCollection, queryDoc } from '$lib/apis/rag';
+	import { createOpenAITextStream } from '$lib/apis/streaming';
+	import { WEBUI_BASE_URL } from '$lib/constants';
+	import type { Model, _CiscoArticleMessage } from '$lib/stores';
+	import {
+		activeArticle,
+		activeArticleId,
 		activeSupportSection,
 		activeSupportStep,
-		activeArticleId,
-		settings,
-		models,
+		ciscoArticleMessages,
 		config,
-		activeArticle,
 		globalMessages,
+		isSupportWidgetOpen,
+		models,
+		mostRecentStep,
+		mountedArticlePreambleDevices,
+		mountedArticlePreambleObjective,
+		mountedArticleSteps,
+		settings,
 		socket
 	} from '$lib/stores';
-	import { WEBUI_BASE_URL } from '$lib/constants';
-	import { splitStream, approximateToHumanReadable } from '$lib/utils';
-	import { queryDoc, queryCollection } from '$lib/apis/rag';
+	import { approximateToHumanReadable, splitStream } from '$lib/utils';
+	import { isErrorAsString, isErrorWithDetail, isErrorWithMessage, stripHtml } from '$lib/utils';
+	import type { Instance } from 'tippy.js';
+	import tippy from 'tippy.js';
+	import { v4 as uuidv4 } from 'uuid';
+	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { X } from 'lucide-svelte';
-	import {
-		generateOpenAIChatCompletionQuestions,
-		generateOpenAIChatCompletionAnswers,
-		generateOpenAIChatCompletion
-	} from '$lib/apis/openai';
-	import { createOpenAITextStream } from '$lib/apis/streaming';
-	import { generateOllamaChatCompletion, generateChatCompletion } from '$lib/apis/ollama';
-	import { getArticleById, updateArticleStep } from '$lib/apis/articles';
-	import { stripHtml, isErrorWithDetail, isErrorWithMessage, isErrorAsString } from '$lib/utils';
-	import { page } from '$app/stores';
-	import { flip } from 'svelte/animate';
 
 	type QuestionButton = { id: string; text: string; clicked: boolean };
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 	const STATIC_IDS = ['static_1', 'static_2', 'static_3'];
 	const DYNAMIC_IDS = ['dynamic_1', 'dynamic_2', 'dynamic_3'];
 

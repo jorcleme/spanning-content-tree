@@ -1,8 +1,7 @@
+import type { Article, ChatListResponse, TagsByUserResponse, Tool } from '$lib/types';
+import type { ModelConfig } from '$lib/types';
+import { type Writable, derived, writable } from 'svelte/store';
 import { APP_NAME } from '$lib/constants';
-import { derived, type Writable, writable } from 'svelte/store';
-import type { ChatListResponse, TagsByUserResponse, Article, Tool } from '$lib/types';
-import type { ModelConfig } from '$lib/apis';
-import type { Banner } from '$lib/types';
 import type { Socket } from 'socket.io-client';
 
 // Backend
@@ -65,30 +64,6 @@ export type Func = {
 	created_at: number;
 };
 
-// type ToolMeta = {
-// 	description: string | null;
-// 	manifest: {
-// 		title: string;
-// 		author: string;
-// 		version: string;
-// 		license: string;
-// 		description: string;
-// 		GitHub: string;
-// 		Notes: string;
-// 		funding_url?: string;
-// 	};
-// };
-
-// export type Tool = {
-// 	id: string;
-// 	user_id: string;
-// 	name: string;
-// 	meta: ToolMeta;
-// 	content: string;
-// 	updated_at: number;
-// 	created_at: number;
-// };
-
 export type Model = OpenAIModel | OllamaModel;
 
 type BaseModel = {
@@ -100,6 +75,16 @@ type BaseModel = {
 	preset?: boolean;
 	actions?: any[];
 };
+
+export interface Banner {
+	id: string;
+	type: string;
+	title?: string;
+	content: string;
+	url?: string;
+	dismissible?: boolean;
+	timestamp: number;
+}
 
 export interface OpenAIModel extends BaseModel {
 	external: boolean;
@@ -275,8 +260,8 @@ type AudioSettings = {
 	speaker?: string;
 	model?: string;
 	nonLocalVoices?: boolean;
-	stt?: Record<string, string>;
-	tts?: Record<string, string>;
+	stt?: Record<string, any>;
+	tts?: Record<string, any>;
 };
 
 type TitleSettings = {
@@ -300,11 +285,12 @@ type DocumentContent = {
 	}[];
 };
 export type Document = {
-	collection_name: string;
+	collection_name?: string;
 	filename: string;
 	name: string;
 	title: string;
 	content: DocumentContent;
+	type?: string;
 };
 
 type Audio = {

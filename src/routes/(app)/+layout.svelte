@@ -1,48 +1,42 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { onMount, tick, getContext } from 'svelte';
-	import { openDB, deleteDB } from 'idb';
-	import fileSaver from 'file-saver';
-	const { saveAs } = fileSaver;
-	import type { IDBPDatabase } from 'idb';
-
 	import { goto } from '$app/navigation';
-
 	import { getModels as _getModels } from '$lib/apis';
 	import { getAllChatTags } from '$lib/apis/chats';
-
-	import { getPrompts } from '$lib/apis/prompts';
-	import { getDocs } from '$lib/apis/documents';
-	import { getTools } from '$lib/apis/tools';
-
 	import { getBanners } from '$lib/apis/configs';
+	import { getDocs } from '$lib/apis/documents';
+	import { getFunctions } from '$lib/apis/functions';
+	import { getPrompts } from '$lib/apis/prompts';
+	import { getTools } from '$lib/apis/tools';
 	import { getUserSettings } from '$lib/apis/users';
-
 	import {
-		user,
-		showSettings,
-		settings,
+		banners,
+		config,
+		documents,
+		functions,
 		models,
 		prompts,
-		documents,
-		tags,
-		banners,
-		showChangelog,
-		config,
+		settings,
 		showCallOverlay,
+		showChangelog,
+		showSettings,
+		tags,
 		tools,
-		functions
+		user
 	} from '$lib/stores';
-
-	import SettingsModal from '$lib/components/chat/SettingsModal.svelte';
-	import Sidebar from '$lib/components/layout/Sidebar.svelte';
+	import fileSaver from 'file-saver';
+	import { deleteDB, openDB } from 'idb';
+	import type { IDBPDatabase } from 'idb';
 	import ChangelogModal from '$lib/components/ChangelogModal.svelte';
+	import SettingsModal from '$lib/components/chat/SettingsModal.svelte';
 	import AccountPending from '$lib/components/layout/Overlay/AccountPending.svelte';
-	import { getFunctions } from '$lib/apis/functions';
+	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const { saveAs } = fileSaver;
+
+	const i18n: i18nType = getContext('i18n');
 
 	let loaded = false;
 	let DB: IDBPDatabase<unknown> | null = null;

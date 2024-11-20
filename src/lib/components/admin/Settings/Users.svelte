@@ -1,16 +1,14 @@
 <script lang="ts">
-	import type { i18n as i18nType } from 'i18next';
-	import type { Writable } from 'svelte/store';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { getBackendConfig, getModelFilterConfig, updateModelFilterConfig } from '$lib/apis';
 	import { getSignUpEnabledStatus, toggleSignUpEnabledStatus } from '$lib/apis/auths';
-	import { getUserPermissions, updateUserPermissions } from '$lib/apis/users';
-
-	import { onMount, getContext } from 'svelte';
-	import { models, config } from '$lib/stores';
-	import Switch from '$lib/components/common/Switch.svelte';
 	import { setDefaultModels } from '$lib/apis/configs';
+	import { getUserPermissions, updateUserPermissions } from '$lib/apis/users';
+	import { config, models } from '$lib/stores';
+	import Switch from '$lib/components/common/Switch.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveHandler: Function;
 
@@ -65,24 +63,14 @@
 					type="button"
 				>
 					{#if permissions?.chat?.deletion ?? true}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 							<path
 								d="M11.5 1A3.5 3.5 0 0 0 8 4.5V7H2.5A1.5 1.5 0 0 0 1 8.5v5A1.5 1.5 0 0 0 2.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 9.5 7V4.5a2 2 0 1 1 4 0v1.75a.75.75 0 0 0 1.5 0V4.5A3.5 3.5 0 0 0 11.5 1Z"
 							/>
 						</svg>
 						<span class="ml-2 self-center">{$i18n.t('Allow')}</span>
 					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 							<path
 								fill-rule="evenodd"
 								d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z"
@@ -148,9 +136,7 @@
 											>
 												<option value="" disabled selected>{$i18n.t('Select a model')}</option>
 												{#each $models.filter((model) => model.id) as model}
-													<option value={model.id} class="bg-gray-100 dark:bg-gray-700"
-														>{model.name}</option
-													>
+													<option value={model.id} class="bg-gray-100 dark:bg-gray-700">{model.name}</option>
 												{/each}
 											</select>
 										</div>
@@ -165,12 +151,7 @@
 													}
 												}}
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 													<path
 														d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
 													/>
@@ -185,12 +166,7 @@
 													whitelistModels = whitelistModels;
 												}}
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 													<path d="M3.75 7.25a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5Z" />
 												</svg>
 											</button>
@@ -213,10 +189,7 @@
 	</div>
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

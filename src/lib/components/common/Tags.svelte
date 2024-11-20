@@ -1,16 +1,15 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
+	import { getContext } from 'svelte';
 	import TagInput from './Tags/TagInput.svelte';
 	import TagList from './Tags/TagList.svelte';
-	import { getContext } from 'svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
-	export let tags: string[] = [];
+	export let tags: Array<{ name: string }> = [];
 
-	export let deleteTag: Function;
-	export let addTag: Function;
+	export let deleteTag: (tagName: string) => void;
+	export let addTag: (tagName: string) => void;
 </script>
 
 <div class="flex flex-row items-center flex-wrap gap-1 line-clamp-1">

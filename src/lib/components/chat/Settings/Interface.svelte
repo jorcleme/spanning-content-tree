@@ -1,28 +1,27 @@
 <script lang="ts">
-	import { getBackendConfig } from '$lib/apis';
-	import { setDefaultPromptSuggestions } from '$lib/apis/configs';
-	import { config, models, settings, user } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext } from 'svelte';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { updateUserInfo } from '$lib/apis/users';
+	import { config, models, settings, user } from '$lib/stores';
 	import { getUserPosition } from '$lib/utils';
+
 	const dispatch = createEventDispatcher();
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveSettings: Function;
 
-	let backgroundImageUrl = null;
-	let inputFiles = null;
-	let filesInputElement;
+	let backgroundImageUrl: string | null = null;
+	let inputFiles: FileList | null = null;
+	let filesInputElement: HTMLInputElement;
 
 	// Addons
 	let titleAutoGenerate = true;
 	let responseAutoCopy = false;
 	let widescreenMode = false;
 	let splitLargeChunks = false;
-	let userLocation = false;
+	let userLocation: boolean | string | { latitude: any; longitude: any } = false;
 
 	// Interface
 	let defaultModelId = '';
@@ -111,9 +110,7 @@
 			saveSettings({ responseAutoCopy: responseAutoCopy });
 		} else {
 			toast.error(
-				$i18n.t(
-					'Clipboard write permission denied. Please check your browser settings to grant the necessary access.'
-				)
+				$i18n.t('Clipboard write permission denied. Please check your browser settings to grant the necessary access.')
 			);
 		}
 	};
@@ -182,8 +179,10 @@
 			) {
 				reader.readAsDataURL(inputFiles[0]);
 			} else {
-				console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
-				inputFiles = null;
+				if (inputFiles) {
+					console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
+					inputFiles = null;
+				}
 			}
 		}}
 	/>
@@ -282,11 +281,7 @@
 				<div class=" py-0.5 flex w-full justify-between">
 					<div class=" self-center text-xs">{$i18n.t('Chat direction')}</div>
 
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={toggleChangeChatDirection}
-						type="button"
-					>
+					<button class="p-1 px-3 text-xs flex rounded transition" on:click={toggleChangeChatDirection} type="button">
 						{#if chatDirection === 'LTR'}
 							<span class="ml-2 self-center">{$i18n.t('LTR')}</span>
 						{:else}
@@ -454,10 +449,7 @@
 	</div>
 
 	<div class="flex justify-end text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

@@ -1,25 +1,24 @@
 <script lang="ts">
-	import { getContext, onMount } from 'svelte';
-	import { models, config } from '$lib/stores';
-
+	import type { ChatResponse, i18nType } from '$lib/types';
+	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { deleteSharedChatById, getChatById, shareChatById } from '$lib/apis/chats';
+	import { config, models } from '$lib/stores';
 	import { copyToClipboard } from '$lib/utils';
-
 	import Modal from '../common/Modal.svelte';
 	import Link from '../icons/Link.svelte';
 
 	export let chatId;
 
-	let chat = null;
+	let chat: ChatResponse | null = null;
 	let shareUrl = null;
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	const shareLocalChat = async () => {
 		const _chat = chat;
 
 		const sharedChat = await shareChatById(localStorage.token, chatId);
-		shareUrl = `${window.location.origin}/s/${sharedChat.id}`;
+		shareUrl = `${window.location.origin}/s/${sharedChat?.id}`;
 		console.log(shareUrl);
 		chat = await getChatById(localStorage.token, chatId);
 
@@ -27,7 +26,7 @@
 	};
 
 	const shareChat = async () => {
-		const _chat = chat.chat;
+		const _chat = chat?.chat;
 		console.log('share', _chat);
 
 		toast.success($i18n.t('Redirecting you to OpenWebUI Community'));
@@ -40,10 +39,10 @@
 			(event) => {
 				if (event.origin !== url) return;
 				if (event.data === 'loaded') {
-					tab.postMessage(
+					tab?.postMessage(
 						JSON.stringify({
 							chat: _chat,
-							models: $models.filter((m) => _chat.models.includes(m.id))
+							models: $models.filter((m) => _chat?.models.includes(m.id))
 						}),
 						'*'
 					);
@@ -55,7 +54,7 @@
 
 	export let show = false;
 
-	const isDifferentChat = (_chat) => {
+	const isDifferentChat = (_chat: ChatResponse | null) => {
 		if (!chat) {
 			return true;
 		}
@@ -90,12 +89,7 @@
 					show = false;
 				}}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="w-5 h-5"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 					<path
 						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 					/>

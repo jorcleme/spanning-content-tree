@@ -1,17 +1,16 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import { WEBUI_BASE_URL } from '$lib/constants';
-	import { marked } from 'marked';
-	import { config, user, models as _models } from '$lib/stores';
-	import { onMount, getContext } from 'svelte';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { blur, fade } from 'svelte/transition';
-	import Suggestions from '../MessageInput/Suggestions.svelte';
+	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { models as _models, config, user } from '$lib/stores';
 	import { sanitizeResponseContent } from '$lib/utils';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import { marked } from 'marked';
 	import AssistantAnimationHero from '$lib/components/cisco/components/layout/AssistantAnimationHero.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Suggestions from '../MessageInput/Suggestions.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let modelIds: string[] = [];
 	export let models = [];

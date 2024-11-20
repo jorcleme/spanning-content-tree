@@ -1,33 +1,30 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
 	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
-
+	import { slide } from 'svelte/transition';
+	import { page } from '$app/stores';
 	import {
 		WEBUI_NAME,
 		chatId,
+		hideSupportWidgetBtn,
+		isSupportWidgetOpen,
 		mobile,
 		settings,
 		showArchivedChats,
 		showSettings,
 		showSidebar,
-		user,
-		isSupportWidgetOpen,
-		hideSupportWidgetBtn
+		user
 	} from '$lib/stores';
-
-	import { slide } from 'svelte/transition';
-	import ShareChatModal from '../chat/ShareChatModal.svelte';
 	import ModelSelector from '../chat/ModelSelector.svelte';
+	import ShareChatModal from '../chat/ShareChatModal.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
-	import Menu from './Navbar/Menu.svelte';
-	import { page } from '$app/stores';
-	import UserMenu from './Sidebar/UserMenu.svelte';
-	import MenuLines from '../icons/MenuLines.svelte';
 	import AdjustmentsHorizontal from '../icons/AdjustmentsHorizontal.svelte';
+	import MenuLines from '../icons/MenuLines.svelte';
+	import Menu from './Navbar/Menu.svelte';
+	import UserMenu from './Sidebar/UserMenu.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let initNewChat: Function;
 	export const title: string = $WEBUI_NAME;

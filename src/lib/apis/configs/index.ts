@@ -1,5 +1,6 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
-import type { Banner } from '$lib/types';
+import type { Banner } from '$lib/stores';
+import type { PromptSuggestion } from '$lib/stores';
 
 export const setDefaultModels = async (token: string, models: string) => {
 	let error = null;
@@ -31,7 +32,7 @@ export const setDefaultModels = async (token: string, models: string) => {
 	return res;
 };
 
-export const setDefaultPromptSuggestions = async (token: string, promptSuggestions: string) => {
+export const setDefaultPromptSuggestions = async (token: string, promptSuggestions: PromptSuggestion[]) => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/configs/default/suggestions`, {

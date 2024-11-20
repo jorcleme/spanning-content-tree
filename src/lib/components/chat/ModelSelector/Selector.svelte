@@ -1,26 +1,20 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount, tick } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import { getModels } from '$lib/apis';
+	import { deleteModel, getOllamaVersion, pullModel } from '$lib/apis/ollama';
+	import { MODEL_DOWNLOAD_POOL, type Model, mobile, models, user } from '$lib/stores';
+	import { capitalizeFirstLetter, isErrorWithMessage, sanitizeResponseContent, splitStream } from '$lib/utils';
+	import { flyAndScale } from '$lib/utils/transitions';
 	import { DropdownMenu } from 'bits-ui';
 	import { marked } from 'marked';
-
-	import { flyAndScale } from '$lib/utils/transitions';
-	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
-
-	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Check from '$lib/components/icons/Check.svelte';
+	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
 	import Search from '$lib/components/icons/Search.svelte';
 
-	import { deleteModel, getOllamaVersion, pullModel } from '$lib/apis/ollama';
-
-	import { user, MODEL_DOWNLOAD_POOL, models, mobile, type Model } from '$lib/stores';
-	import { toast } from 'svelte-sonner';
-	import { capitalizeFirstLetter, sanitizeResponseContent, splitStream, isErrorWithMessage } from '$lib/utils';
-	import { getModels } from '$lib/apis';
-
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
 	type SelectedItem = {

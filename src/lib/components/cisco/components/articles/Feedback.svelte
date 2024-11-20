@@ -1,14 +1,13 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { _CiscoArticleMessage } from '$lib/stores/index';
-	import { createEventDispatcher, onMount, getContext } from 'svelte';
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { fade } from 'svelte/transition';
 	import { enhance } from '$app/forms';
-	import { activeSupportStep, activeSupportSection } from '$lib/stores/index';
-	import { toast } from 'svelte-sonner';
+	import type { _CiscoArticleMessage } from '$lib/stores/index';
+	import { activeSupportSection, activeSupportStep } from '$lib/stores/index';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 

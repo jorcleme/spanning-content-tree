@@ -1,4 +1,8 @@
+import type { Writable } from 'svelte/store';
 import type { FileUpload } from '$lib/apis/files';
+import type { i18n } from 'i18next';
+
+export type i18nType = Writable<i18n>;
 
 // Shared Utility
 export type Nullable<T> = T | null;
@@ -15,15 +19,6 @@ interface TimestampEntity {
 
 interface UserEntity {
 	user_id: string;
-}
-
-export interface Banner extends BaseEntity {
-	type: string;
-	title?: string;
-	content: string;
-	url?: string;
-	dismissible?: boolean;
-	timestamp: number;
 }
 
 interface MessageInfo {
@@ -62,8 +57,7 @@ export interface BaseMessage {
 	content: string;
 }
 
-export interface Message extends BaseMessage {
-	id: string;
+export interface Message extends BaseEntity, BaseMessage {
 	parentId: string | null;
 	childrenIds?: string[];
 	timestamp?: number; // epoch time in seconds
@@ -133,12 +127,16 @@ export interface ChatTag extends BaseEntity, UserEntity {
 	data?: any;
 }
 
-export interface ChatResponse extends BaseEntity, UserEntity, TimestampEntity {
+export interface ChatResponse {
+	id: string;
+	user_id: string;
 	title: string;
 	chat: Chat;
 	share_id?: Nullable<string>;
 	archived: boolean;
 	time_range: string;
+	updated_at: number; // epoch time in seconds
+	created_at: number; // epoch time in seconds
 }
 
 export type ChatListResponse = ChatResponse[];
@@ -266,3 +264,126 @@ export interface Tool extends BaseEntity, UserEntity, TimestampEntity {
 export interface Valve {
 	[key: string]: any;
 }
+
+export type Collection = {
+	name: string;
+	type?: string;
+	title?: string;
+	filename?: string;
+	collection_names?: (string | undefined)[];
+	timestamp?: number;
+} & Partial<Document> &
+	Partial<UserEntity>;
+
+type PromptSuggestion = {
+	content: string;
+	title?: [string, string];
+};
+
+interface ModelMetaCapabilities {
+	vision?: boolean;
+	[capability: string]: any;
+}
+interface ModelMeta {
+	description?: string | null;
+	capabilities?: ModelMetaCapabilities;
+	knowledge?: Collection[];
+	tags?: any[];
+	hidden?: boolean;
+	position?: number;
+	suggestion_prompts?: PromptSuggestion[] | null;
+	toolIds?: string[];
+	profile_image_url?: string;
+	filterIds?: string[];
+	user?: {
+		name: string;
+		community?: boolean;
+		username: string;
+	};
+}
+export interface ModelConfig {
+	id: string;
+	name: string;
+	meta: ModelMeta;
+	base_model_id?: string | null;
+	params: ModelParams;
+}
+
+type Params = {
+	stop?: string | string[] | null;
+	system?: string | null;
+};
+
+export type MapParams<T extends Record<string, any> = Record<string, any>> = {
+	[Key in keyof T as Key]: T[Key];
+};
+
+export type ModelParams = MapParams<Params> & { [key: string]: any };
+
+export type AdvancedModelParams = ModelParams &
+	Partial<{
+		seed: number | null;
+		temperature: number | null;
+		max_tokens: number | null;
+		mirostat: number | null;
+		mirostat_eta: number | null;
+		mirostat_tau: number | null;
+		use_mlock?: boolean;
+		use_mmap?: boolean;
+		num_batch: number | null;
+		num_ctx: number | null;
+		num_keep: number | null;
+		num_thread: number | null;
+		repeat_last_n: number | null;
+		tfs_z: number | null;
+		top_k: number | null;
+		top_p: number | null;
+		template: string | null;
+		frequency_penalty: number | null;
+		proficiency: number;
+	}>;
+
+export type GlobalModelConfig = ModelConfig[];
+
+type ChunkConfigForm = {
+	chunk_size: number;
+	chunk_overlap: number;
+};
+
+type ContentExtractConfigForm = {
+	engine: string;
+	tika_server_url: string | null;
+};
+
+type YoutubeConfigForm = {
+	language: string[];
+	translation?: string | null;
+};
+
+type WebSearchConfig = {
+	enabled: boolean;
+	engine?: string;
+	searxng_query_url?: string;
+	google_pse_api_key?: string;
+	google_pse_engine_id?: string;
+	brave_search_api_key?: string;
+	serpstack_api_key?: string;
+	serpstack_https?: boolean;
+	serper_api_key?: string;
+	serply_api_key?: string;
+	tavily_api_key?: string;
+	result_count?: number;
+	concurrent_requests?: number;
+};
+export type WebConfig = {
+	search: WebSearchConfig;
+	ssl_verification?: boolean;
+};
+
+export type RAGConfigForm = {
+	pdf_extract_images?: boolean;
+	chunk?: ChunkConfigForm;
+	content_extraction?: ContentExtractConfigForm;
+	youtube?: YoutubeConfigForm;
+	web?: WebConfig;
+};

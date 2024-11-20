@@ -1,10 +1,12 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
 	import { createEventDispatcher, getContext } from 'svelte';
-	import { tags } from '$lib/stores';
 	import { toast } from 'svelte-sonner';
+	import { tags } from '$lib/stores';
+
 	const dispatch = createEventDispatcher();
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let label = '';
 	let showTagInput = false;

@@ -1,28 +1,13 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Instance } from 'tippy.js';
 	import type { Message } from '$lib/types';
-	import type { MarkedOptions } from 'marked';
-	import { toast } from 'svelte-sonner';
-	import dayjs from 'dayjs';
-	import { marked } from 'marked';
-	import tippy from 'tippy.js';
-	import auto_render from 'katex/dist/contrib/auto-render.mjs';
-	import 'katex/dist/katex.min.css';
-	import mermaid from 'mermaid';
-
-	import { fade } from 'svelte/transition';
+	import type { i18nType } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
-	import { onMount, tick, getContext } from 'svelte';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
-
-	const dispatch = createEventDispatcher();
-
-	import { config, models, settings, user } from '$lib/stores';
+	import { getContext, onMount, tick } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { synthesizeOpenAISpeech } from '$lib/apis/audio';
 	import { imageGenerations } from '$lib/apis/images';
+	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { config, models, settings, user } from '$lib/stores';
 	import {
 		approximateToHumanReadable,
 		extractSentences,
@@ -30,19 +15,29 @@
 		revertSanitizedResponseContent,
 		sanitizeResponseContent
 	} from '$lib/utils';
-	import { WEBUI_BASE_URL } from '$lib/constants';
-
+	import dayjs from 'dayjs';
+	import auto_render from 'katex/dist/contrib/auto-render.mjs';
+	import 'katex/dist/katex.min.css';
+	import type { MarkedOptions } from 'marked';
+	import { marked } from 'marked';
+	import mermaid from 'mermaid';
+	import type { Instance } from 'tippy.js';
+	import tippy from 'tippy.js';
+	import CitationsModal from '$lib/components/chat/Messages/CitationsModal.svelte';
+	import Image from '$lib/components/common/Image.svelte';
+	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Sparkles from '$lib/components/icons/Sparkles.svelte';
+	import CodeBlock from './CodeBlock.svelte';
 	import Name from './Name.svelte';
 	import ProfileImage from './ProfileImage.svelte';
-	import Skeleton from './Skeleton.svelte';
-	import CodeBlock from './CodeBlock.svelte';
-	import Image from '$lib/components/common/Image.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import RateComment from './RateComment.svelte';
-	import CitationsModal from '$lib/components/chat/Messages/CitationsModal.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
 	import WebSearchResults from './ResponseMessage/WebSearchResults.svelte';
-	import Sparkles from '$lib/components/icons/Sparkles.svelte';
+	import Skeleton from './Skeleton.svelte';
+
+	const i18n: i18nType = getContext('i18n');
+
+	const dispatch = createEventDispatcher();
 
 	export let message: Message;
 	export let siblings;

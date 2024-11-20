@@ -1,15 +1,14 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import type { i18nType } from '$lib/types';
 	import { getContext } from 'svelte';
-	import CommandLine from '$lib/components/icons/CommandLine.svelte';
-	import GuideMe from '$lib/components/icons/GuideMe.svelte';
+	import { flyAndScale } from '$lib/utils/transitions';
+	import { DropdownMenu } from 'bits-ui';
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import { DropdownMenu } from 'bits-ui';
-	import { flyAndScale } from '$lib/utils/transitions';
+	import CommandLine from '$lib/components/icons/CommandLine.svelte';
+	import GuideMe from '$lib/components/icons/GuideMe.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let openConfigAssistant: () => void;
 	export let handleGeneratePromptClick: () => void;

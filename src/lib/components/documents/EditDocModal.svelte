@@ -1,23 +1,29 @@
 <script lang="ts">
+	import type { ChatTagListResponse, i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import dayjs from 'dayjs';
-	import { onMount, getContext } from 'svelte';
-
-	import { getDocs, tagDocByName, updateDocByName } from '$lib/apis/documents';
-	import Modal from '../common/Modal.svelte';
-	import { documents } from '$lib/stores';
-	import TagInput from '../common/Tags/TagInput.svelte';
-	import Tags from '../common/Tags.svelte';
 	import { addTagById } from '$lib/apis/chats';
+	import { getDocs, tagDocByName, updateDocByName } from '$lib/apis/documents';
+	import { documents } from '$lib/stores';
+	import Modal from '../common/Modal.svelte';
+	import Tags from '../common/Tags.svelte';
 
-	const i18n = getContext('i18n');
+	type Doc = {
+		name: string;
+		title: string;
+		content: {
+			tags: Array<{ name: string }>;
+		} | null;
+	}
+
+	const i18n: i18nType = getContext('i18n');
 
 	export let show = false;
 	export let selectedDoc;
 
-	let tags = [];
+	let tags: Array<{ name: string }> = [];
 
-	let doc = {
+	let doc: Doc = {
 		name: '',
 		title: '',
 		content: null
@@ -38,7 +44,7 @@
 		}
 	};
 
-	const addTagHandler = async (tagName) => {
+	const addTagHandler = async (tagName: string) => {
 		if (!tags.find((tag) => tag.name === tagName) && tagName !== '') {
 			tags = [...tags, { name: tagName }];
 
@@ -53,7 +59,7 @@
 		}
 	};
 
-	const deleteTagHandler = async (tagName) => {
+	const deleteTagHandler = async (tagName: string) => {
 		tags = tags.filter((tag) => tag.name !== tagName);
 
 		await tagDocByName(localStorage.token, doc.name, {
@@ -83,12 +89,7 @@
 					show = false;
 				}}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="w-5 h-5"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 					<path
 						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 					/>
@@ -166,16 +167,5 @@
 		margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
 	}
 
-	.tabs::-webkit-scrollbar {
-		display: none; /* for Chrome, Safari and Opera */
-	}
 
-	.tabs {
-		-ms-overflow-style: none; /* IE and Edge */
-		scrollbar-width: none; /* Firefox */
-	}
-
-	input[type='number'] {
-		-moz-appearance: textfield; /* Firefox */
-	}
 </style>

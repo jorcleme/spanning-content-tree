@@ -1,90 +1,77 @@
 <script lang="ts">
-	import { v4 as uuidv4 } from 'uuid';
-
-	import { toast } from 'svelte-sonner';
-	import { models } from '$lib/stores';
+	import type { i18nType } from '$lib/types';
 	import { getContext, onMount, tick } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import { toast } from 'svelte-sonner';
 	import {
+		deletePipeline,
+		downloadPipeline,
+		getModels,
 		getPipelineValves,
 		getPipelineValvesSpec,
-		updatePipelineValves,
 		getPipelines,
-		getModels,
 		getPipelinesList,
-		downloadPipeline,
-		deletePipeline,
+		updatePipelineValves,
 		uploadPipeline
 	} from '$lib/apis';
-
+	import { models } from '$lib/stores';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveHandler: Function;
 
 	let downloading = false;
 	let uploading = false;
 
-	let pipelineFiles;
+	let pipelineFiles: FileList | null = null;
 
-	let PIPELINES_LIST = null;
+	let PIPELINES_LIST: any[] | null = null;
 	let selectedPipelinesUrlIdx = '';
 
-	let pipelines = null;
+	let pipelines: any[] = [];
 
-	let valves = null;
-	let valves_spec = null;
-	let selectedPipelineIdx = null;
+	let valves: any = null;
+	let valves_spec: { [key: string]: any } = {};
+	let selectedPipelineIdx: number | null = null;
 
 	let pipelineDownloadUrl = '';
 
 	const updateHandler = async () => {
-		const pipeline = pipelines[selectedPipelineIdx];
+		if (selectedPipelineIdx !== null) {
+			const pipeline = pipelines[selectedPipelineIdx];
 
-		if (pipeline && (pipeline?.valves ?? false)) {
-			for (const property in valves_spec.properties) {
-				if (valves_spec.properties[property]?.type === 'array') {
-					valves[property] = valves[property].split(',').map((v) => v.trim());
+			if (pipeline && (pipeline?.valves ?? false)) {
+				for (const property in valves_spec.properties) {
+					if (valves_spec.properties[property]?.type === 'array') {
+						valves[property] = valves[property].split(',').map((v: string) => v.trim());
+					}
 				}
-			}
 
-			const res = await updatePipelineValves(
-				localStorage.token,
-				pipeline.id,
-				valves,
-				selectedPipelinesUrlIdx
-			).catch((error) => {
-				toast.error(error);
-			});
+				const res = await updatePipelineValves(localStorage.token, pipeline.id, valves, selectedPipelinesUrlIdx).catch(
+					(error) => {
+						toast.error(error);
+					}
+				);
 
-			if (res) {
-				toast.success($i18n.t('Valves updated successfully'));
-				setPipelines();
-				models.set(await getModels(localStorage.token));
-				saveHandler();
+				if (res) {
+					toast.success($i18n.t('Valves updated successfully'));
+					setPipelines();
+					models.set(await getModels(localStorage.token));
+					saveHandler();
+				}
+			} else {
+				toast.error($i18n.t('No valves to update'));
 			}
-		} else {
-			toast.error($i18n.t('No valves to update'));
 		}
 	};
 
-	const getValves = async (idx) => {
+	const getValves = async (idx: number) => {
 		valves = null;
-		valves_spec = null;
+		valves_spec = {};
 
-		valves_spec = await getPipelineValvesSpec(
-			localStorage.token,
-			pipelines[idx].id,
-			selectedPipelinesUrlIdx
-		);
-		valves = await getPipelineValves(
-			localStorage.token,
-			pipelines[idx].id,
-			selectedPipelinesUrlIdx
-		);
+		valves_spec = await getPipelineValvesSpec(localStorage.token, pipelines[idx].id, selectedPipelinesUrlIdx);
+		valves = await getPipelineValves(localStorage.token, pipelines[idx].id, selectedPipelinesUrlIdx);
 
 		for (const property in valves_spec.properties) {
 			if (valves_spec.properties[property]?.type === 'array') {
@@ -94,11 +81,11 @@
 	};
 
 	const setPipelines = async () => {
-		pipelines = null;
+		pipelines = [];
 		valves = null;
-		valves_spec = null;
+		valves_spec = {};
 
-		if (PIPELINES_LIST.length > 0) {
+		if ((PIPELINES_LIST?.length ?? 0) > 0) {
 			console.log(selectedPipelinesUrlIdx);
 			pipelines = await getPipelines(localStorage.token, selectedPipelinesUrlIdx);
 
@@ -113,14 +100,12 @@
 
 	const addPipelineHandler = async () => {
 		downloading = true;
-		const res = await downloadPipeline(
-			localStorage.token,
-			pipelineDownloadUrl,
-			selectedPipelinesUrlIdx
-		).catch((error) => {
-			toast.error(error);
-			return null;
-		});
+		const res = await downloadPipeline(localStorage.token, pipelineDownloadUrl, selectedPipelinesUrlIdx).catch(
+			(error) => {
+				toast.error(error);
+				return null;
+			}
+		);
 
 		if (res) {
 			toast.success($i18n.t('Pipeline downloaded successfully'));
@@ -139,13 +124,11 @@
 
 			console.log(file);
 
-			const res = await uploadPipeline(localStorage.token, file, selectedPipelinesUrlIdx).catch(
-				(error) => {
-					console.log(error);
-					toast.error('Something went wrong :/');
-					return null;
-				}
-			);
+			const res = await uploadPipeline(localStorage.token, file, selectedPipelinesUrlIdx).catch((error) => {
+				console.log(error);
+				toast.error('Something went wrong :/');
+				return null;
+			});
 
 			if (res) {
 				toast.success($i18n.t('Pipeline downloaded successfully'));
@@ -157,29 +140,31 @@
 		}
 
 		pipelineFiles = null;
-		const pipelineUploadInputElement = document.getElementById('pipeline-upload-input');
+		const pipelineUploadInputElement = document.getElementById('pipeline-upload-input') as HTMLInputElement;
 
 		if (pipelineUploadInputElement) {
-			pipelineUploadInputElement.value = null;
+			pipelineUploadInputElement.value = '';
 		}
 
 		uploading = false;
 	};
 
 	const deletePipelineHandler = async () => {
-		const res = await deletePipeline(
-			localStorage.token,
-			pipelines[selectedPipelineIdx].id,
-			selectedPipelinesUrlIdx
-		).catch((error) => {
-			toast.error(error);
-			return null;
-		});
+		if (selectedPipelineIdx !== null) {
+			const res = await deletePipeline(
+				localStorage.token,
+				pipelines[selectedPipelineIdx].id,
+				selectedPipelinesUrlIdx
+			).catch((error) => {
+				toast.error(error);
+				return null;
+			});
 
-		if (res) {
-			toast.success($i18n.t('Pipeline deleted successfully'));
-			setPipelines();
-			models.set(await getModels(localStorage.token));
+			if (res) {
+				toast.success($i18n.t('Pipeline deleted successfully'));
+				setPipelines();
+				models.set(await getModels(localStorage.token));
+			}
 		}
 	};
 
@@ -187,7 +172,7 @@
 		PIPELINES_LIST = await getPipelinesList(localStorage.token);
 		console.log(PIPELINES_LIST);
 
-		if (PIPELINES_LIST.length > 0) {
+		if (PIPELINES_LIST && (PIPELINES_LIST?.length ?? 0) > 0) {
 			selectedPipelinesUrlIdx = PIPELINES_LIST[0]['idx'].toString();
 		}
 
@@ -227,9 +212,7 @@
 								>
 
 								{#each PIPELINES_LIST as pipelines, idx}
-									<option value={pipelines.idx.toString()} class="bg-gray-100 dark:bg-gray-700"
-										>{pipelines.url}</option
-									>
+									<option value={pipelines.idx.toString()} class="bg-gray-100 dark:bg-gray-700">{pipelines.url}</option>
 								{/each}
 							</select>
 						</div>
@@ -242,13 +225,7 @@
 					</div>
 					<div class="flex w-full">
 						<div class="flex-1 mr-2">
-							<input
-								id="pipelines-upload-input"
-								bind:files={pipelineFiles}
-								type="file"
-								accept=".py"
-								hidden
-							/>
+							<input id="pipelines-upload-input" bind:files={pipelineFiles} type="file" accept=".py" hidden />
 
 							<button
 								class="w-full text-sm font-medium py-2 bg-transparent hover:bg-gray-100 border border-dashed dark:border-gray-800 dark:hover:bg-gray-850 text-center rounded-xl"
@@ -274,12 +251,7 @@
 						>
 							{#if uploading}
 								<div class="self-center">
-									<svg
-										class=" w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="currentColor"
-										xmlns="http://www.w3.org/2000/svg"
-									>
+									<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
 										<style>
 											.spinner_ajPY {
 												transform-origin: center;
@@ -303,12 +275,7 @@
 									</svg>
 								</div>
 							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 16 16"
-									fill="currentColor"
-									class="size-4"
-								>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
 									<path
 										d="M7.25 10.25a.75.75 0 0 0 1.5 0V4.56l2.22 2.22a.75.75 0 1 0 1.06-1.06l-3.5-3.5a.75.75 0 0 0-1.06 0l-3.5 3.5a.75.75 0 0 0 1.06 1.06l2.22-2.22v5.69Z"
 									/>
@@ -343,12 +310,7 @@
 						>
 							{#if downloading}
 								<div class="self-center">
-									<svg
-										class=" w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="currentColor"
-										xmlns="http://www.w3.org/2000/svg"
-									>
+									<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
 										<style>
 											.spinner_ajPY {
 												transform-origin: center;
@@ -372,12 +334,7 @@
 									</svg>
 								</div>
 							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 16 16"
-									fill="currentColor"
-									class="w-4 h-4"
-								>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 									<path
 										d="M8.75 2.75a.75.75 0 0 0-1.5 0v5.69L5.03 6.22a.75.75 0 0 0-1.06 1.06l3.5 3.5a.75.75 0 0 0 1.06 0l3.5-3.5a.75.75 0 0 0-1.06-1.06L8.75 8.44V2.75Z"
 									/>
@@ -390,8 +347,8 @@
 					</div>
 
 					<div class="mt-2 text-xs text-gray-500">
-						<span class=" font-semibold dark:text-gray-200">Warning:</span> Pipelines are a plugin
-						system with arbitrary code execution —
+						<span class=" font-semibold dark:text-gray-200">Warning:</span> Pipelines are a plugin system with arbitrary
+						code execution —
 						<span class=" font-medium dark:text-gray-400"
 							>don't fetch random pipelines from sources you don't trust.</span
 						>
@@ -417,7 +374,9 @@
 											placeholder={$i18n.t('Select a pipeline')}
 											on:change={async () => {
 												await tick();
-												await getValves(selectedPipelineIdx);
+												if (selectedPipelineIdx !== null) {
+													await getValves(selectedPipelineIdx);
+												}
 											}}
 										>
 											{#each pipelines as pipeline, idx}
@@ -435,12 +394,7 @@
 										}}
 										type="button"
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 16 16"
-											fill="currentColor"
-											class="w-4 h-4"
-										>
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 											<path
 												fill-rule="evenodd"
 												d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z"
@@ -452,7 +406,7 @@
 							{/if}
 
 							<div class="space-y-1">
-								{#if pipelines[selectedPipelineIdx].valves}
+								{#if selectedPipelineIdx !== null && pipelines[selectedPipelineIdx].valves}
 									{#if valves}
 										{#each Object.keys(valves_spec.properties) as property, idx}
 											<div class=" py-0.5 w-full justify-between">
@@ -547,10 +501,7 @@
 	</div>
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

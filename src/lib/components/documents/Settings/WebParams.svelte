@@ -1,29 +1,29 @@
 <script lang="ts">
+	import type { WebConfig, i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { getRAGConfig, updateRAGConfig } from '$lib/apis/rag';
 	import Switch from '$lib/components/common/Switch.svelte';
 
-	import { documents, models } from '$lib/stores';
-	import { onMount, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
+	const i18n: i18nType = getContext('i18n');
 
-	const i18n = getContext('i18n');
+	export let saveHandler: () => Promise<void>;
 
-	export let saveHandler: Function;
-
-	let webConfig = null;
+	let webConfig: WebConfig | null = null;
 	let webSearchEngines = ['searxng', 'google_pse', 'brave', 'serpstack', 'serper', 'serply'];
 
 	let youtubeLanguage = 'en';
-	let youtubeTranslation = null;
+	let youtubeTranslation: string | null = null;
 
 	const submitHandler = async () => {
-		const res = await updateRAGConfig(localStorage.token, {
-			web: webConfig,
-			youtube: {
-				language: youtubeLanguage.split(',').map((lang) => lang.trim()),
-				translation: youtubeTranslation
-			}
-		});
+		if (webConfig) {
+			await updateRAGConfig(localStorage.token, {
+				web: webConfig,
+				youtube: {
+					language: youtubeLanguage.split(',').map((lang) => lang.trim()),
+					translation: youtubeTranslation
+				}
+			});
+		}
 	};
 
 	onMount(async () => {
@@ -239,7 +239,9 @@
 						<button
 							class="p-1 px-3 text-xs flex rounded transition"
 							on:click={() => {
-								webConfig.ssl_verification = !webConfig.ssl_verification;
+								if (webConfig) {
+									webConfig.ssl_verification = !webConfig.ssl_verification;
+								}
 								submitHandler();
 							}}
 							type="button"
@@ -275,10 +277,7 @@
 		{/if}
 	</div>
 	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
+		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

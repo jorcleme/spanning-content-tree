@@ -1,4 +1,15 @@
+import type { Nullable } from '$lib/types';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
+
+type CreatedDocument = {
+	collection_name: string;
+	name: string;
+	title: string;
+	filename: string;
+	content: Record<string, any> | null;
+	user_id: string;
+	timestamp: number;
+};
 
 export const createNewDoc = async (
 	token: string,
@@ -7,7 +18,7 @@ export const createNewDoc = async (
 	name: string,
 	title: string,
 	content: object | null = null
-) => {
+): Promise<Nullable<CreatedDocument>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/documents/create`, {
@@ -152,9 +163,13 @@ export const updateDocByName = async (token: string, name: string, form: DocUpda
 	return res;
 };
 
+type Tag = {
+	name: string;
+};
+
 type TagDocForm = {
 	name: string;
-	tags: string[];
+	tags: Tag[];
 };
 
 export const tagDocByName = async (token: string, name: string, form: TagDocForm) => {

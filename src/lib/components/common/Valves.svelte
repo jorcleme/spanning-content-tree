@@ -1,12 +1,9 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Valve } from '$lib/types';
+	import type { Valve, i18nType } from '$lib/types';
 	import { getContext } from 'svelte';
-
-	const i18n: Writable<i18nType> = getContext('i18n');
-
 	import Switch from './Switch.svelte';
+
+	const i18n: i18nType = getContext('i18n');
 
 	export let valvesSpec: Valve | null = null;
 	export let valves: Valve | { [key: string]: any } = {};

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+
+	import type { i18nType } from '$lib/types';
 	import { toast } from 'svelte-sonner';
 
 	import {
@@ -14,15 +14,14 @@
 		getOllamaConfig
 	} from '$lib/apis/ollama';
 
-	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
-	import { WEBUI_NAME, models, MODEL_DOWNLOAD_POOL, user, config } from '$lib/stores';
+	import { models, MODEL_DOWNLOAD_POOL, user, config } from '$lib/stores';
 	import { splitStream, isErrorWithMessage } from '$lib/utils';
 	import { onMount, getContext } from 'svelte';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let getModels: Function;
 
@@ -56,7 +55,7 @@
 	let pullProgress = null;
 
 	let modelUploadMode = 'file';
-	let modelInputFile: File[] | null = null;
+	let modelInputFile: FileList | null = null;
 	let modelFileUrl = '';
 	let modelFileContent = `TEMPLATE """{{ .System }}\nUSER: {{ .Prompt }}\nASSISTANT: """\nPARAMETER num_ctx 4096\nPARAMETER stop "</s>"\nPARAMETER stop "USER:"\nPARAMETER stop "ASSISTANT:"`;
 	let modelFileDigest = '';
@@ -426,7 +425,7 @@
 			}
 		);
 
-		if (res && res.ok) {
+		if (res && res.ok && res.body) {
 			const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			while (true) {
@@ -696,7 +695,7 @@
 										{/if}
 										{#each $models.filter((m) => !(m?.preset ?? false) && m.owned_by === 'ollama' && (selectedOllamaUrlIdx === null ? true : (m?.ollama?.urls ?? []).includes(selectedOllamaUrlIdx))) as model}
 											<option value={model.name} class="bg-gray-100 dark:bg-gray-700"
-												>{model.name + ' (' + (model.ollama.size / 1024 ** 3).toFixed(1) + ' GB)'}</option
+												>{model.name + ' (' + ((model.ollama?.size ?? 0) / 1024 ** 3).toFixed(1) + ' GB)'}</option
 											>
 										{/each}
 									</select>

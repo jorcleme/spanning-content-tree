@@ -1,26 +1,19 @@
 <script lang="ts">
-	import { v4 as uuidv4 } from 'uuid';
-	import { chats, config, settings, user as _user, mobile, type SessionUser } from '$lib/stores';
-	import { tick, getContext, onMount } from 'svelte';
-
+	import type { EditedMessage, Message, MessageHistory, i18nType } from '$lib/types';
+	import { getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { getChatList, updateChatById } from '$lib/apis/chats';
-
-	import UserMessage from './Messages/UserMessage.svelte';
-	import ResponseMessage from './Messages/ResponseMessage.svelte';
-	import Placeholder from './Messages/Placeholder.svelte';
-	import Spinner from '../common/Spinner.svelte';
-	import { imageGenerations } from '$lib/apis/images';
+	import { type SessionUser, user as _user, chats, config, mobile, settings } from '$lib/stores';
 	import { copyToClipboard, findWordIndices } from '$lib/utils';
+	import { v4 as uuidv4 } from 'uuid';
 	import CompareMessages from './Messages/CompareMessages.svelte';
-	import Select from '../cisco/components/common/Select.svelte';
 	import DeviceSelectorMessage from './Messages/DeviceSelectorMessage.svelte';
+	import Placeholder from './Messages/Placeholder.svelte';
 	import PublishedArticlesMessage from './Messages/PublishedArticlesMessage.svelte';
-	import type { Message, MessageHistory, EditedMessage } from '$lib/types';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+	import ResponseMessage from './Messages/ResponseMessage.svelte';
+	import UserMessage from './Messages/UserMessage.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let chatId = '';
 	export let readOnly = false;

@@ -1,6 +1,7 @@
+import type { Message, Nullable } from '$lib/types';
+import type { GlobalModelConfig } from '$lib/types';
 import { WEBUI_BASE_URL } from '$lib/constants';
-import type { Message } from '$lib/types';
-import type { Model, SessionUser } from '$lib/stores';
+import type { Model } from '$lib/stores';
 
 export const getModels = async (token: string = ''): Promise<Model[]> => {
 	let error = null;
@@ -633,7 +634,7 @@ export const getBackendConfig = async () => {
 	return res;
 };
 
-export const getChangelog = async () => {
+export const getChangelog = async (): Promise<Nullable<{ [key: string]: any }>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_BASE_URL}/api/changelog`, {
@@ -880,36 +881,6 @@ export const getModelConfig = async (token: string): Promise<GlobalModelConfig> 
 
 	return res.models;
 };
-
-export interface ModelConfig {
-	id: string;
-	name: string;
-	meta: ModelMeta;
-	base_model_id?: string;
-	params: ModelParams;
-}
-
-interface ModelMetaCapabilities {
-	vision?: boolean;
-	[capability: string]: any;
-}
-export interface ModelMeta {
-	description?: string;
-	capabilities?: ModelMetaCapabilities;
-	knowledge?: any;
-	tags: any[];
-	hidden?: boolean;
-	position?: number;
-	suggestion_prompts?: any[];
-	user?: SessionUser;
-	toolIds?: string[];
-	profile_image_url?: string;
-	filterIds?: string[];
-}
-
-export interface ModelParams {}
-
-export type GlobalModelConfig = ModelConfig[];
 
 export const updateModelConfig = async (token: string, config: GlobalModelConfig) => {
 	let error = null;

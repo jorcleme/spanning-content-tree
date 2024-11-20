@@ -1,26 +1,24 @@
 <script lang="ts">
-	import { createEventDispatcher, getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import { type i18n as i18nType } from 'i18next';
-	import type { Model, ChatParams } from '$lib/stores';
+	import type { AdvancedModelParams, ModelParams, i18nType } from '$lib/types';
 	import type { ChatFile } from '$lib/types';
+	import { createEventDispatcher, getContext } from 'svelte';
+	import { tweened } from 'svelte/motion';
+	import type { ChatParams, Model } from '$lib/stores';
 	// @ts-ignore
 	import { interpolateLab } from 'd3-interpolate';
-
-	const dispatch = createEventDispatcher();
-	const i18n: Writable<i18nType> = getContext('i18n');
-
+	import FileItem from '$lib/components/common/FileItem.svelte';
+	import Valves from '$lib/components/common/Valves.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
 	import AdvancedParams from '../Settings/Advanced/AdvancedParams.svelte';
-	import Valves from '$lib/components/common/Valves.svelte';
-	import FileItem from '$lib/components/common/FileItem.svelte';
-	import { tweened } from 'svelte/motion';
+
+	const dispatch = createEventDispatcher();
+	const i18n: i18nType = getContext('i18n');
 
 	export let models: Model[] = [];
 
 	export let chatFiles: ChatFile[] = [];
 	export let valves = {};
-	export let params: ChatParams = {
+	export let params: AdvancedModelParams = {
 		system: null,
 		seed: null,
 		stop: null,
@@ -29,8 +27,8 @@
 		mirostat: null,
 		mirostat_eta: null,
 		mirostat_tau: null,
-		use_mlock: null,
-		use_mmap: null,
+		use_mlock: undefined,
+		use_mmap: undefined,
 		num_batch: null,
 		num_ctx: null,
 		num_keep: null,

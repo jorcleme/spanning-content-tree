@@ -1,16 +1,15 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import fileSaver from 'file-saver';
-	const { saveAs } = fileSaver;
-
-	import { downloadDatabase, downloadLiteLLMConfig } from '$lib/apis/utils';
-	import { onMount, getContext } from 'svelte';
-	import { config, user } from '$lib/stores';
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { getAllUserChats } from '$lib/apis/chats';
+	import { downloadDatabase, downloadLiteLLMConfig } from '$lib/apis/utils';
+	import { config, user } from '$lib/stores';
+	import fileSaver from 'file-saver';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const { saveAs } = fileSaver;
+
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveHandler: Function;
 

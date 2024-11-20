@@ -1,27 +1,22 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Model } from '$lib/stores';
-	import { v4 as uuidv4 } from 'uuid';
+	import type { AdvancedModelParams, Collection, ModelConfig, i18nType } from '$lib/types';
+	import { getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
-	import { settings, user, config, models, tools, functions } from '$lib/stores';
-
-	import TurndownService from 'turndown';
-
-	import { onMount, tick, getContext } from 'svelte';
-	import { addNewModel, getModelById, getModelInfos } from '$lib/apis/models';
 	import { getModels } from '$lib/apis';
-
+	import { addNewModel } from '$lib/apis/models';
+	import type { Model } from '$lib/stores';
+	import { functions, models, tools } from '$lib/stores';
+	import { parseFile } from '$lib/utils/characters';
+	import TurndownService from 'turndown';
 	import AdvancedParams from '$lib/components/chat/Settings/Advanced/AdvancedParams.svelte';
 	import Checkbox from '$lib/components/common/Checkbox.svelte';
 	import Tags from '$lib/components/common/Tags.svelte';
+	import FiltersSelector from '$lib/components/workspace/Models/FiltersSelector.svelte';
 	import Knowledge from '$lib/components/workspace/Models/Knowledge.svelte';
 	import ToolsSelector from '$lib/components/workspace/Models/ToolsSelector.svelte';
-	import { parseFile } from '$lib/utils/characters';
-	import FiltersSelector from '$lib/components/workspace/Models/FiltersSelector.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	let filesInputElement: HTMLInputElement;
 	let inputFiles: FileList | null;
@@ -40,28 +35,29 @@
 	let name = '';
 
 	let toolIds: string[] = [];
-	let knowledge: any[] = [];
+	let knowledge: Collection[] = [];
 	let filterIds: string[] = [];
 
-	let info: { [key: string]: any } = {
+	let info: ModelConfig = {
 		id: '',
-		base_model_id: null,
+		base_model_id: undefined,
 		name: '',
 		meta: {
-			profile_image_url: null,
+			profile_image_url: undefined,
 			description: '',
 			suggestion_prompts: [
 				{
 					content: ''
 				}
-			]
+			],
+			tags: []
 		},
 		params: {
 			system: ''
 		}
 	};
 
-	let params: { [key: string]: any } = {};
+	let params: AdvancedModelParams = {};
 	let capabilities: { [key: string]: any } = {
 		vision: true
 	};
@@ -117,7 +113,11 @@
 			}
 		}
 
-		info.params.stop = params.stop ? params.stop.split(',').filter((s: string) => s.trim()) : null;
+		info.params.stop = params.stop
+			? Array.isArray(params.stop)
+				? params.stop.filter((s) => s.trim())
+				: params.stop.split(',').filter((s) => s.trim())
+			: null;
 		Object.keys(info.params).forEach((key) => {
 			if (info.params[key] === '' || info.params[key] === null) {
 				delete info.params[key];
@@ -145,7 +145,7 @@
 			});
 
 			if (res) {
-				await models.set(await getModels(localStorage.token));
+				models.set(await getModels(localStorage.token));
 				toast.success($i18n.t('Model created successfully!'));
 				await goto('/workspace/models');
 			}
@@ -175,7 +175,7 @@
 			}
 		}
 		params = { ...params, ...model?.info?.params };
-		params.stop = params?.stop ? (params?.stop ?? []).join(',') : null;
+		params.stop = params?.stop ? (Array.isArray(params?.stop) ? params.stop.join(',') : params.stop) : null;
 
 		capabilities = { ...capabilities, ...(model?.info?.meta?.capabilities ?? {}) };
 		toolIds = model?.info?.meta?.toolIds ?? [];
@@ -300,6 +300,12 @@
 				console.log('No file selected.');
 			}
 			inputFiles = null;
+		}
+	};
+
+	const onSuggestionPromptClick = () => {
+		if (info.meta?.suggestion_prompts?.length === 0 || info.meta?.suggestion_prompts?.at(-1)?.content !== '') {
+			info.meta.suggestion_prompts = [...(info.meta.suggestion_prompts ?? []), { content: '' }];
 		}
 	};
 </script>
@@ -528,15 +534,7 @@
 				</div>
 
 				{#if info.meta.suggestion_prompts !== null}
-					<button
-						class="p-1 px-2 text-xs flex rounded transition"
-						type="button"
-						on:click={() => {
-							if (info.meta.suggestion_prompts.length === 0 || info.meta.suggestion_prompts.at(-1).content !== '') {
-								info.meta.suggestion_prompts = [...info.meta.suggestion_prompts, { content: '' }];
-							}
-						}}
-					>
+					<button class="p-1 px-2 text-xs flex rounded transition" type="button" on:click={onSuggestionPromptClick}>
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 							<path
 								d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"
@@ -561,8 +559,10 @@
 									class="px-2"
 									type="button"
 									on:click={() => {
-										info.meta.suggestion_prompts.splice(promptIdx, 1);
-										info.meta.suggestion_prompts = info.meta.suggestion_prompts;
+										if (info.meta.suggestion_prompts) {
+											info.meta.suggestion_prompts.splice(promptIdx, 1);
+											info.meta.suggestion_prompts = info.meta.suggestion_prompts;
+										}
 									}}
 								>
 									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
@@ -626,14 +626,14 @@
 				<Tags
 					tags={info?.meta?.tags ?? []}
 					deleteTag={(tagName) => {
-						info.meta.tags = info.meta.tags.filter((tag) => tag.name !== tagName);
+						info.meta.tags = info.meta.tags?.filter((tag) => tag.name !== tagName);
 					}}
 					addTag={(tagName) => {
 						console.log(tagName);
 						if (!(info?.meta?.tags ?? null)) {
 							info.meta.tags = [{ name: tagName }];
 						} else {
-							info.meta.tags = [...info.meta.tags, { name: tagName }];
+							info.meta.tags = [...(info.meta.tags ?? []), { name: tagName }];
 						}
 					}}
 				/>

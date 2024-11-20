@@ -1,39 +1,37 @@
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
-	import type { Model } from '$lib/stores';
-	import type { Article } from '$lib/types';
-	import type { MarkedOptions } from 'marked';
-	import {
-		models,
-		settings,
-		config,
-		showSidebar,
-		activeSupportSection,
-		isSupportStepDetailsOpen,
-		activeSupportStep,
-		mostRecentStep,
-		mountedArticleSteps,
-		ExpGradeSelected,
-		activeArticle,
-		hideSupportWidgetBtn
-	} from '$lib/stores';
+	import type { Article, i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { marked } from 'marked';
-	import { page } from '$app/stores';
-	import { onMount, getContext } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import { titleizeWords, isErrorWithDetail, isErrorWithMessage, generateReadingText } from '$lib/utils';
+	import { page } from '$app/stores';
 	import { addNewArticle } from '$lib/apis/articles';
 	import { getSeriesByName } from '$lib/apis/series';
+	import type { Model } from '$lib/stores';
+	import {
+		ExpGradeSelected,
+		activeArticle,
+		activeSupportSection,
+		activeSupportStep,
+		config,
+		hideSupportWidgetBtn,
+		isSupportStepDetailsOpen,
+		models,
+		mostRecentStep,
+		mountedArticleSteps,
+		settings,
+		showSidebar
+	} from '$lib/stores';
+	import { generateReadingText, isErrorWithDetail, isErrorWithMessage, titleizeWords } from '$lib/utils';
+	import type { MarkedOptions } from 'marked';
+	import { marked } from 'marked';
 	import readingTime from 'reading-time/lib/reading-time';
-	import DetailsGetSupport from './DetailsGetSupport.svelte';
-	import ArticleStep from './ArticleStep.svelte';
-	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import Controls from '$lib/components/chat/Controls/Controls.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
+	import Navbar from '$lib/components/layout/Navbar.svelte';
+	import ArticleStep from './ArticleStep.svelte';
+	import DetailsGetSupport from './DetailsGetSupport.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	let articleWrapper: HTMLDivElement;
 	let observer: IntersectionObserver;

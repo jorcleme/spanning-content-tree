@@ -1,10 +1,9 @@
 <script lang="ts">
-	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { copyToClipboard, isErrorAsString, isErrorWithDetail, isErrorWithMessage } from '$lib/utils';
+	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
 	import hljs from 'highlight.js';
 	import 'highlight.js/styles/github-dark.min.css';
 	import { loadPyodide } from 'pyodide';
-	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
 
 	export let id = '';
 	export let lang = '';

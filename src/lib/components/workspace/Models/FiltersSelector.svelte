@@ -1,17 +1,21 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
 	import { getContext, onMount } from 'svelte';
+	import type { Func } from '$lib/stores';
 	import Checkbox from '$lib/components/common/Checkbox.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
-	export let filters = [];
-	export let selectedFilterIds = [];
+	export let filters: Func[] = [];
+	export let selectedFilterIds: string[] = [];
 
-	let _filters = {};
+	type FilterByIdWithSelected = { [key: string]: Func & { selected: boolean } };
+
+	let _filters: FilterByIdWithSelected = {};
 
 	onMount(() => {
-		_filters = filters.reduce((acc, filter) => {
+		_filters = filters.reduce<Record<string, any>>((acc, filter) => {
 			acc[filter.id] = {
 				...filter,
 				selected: selectedFilterIds.includes(filter.id)

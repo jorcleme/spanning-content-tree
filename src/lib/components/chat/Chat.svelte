@@ -1,69 +1,72 @@
 <script lang="ts">
-	import { v4 as uuidv4 } from 'uuid';
-	import { toast } from 'svelte-sonner';
-	import mermaid from 'mermaid';
+	import type {
+		Article,
+		ChatResponse,
+		ChatTagListResponse,
+		ClientFile,
+		Message,
+		MessageHistory,
+		i18nType
+	} from '$lib/types';
 	import { getContext, onDestroy, onMount, tick } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import type { Writable } from 'svelte/store';
-	import { type i18n as i18nType } from 'i18next';
-	import { fly } from 'svelte/transition';
-	import { OLLAMA_API_BASE_URL, OPENAI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+	import { chatAction, chatCompleted, generateSearchQuery, generateTitle } from '$lib/apis';
+	import { createNewArticle } from '$lib/apis/articles';
+	import { createNewChat, getChatById, getChatList, getTagsById, updateChatById } from '$lib/apis/chats';
+	import { createNewDoc, getDocs } from '$lib/apis/documents';
+	import { uploadFile } from '$lib/apis/files';
+	import { queryMemory } from '$lib/apis/memories';
+	import { generateChatCompletion, generateTextCompletion } from '$lib/apis/ollama';
+	import { generateOpenAIChatCompletion, generateOpenAIChatCompletionQuestions } from '$lib/apis/openai';
+	import { processDocToVectorDB, runWebSearch } from '$lib/apis/rag';
+	import { createOpenAITextStream } from '$lib/apis/streaming';
+	import { getAndUpdateUserLocation, getUserSettings } from '$lib/apis/users';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 	import {
+		type Model,
+		WEBUI_NAME,
+		tags as _tags,
+		activeArticle,
+		banners,
 		chatId,
 		chats,
 		config,
-		type Model,
+		documents,
 		models,
 		settings,
-		showSidebar,
-		tags as _tags,
-		WEBUI_NAME,
-		banners,
-		user,
-		socket,
 		showCallOverlay,
-		tools,
-		activeArticle
+		showSidebar,
+		socket,
+		user
 	} from '$lib/stores';
+	import { explanationStore, promptStore, variablesStore } from '$lib/stores';
 	import {
 		convertMessagesToHistory,
 		copyToClipboard,
 		extractSentencesForAudio,
 		getUserPosition,
+		isErrorWithDetail,
 		promptTemplate,
-		splitStream
+		splitStream,
+		transformFileName
 	} from '$lib/utils';
-	import { generateChatCompletion, generateTextCompletion } from '$lib/apis/ollama';
-	import {
-		addTagById,
-		createNewChat,
-		deleteTagById,
-		getAllChatTags,
-		getChatById,
-		getChatList,
-		getTagsById,
-		updateChatById
-	} from '$lib/apis/chats';
-	import { generateOpenAIChatCompletion, generateOpenAIChatCompletionQuestions } from '$lib/apis/openai';
-	import { createNewArticle } from '$lib/apis/articles';
-	import { runWebSearch } from '$lib/apis/rag';
-	import { createOpenAITextStream } from '$lib/apis/streaming';
-	import { queryMemory } from '$lib/apis/memories';
-	import { getAndUpdateUserLocation, getUserSettings } from '$lib/apis/users';
-	import { chatCompleted, generateTitle, generateSearchQuery, chatAction } from '$lib/apis';
-	import Banner from '../common/Banner.svelte';
+	import { jsPDF } from 'jspdf';
+	import mermaid from 'mermaid';
+	import { v4 as uuidv4 } from 'uuid';
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
 	import Messages from '$lib/components/chat/Messages.svelte';
+	import PromptTemplateGenerator from '$lib/components/cisco/components/PromptTemplateGenerator.svelte';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
-	import CallOverlay from './MessageInput/CallOverlay.svelte';
-	import ChatControls from './ChatControls.svelte';
+	import Banner from '../common/Banner.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
+	import ChatControls from './ChatControls.svelte';
+	import CallOverlay from './MessageInput/CallOverlay.svelte';
 	import ClarificationCard from './Messages/ClarificationCard.svelte';
-	import type { ChatResponse, Message, MessageHistory, ClientFile, ChatTagListResponse, Article } from '$lib/types';
-	import { isErrorWithDetail } from '$lib/utils';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 	const eventTarget = new EventTarget();
 
 	export let chatIdProp = '';
@@ -132,12 +135,10 @@
 		}
 		return a;
 	}, [] as string[]);
-
-	//////////////////////////////
+	////
 
 	// ClarificationCard variables
-
-	//////////////////////////////
+	////
 
 	let clarificationVisible = false;
 	let awaitingClarification = false;
@@ -156,6 +157,16 @@
 	let notOptions = [];
 
 	let userMessage = null;
+
+	/////////////////////////
+	// Article variables
+	/////////////////////////
+	let seriesId = '';
+	let seriesName = '';
+	let isGeneratingNewArticle: boolean = false;
+	let _stopGeneratingArticle: boolean = false;
+	let chatHasArticle: boolean = false;
+	let articleId = '';
 
 	/////////////////////////
 	//
@@ -573,6 +584,48 @@
 		}
 	};
 
+	const exportArticleToFile = (article: Article) => {
+		const doc = new jsPDF({ unit: 'px' });
+		let y = 10;
+		doc.setFontSize(20);
+		doc.text(article.title, 10, y, { align: 'left' });
+		y += 5;
+		doc.setFontSize(12);
+		doc.text('Objective', 10, y, { align: 'left' });
+		y += 2;
+		doc.text(article.objective, 10, y, { align: 'left' });
+		y += 5;
+		doc.text('Applicable Devices', 10, y, { align: 'left' });
+		y += 2;
+		article.applicable_devices.forEach((device) => {
+			doc.text(`${device.device} (Software Version: ${device.software ?? 'Unknown'})`, 10, y, { align: 'left' });
+			y += 4;
+		});
+		doc.text('Introduction', 10, y, { align: 'left' });
+		y += 2;
+		doc.text(article.introduction, 10, y, { align: 'left' });
+		y += 5;
+		article.steps.forEach((step, i) => {
+			if (i > 0) {
+				y += 5;
+			}
+			if (step.step_number === 1) {
+				doc.text(`${step.section}`, 10, y, { align: 'left' });
+				y += 2;
+			}
+			doc.text(`Step ${step.step_number}`, 10, y, { align: 'left' });
+			y += 5;
+			doc.text(`${step.text}`, 10, y, { align: 'left' });
+			if (step.note) {
+				y += 5;
+				doc.text(`Note: ${step.note}`, 10, y, { align: 'left' });
+			}
+		});
+		const blob = doc.output('blob');
+		const file = new File([blob], `${article.title}.pdf`, { type: 'application/pdf' });
+		return file;
+	};
+	let inputFiles;
 	onMount(async () => {
 		window.addEventListener('message', onMessageHandler);
 
@@ -598,10 +651,9 @@
 	});
 
 	//////////////////////////
-	// Cisco functions
+	// Prompt Template Generator
 	//////////////////////////
-	import { promptStore, variablesStore, explanationStore } from '$lib/stores';
-	import PromptTemplateGenerator from '$lib/components/cisco/components/PromptTemplateGenerator.svelte';
+
 	export let isTextareaTruthy = false;
 	export let showPromptTemplateGenerator = false;
 
@@ -617,9 +669,6 @@
 
 	let isGeneratingPrompt: boolean;
 
-	//dispatch
-	import { createEventDispatcher } from 'svelte';
-	import About from './Settings/About.svelte';
 	const dispatch = createEventDispatcher();
 
 	async function generatePrompt(existingText: string = '') {
@@ -984,10 +1033,12 @@
 
 				if (chatContent.article) {
 					await tick();
-					toast.message('Redirecting to article...');
-					window.setTimeout(() => {
-						goto(`/article/${chatContent.article}`);
-					}, 2000);
+					toast.info('Chat content detected previously generated article');
+					articleId = chatContent.article;
+					chatHasArticle = true;
+				} else {
+					articleId = '';
+					chatHasArticle = false;
 				}
 
 				return true;
@@ -1600,7 +1651,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...model.info?.meta.knowledge);
+			files.push(...(model.info?.meta.knowledge ?? []));
 		}
 		if (responseMessage?.files) {
 			files.push(...responseMessage?.files.filter((item) => item.type && ['web_search_results'].includes(item.type)));
@@ -1684,11 +1735,36 @@ Please rewrite the query for optimal search results. Return only the refined que
 				chats.set(await getChatList(localStorage.token));
 			}
 		}
+		chatHasArticle = true;
+		articleId = article.id;
+		const pdf = exportArticleToFile(article);
+		await tick();
+		const doc = await uploadFile(localStorage.token, pdf);
+		if (doc) {
+			const res = await processDocToVectorDB(localStorage.token, doc.id);
+			if (res) {
+				const doc = await createNewDoc(
+					localStorage.token,
+					res.collection_name,
+					res.filename,
+					transformFileName(res.filename),
+					res.filename
+				).catch((error) => {
+					toast.error(error);
+					return null;
+				});
+				if (doc) {
+					console.log('Doc (Article) created:');
+					console.log('Adding doc to model knowledge base:', doc);
+					(model.info?.meta.knowledge ?? []).push(doc);
+				}
+				documents.set(await getDocs(localStorage.token));
+			}
+		}
 		_stopGeneratingArticle = false;
 		activeArticle.set(article);
 		console.log('article', article);
 		console.log('activeArticle', $activeArticle);
-		await goto(`/article/${article.id}`);
 		return _response;
 	};
 
@@ -1900,7 +1976,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...model.info!.meta.knowledge);
+			files.push(...(model.info!.meta.knowledge ?? []));
 		}
 		if (responseMessage?.files) {
 			files.push(...responseMessage?.files.filter((item) => ['web_search_results'].includes(item.type as string)));
@@ -2143,7 +2219,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...model.info?.meta.knowledge);
+			files.push(...(model.info?.meta.knowledge ?? []));
 		}
 		if (responseMessage?.files) {
 			files.push(...responseMessage?.files.filter((item) => item.type && ['web_search_results'].includes(item.type)));
@@ -2680,9 +2756,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 		}
 	};
 
-	let seriesId = '';
-	let seriesName = '';
-
 	const handleDeviceConfirm = async (event: CustomEvent<{ device: string; name: string }>) => {
 		const { device, name } = event.detail;
 		console.log('Device selected:', device, name);
@@ -2704,9 +2777,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 			return await processChatAction(JSON.stringify({ seriesId }), 'published-articles');
 		}
 	};
-
-	let isGeneratingNewArticle: boolean = false;
-	let _stopGeneratingArticle: boolean = false;
 
 	const generateNewArticle = async () => {
 		// Move to the next slide
@@ -2877,6 +2947,8 @@ Please rewrite the query for optimal search results. Return only the refined que
 					{submitPrompt}
 					{stopResponse}
 					{openConfigAssistant}
+					bind:chatHasArticle
+					{articleId}
 				/>
 			</div>
 		</div>

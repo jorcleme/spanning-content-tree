@@ -1,21 +1,19 @@
 <script lang="ts">
-	import { basicSetup, EditorView } from 'codemirror';
-	import { keymap, placeholder } from '@codemirror/view';
-	import { Compartment, EditorState } from '@codemirror/state';
-
+	import type { i18nType } from '$lib/types';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import { formatPythonCode } from '$lib/apis/utils';
 	import { acceptCompletion } from '@codemirror/autocomplete';
 	import { indentWithTab } from '@codemirror/commands';
-
-	import { indentUnit } from '@codemirror/language';
 	import { python } from '@codemirror/lang-python';
+	import { indentUnit } from '@codemirror/language';
+	import { Compartment, EditorState } from '@codemirror/state';
 	import { oneDark } from '@codemirror/theme-one-dark';
-
-	import { onMount, createEventDispatcher, getContext } from 'svelte';
-	import { formatPythonCode } from '$lib/apis/utils';
-	import { toast } from 'svelte-sonner';
+	import { keymap, placeholder } from '@codemirror/view';
+	import { EditorView, basicSetup } from 'codemirror';
 
 	const dispatch = createEventDispatcher();
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let boilerplate = '';
 	export let value = '';
@@ -98,7 +96,7 @@
 							});
 						} else {
 							codeEditor.dispatch({
-								effects: editorTheme.reconfigure()
+								effects: editorTheme.reconfigure([])
 							});
 						}
 					}
@@ -111,7 +109,7 @@
 			attributeFilter: ['class']
 		});
 
-		const keydownHandler = async (e) => {
+		const keydownHandler = async (e: KeyboardEvent) => {
 			if ((e.ctrlKey || e.metaKey) && e.key === 's') {
 				e.preventDefault();
 				dispatch('save');
