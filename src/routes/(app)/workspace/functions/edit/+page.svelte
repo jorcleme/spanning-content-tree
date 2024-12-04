@@ -7,7 +7,7 @@
 	import { getModels } from '$lib/apis';
 	import { getFunctionById, getFunctions, updateFunctionById } from '$lib/apis/functions';
 	import { WEBUI_VERSION } from '$lib/constants';
-	import type { Func } from '$lib/stores';
+	import type { _Function } from '$lib/stores';
 	import { functions, models } from '$lib/stores';
 	import { compareVersion, extractFrontmatter } from '$lib/utils';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -15,7 +15,7 @@
 
 	const i18n: i18nType = getContext('i18n');
 
-	let func: Func | null = null;
+	let func: _Function | null = null;
 
 	const saveHandler = async (data: Record<string, any>) => {
 		console.log(data);

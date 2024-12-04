@@ -220,7 +220,7 @@ origins = ["*"]
 ##################################
 
 
-async def get_body_and_model_and_user(request):
+async def get_body_and_model_and_user(request: Request):
     # Read the original request body
     body = await request.body()
     body_str = body.decode("utf-8")
@@ -520,6 +520,7 @@ async def chat_completion_functions_handler(
             raise e
 
     if skip_files:
+        log.debug(f"__chat_completion_functions_handler__::skip_files: {skip_files}")
         if "files" in body:
             del body["files"]
 
@@ -570,6 +571,7 @@ async def chat_completion_tools_handler(body, user, __event_emitter__, __event_c
         print(f"tool_contexts: {contexts}")
 
     if skip_files:
+        log.debug(f"__chat_completion_tools_handler__::skip_files: {skip_files}")
         if "files" in body:
             del body["files"]
 
@@ -597,7 +599,9 @@ async def chat_completion_files_handler(body):
             hybrid_search=rag_app.state.config.ENABLE_RAG_HYBRID_SEARCH,
         )
 
-        log.debug(f"rag_contexts: {contexts}, citations: {citations}")
+        log.debug(
+            f"__chat_completion_files_handler__::rag_contexts: {contexts}, citations: {citations}"
+        )
 
     return body, {
         **({"contexts": contexts} if contexts is not None else {}),
@@ -633,11 +637,15 @@ class ChatCompletionMiddleware(BaseHTTPMiddleware):
             if "session_id" in body:
                 session_id = body["session_id"]
                 del body["session_id"]
+
             chat_id = None
+
             if "chat_id" in body:
                 chat_id = body["chat_id"]
                 del body["chat_id"]
+
             message_id = None
+
             if "id" in body:
                 message_id = body["id"]
                 del body["id"]
@@ -685,7 +693,8 @@ class ChatCompletionMiddleware(BaseHTTPMiddleware):
             except Exception as e:
                 print(e)
                 pass
-
+            log.debug(f"__CHAT_COMPLETION_MIDDLEWARE__:context: {contexts}")
+            log.debug(f"__CHAT_COMPLETION_MIDDLEWARE__:citations: {citations}")
             # If context is not empty, insert it into the messages
             if len(contexts) > 0:
                 context_string = "\n".join(contexts).strip()
@@ -771,7 +780,7 @@ app.add_middleware(ChatCompletionMiddleware)
 ##################################
 
 
-def get_sorted_filters(model_id):
+def get_sorted_filters(model_id: str):
     filters = [
         model
         for model in app.state.MODELS.values()
@@ -849,7 +858,7 @@ class PipelineMiddleware(BaseHTTPMiddleware):
             # Decode body to string
             body_str = body.decode("utf-8")
             # Parse string to JSON
-            data = json.loads(body_str) if body_str else {}
+            data: dict = json.loads(body_str) if body_str else {}
 
             user = get_current_user(
                 request,

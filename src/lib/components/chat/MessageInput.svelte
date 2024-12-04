@@ -21,6 +21,7 @@
 	import Models from './MessageInput/Models.svelte';
 	import Prompts from './MessageInput/PromptCommands.svelte';
 	import VoiceRecording from './MessageInput/VoiceRecording.svelte';
+	import { EyeIcon } from 'lucide-svelte';
 
 	const i18n: i18nType = getContext('i18n');
 
@@ -432,13 +433,33 @@
 		}
 	};
 
+	const showConfirmationToast = () => {
+		toast('This article has not been reviewed by a Cisco editor and may contain errors', {
+			actionButtonStyle: 'background: #1990fa !important;',
+			cancelButtonStyle: 'background: #f0f0f0 !important;',
+			duration: Number.POSITIVE_INFINITY,
+			action: {
+				label: 'Proceed?',
+				onClick: async () => {
+					chatHasArticle = false;
+					await goto(`/article/${articleId}`);
+				}
+			},
+			cancel: {
+				label: 'Close',
+				onClick: () => {
+					chatHasArticle = true;
+				}
+			}
+		});
+	};
+
 	const onClose = (e: CustomEvent) => {
 		console.log(e);
 	};
 </script>
 
 <FilesOverlay show={dragged} />
-
 <div class="w-full font-primary">
 	<div class=" -mb-0.5 mx-auto inset-x-0 bg-transparent flex justify-center">
 		<div class="flex flex-col max-w-6xl px-2.5 md:px-6 w-full">
@@ -680,8 +701,8 @@
 								</div>
 							{/if}
 
-							<div class=" flex">
-								<div class=" ml-0.5 self-end mb-1.5 flex space-x-1">
+							<div class="flex items-center">
+								<div class="ml-0.5 self-end flex h-full items-center justify-center space-x-1">
 									<InputMenu
 										bind:webSearchEnabled
 										bind:selectedToolIds
@@ -707,15 +728,16 @@
 									</InputMenu>
 								</div>
 								{#if chatHasArticle}
-									<div>
-										<button
-											class="text-sm bg-gray-50 hover:bg-gray-100 text-gray-800 dark:bg-gray-850 dark:text-white dark:hover:bg-gray-800 transition rounded-xl p-2 ml-1 outline-none focus:outline-none"
-											type="button"
-											on:click={async () => {
-												chatHasArticle = false;
-												await goto(`/article/${articleId}`);
-											}}>View Article</button
-										>
+									<div class="h-full flex items-center justify-center">
+										<Tooltip content={$i18n.t('View Article')}>
+											<button
+												class="text-sm bg-[#1990fa] text-white hover:bg-[#47a6fb] dark:bg-gray-850 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-2 mx-1 outline-none focus:outline-none"
+												type="button"
+												on:click={async () => {
+													showConfirmationToast();
+												}}><EyeIcon class="w-4 h-4" /></button
+											>
+										</Tooltip>
 									</div>
 								{/if}
 								<GuideMeMenu {openConfigAssistant} {handleGeneratePromptClick} onClose={() => {}}>

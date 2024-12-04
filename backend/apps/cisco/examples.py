@@ -5,9 +5,21 @@ from typing import List
 def create_decomposition_search_examples() -> List[Search]:
     questions_subtopics = {
         "How do I create VLAN's on a Catalyst 1300?": [
-            "How do I create VLAN's?",
-            "How do I edit VLAN's?",
-            "How do I delete VLAN's?",
+            "Create VLANs",
+            "Edit VLANs",
+            "Delete VLANs",
+        ],
+        "I want to setup onboard packet capture on a Catalyst 1200": [
+            "Commands for Configuring Capture Points",
+            "Commands for Configuring Capture Buffer",
+            "Capture Point Source Interface Settings",
+            "Capture Filter Settings",
+            "Starting and Stopping the Capture",
+            "Saving the Packet Capture Data",
+        ],
+        "How do I Configure Simple Network Management Protocol (SNMP) Communities?": [
+            "Configure SNMP Community on a Switch",
+            "Manage SNMP Community",
         ],
         "How do I configure System Time Settings on a Catalyst 1300?": [
             "View System Time Settings",
@@ -26,13 +38,21 @@ def create_decomposition_search_examples() -> List[Search]:
             "Configure Backup Server Settings",
         ],
         "How do I configure LAG Settings through the CLI?": [
-            "Configure LAG Settings",
-            "What are the Link Aggregation Control Protocol (LACP) Commands",
-            "What are the commands to verify Link Aggregation Group (LAG) is working?",
+            "LAG Settings",
+            "Link Aggregation Control Protocol (LACP) Commands",
+            "LAG Interface Settings",
+            "LACP Port Priority",
         ],
         "How do I enable Loopback Detection?": [
             "Enable Loopback Detection",
             "Enable Loopback Detection on a Port",
+        ],
+        "How do I configure Radius Server?": [
+            "Radius Server Global Settings",
+            "Radius Client Settings",
+            "Radius Server Keys",
+            "Radius Server Groups",
+            "Radius Server Users",
         ],
     }
 

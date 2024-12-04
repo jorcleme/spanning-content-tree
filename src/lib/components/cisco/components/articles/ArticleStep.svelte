@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { ArticleStep } from '$lib/types';
-	import { marked, type MarkedOptions } from 'marked';
-	import { fly } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import { quintIn } from 'svelte/easing';
+	import { fly, slide } from 'svelte/transition';
+	import { type MarkedOptions, marked } from 'marked';
+	import { Info } from 'lucide-svelte';
 
 	export let step: ArticleStep;
 	export const index: number = 0;
@@ -88,109 +90,86 @@
 	$: {
 		console.log('active', active);
 	}
+
+	const getMimeType = (src: string) => {
+		const ext = src.split('.').pop()?.toLowerCase().trim();
+		switch (ext) {
+			case 'mp4':
+				return 'video/mp4';
+			case 'webm':
+				return 'video/webm';
+			case 'ogg':
+				return 'video/ogg';
+			default:
+				return 'video/mp4';
+		}
+	};
 </script>
 
-<div role="contentinfo" class="stepContainer">
-	<h4>Step {step.step_number}</h4>
+<div role="contentinfo" class="container py-4 has-[p]:m-0">
+	<h4 class="font-bold my-2">Step {step.step_number}</h4>
 	{@html parsedText}
 	{#if step.src}
 		<div class="placeholder">
-			<div class="img-wrapper" in:fly={{ y: -15, duration: 750, delay: 250 }}>
+			<div class="bg-center bg-cover my-6 ml-4 md:ml-3" in:fly={{ y: -15, duration: 750, delay: 250 }}>
 				<a target="_blank" href={step.src} class="show-image-alone" title="Related image, diagram or screenshot."
 					><img
 						alt={step.alt}
 						src={step.src}
-						class={imageLoaded ? 'loaded' : 'hidden'}
+						class="max-w-full h-auto transition-opacity shadow-lg max-w-[calc(100%-80px)] my-5 {imageLoaded
+							? 'block opacity-100'
+							: 'hidden opacity-0'}"
 						on:load={() => (imageLoaded = true)}
 					/></a
 				>
 			</div>
 		</div>
 	{/if}
+	{#if step.video_src}
+		{#if step.video_src.includes('https://www.youtube.com/embed/')}
+			<div class="vid-card-container flex flex-col justify-center items-center max-w-full px-4 m-0" in:slide>
+				<div
+					class="video-card w-full max-w-[800px] h-[400px] bg-white inline-flex flex-col relative top-0 left-0 my-4 p-0 rounded-lg overflow-hidden border border-solid border-gray-300 transition-all duration-500 ease-in-out scroll-snap-align-start self-start mb-8 shadow-lg"
+					in:fly={{ delay: 25, duration: 1000, y: 55, easing: quintIn }}
+					out:fly={{ duration: 1000, y: -55, easing: quintIn }}
+				>
+					<iframe
+						loading="lazy"
+						class="vid-card-iframe w-full h-[clamp(300px,100%,600px)]"
+						src={step.video_src}
+						title="YouTube video player"
+						frameborder="0"
+						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+						allowfullscreen
+					/>
+				</div>
+			</div>
+		{:else}
+			<video autoplay playsinline muted loop controls class="my-4 ml-4">
+				<source src={`https://www.cisco.com${step.video_src}`} type={getMimeType(step.video_src)} />
+			</video>
+		{/if}
+	{/if}
 	{#if step.note}
-		<div class="cdt-note" in:fly={{ y: -15, duration: 750, delay: 550 }}>
-			<p>{@html step.note}</p>
+		<div
+			class="cdt-note bg-[#0d274d] p-4 text-[#fff] rounded-[5px] shadow-lg border-l-[5px] border-[#64bbe3] max-w-[1100px] text-pretty my-6 mx-4"
+			in:fly={{ y: -15, duration: 750, delay: 550 }}
+		>
+			<div class="p-4 flex items-center space-x-3">
+				<div class="flex flex-row items-center flex-none">
+					<Info class="mr-2" size="1.5em" color="#64bbe3" />
+					<span class="text-[#64bbe3]">Note: </span>
+				</div>
+				<div class="text-white text-pretty text-left">{@html step.note}</div>
+			</div>
 		</div>
 	{/if}
 </div>
 
 <style>
-	.hidden {
-		display: none;
-	}
-
-	img {
-		max-width: 100%;
-		height: auto;
-	}
-	.img-wrapper {
-		background-size: cover;
-		background-position: center;
-		margin: 1em 40px;
-	}
-	.img-wrapper img {
-		opacity: 0;
-		transition: opacity 0.3s;
-	}
-
-	.img-wrapper img.loaded {
-		opacity: 1;
-	}
-	.cdt-note:before {
-		color: #64bbe3;
-		content: '\1F6C8  Note:';
-		font-size: 1rem;
-		font-weight: 700;
-		line-height: 2em;
-	}
-	.cdt-note {
-		background-color: #0d274d;
-		padding: 1.5em;
-		color: #fff;
-		border-radius: 5px;
-		box-shadow: 0 0 16px 0 rgba(43, 85, 146, 0.2);
-		border-left: #64bbe3 5px solid;
-		max-width: 1100px;
-		text-wrap: pretty;
-		margin: 1em 0;
-	}
-	.cdt-note p {
-		margin: auto 0;
-		color: #fff;
-	}
-	.stepContainer {
-		margin: 1em 0;
-		padding: 1em 0;
-	}
-	.stepContainer p {
-		margin: 0;
-	}
-
-	.stepContainer h4 {
-		margin: 0;
-		font-weight: 700;
-	}
-
 	:global(ul) {
 		list-style-type: none;
-	}
-
-	/* :global(ul li::before) {
-		content: '\25cf';
-		color: #64bbe3;
-		font-weight: 900;
-		font-size: 1.15em;
-		display: inline-block;
-		width: 1em;
-		text-align: left;
-	} */
-
-	.stepContainer img {
-		max-width: calc(100% - 80px);
-		height: auto;
-		margin: 1.5em 40px;
-		border-radius: 5px;
-		box-shadow: 0 0 16px 0 rgba(43, 85, 146, 0.2);
+		margin: 8px 0;
 	}
 
 	:global(#eot-doc-wrapper .kbd-cdt) {
@@ -199,7 +178,7 @@
 		background-color: #dfdfdf;
 		color: #0d274d;
 		border-radius: 12px;
-		padding: 1.3em;
+		padding: 1.5em;
 		margin: 1.5em 0;
 		box-shadow: 0 0 16px 0 rgba(43, 85, 146, 0.2);
 		max-width: 1100px;
@@ -227,16 +206,5 @@
 		place-items: center;
 		color: #ffa000;
 		content: ' Copied! ' !important;
-	}
-
-	@media only screen and (max-width: 768px) {
-		.stepContainer img {
-			max-width: calc(100% - 40px);
-			margin: 1.5em 20px;
-		}
-
-		.stepContainer p {
-			margin: 0 20px;
-		}
 	}
 </style>

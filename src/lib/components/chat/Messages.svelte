@@ -6,6 +6,7 @@
 	import { type SessionUser, user as _user, chats, config, mobile, settings } from '$lib/stores';
 	import { copyToClipboard, findWordIndices } from '$lib/utils';
 	import { v4 as uuidv4 } from 'uuid';
+	import Spinner from '../common/Spinner.svelte';
 	import CompareMessages from './Messages/CompareMessages.svelte';
 	import DeviceSelectorMessage from './Messages/DeviceSelectorMessage.svelte';
 	import Placeholder from './Messages/Placeholder.svelte';
@@ -36,6 +37,7 @@
 	export let seriesId = '';
 	export let seriesName = '';
 	export let generateNewArticle: (e: CustomEvent) => void;
+	export let isArticleLoading: boolean = false;
 
 	$: if (autoScroll && bottomPadding) {
 		(async () => {
@@ -313,6 +315,15 @@
 <div class="h-full flex">
 	{#if messages.length == 0}
 		<Placeholder modelIds={selectedModels} submitPrompt={onSubmitPrompt} />
+	{:else if isArticleLoading}
+		<div class="w-full flex justify-center items-center">
+			<div class="flex flex-col items-center">
+				<Spinner className="size-12" />
+				<p class="mt-4 text-center text-gray-600 dark:text-gray-200">
+					We are cooking up your generated article. This could take up to a minute or two.
+				</p>
+			</div>
+		</div>
 	{:else}
 		<div class="w-full pt-2">
 			{#key chatId}
@@ -340,7 +351,7 @@
 									{showNextMessage}
 									copyToClipboard={copyToClipboardWithToast}
 								/>
-							{:else if message.type}
+							{:else if message.type ?? false}
 								{#key message.type}
 									{#if message.type === 'device-selector'}
 										<DeviceSelectorMessage

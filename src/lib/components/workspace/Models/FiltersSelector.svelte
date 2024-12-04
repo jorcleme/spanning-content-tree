@@ -1,16 +1,16 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
 	import { getContext, onMount } from 'svelte';
-	import type { Func } from '$lib/stores';
+	import type { _Function } from '$lib/stores';
 	import Checkbox from '$lib/components/common/Checkbox.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
 	const i18n: i18nType = getContext('i18n');
 
-	export let filters: Func[] = [];
+	export let filters: _Function[] = [];
 	export let selectedFilterIds: string[] = [];
 
-	type FilterByIdWithSelected = { [key: string]: Func & { selected: boolean } };
+	type FilterByIdWithSelected = { [key: string]: _Function & { selected: boolean } };
 
 	let _filters: FilterByIdWithSelected = {};
 

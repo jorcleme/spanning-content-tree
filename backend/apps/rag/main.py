@@ -36,6 +36,7 @@ from langchain_community.document_loaders import (
     UnstructuredPowerPointLoader,
     YoutubeLoader,
     OutlookMessageLoader,
+    JSONLoader,
 )
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -615,6 +616,19 @@ async def list_collections(user=Depends(get_verified_user)):
             "status": True,
             "collections": list([c.name for c in CHROMA_CLIENT.list_collections()]),
         }
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(e),
+        )
+
+
+@app.delete("/collection/{collection_name}")
+async def delete_collection(collection_name: str, user=Depends(get_verified_user)):
+    try:
+        CHROMA_CLIENT.delete_collection(collection_name)
+        return {"status": "Ok", "collection_name": collection_name, "deleted": True}
     except Exception as e:
         log.exception(e)
         raise HTTPException(
@@ -1206,6 +1220,7 @@ def get_loader(filename: str, file_content_type: str, file_path: str):
         "vue",
         "svelte",
         "msg",
+        "json",
     ]
 
     if (
@@ -1257,6 +1272,8 @@ def get_loader(filename: str, file_content_type: str, file_path: str):
             file_content_type and file_content_type.find("text/") >= 0
         ):
             loader = TextLoader(file_path, autodetect_encoding=True)
+        elif file_ext == "json" or file_content_type == "application/json":
+            loader = JSONLoader(file_path)
         else:
             loader = TextLoader(file_path, autodetect_encoding=True)
             known_type = False

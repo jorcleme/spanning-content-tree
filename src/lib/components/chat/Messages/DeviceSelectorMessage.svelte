@@ -10,6 +10,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Name from './Name.svelte';
 	import ProfileImage from './ProfileImage.svelte';
+	import { RouterIcon } from 'lucide-svelte';
 
 	const i18n: i18nType = getContext('i18n');
 
@@ -103,8 +104,16 @@
 			<div class="prose chat-{message.role} w-full max-w-full dark:prose-invert {listOpen ? 'min-h-[14rem]' : ''}">
 				<div>
 					<div class="w-full">
-						<div class="flex flex-col">
-							<Select bind:value items={devices} on:confirm={handleDeviceConfirm} on:toggle={onToggleSelect} />
+						<div class="flex flex-col w-full sm:max-w-sm mx-auto">
+							<Select
+								bind:value
+								items={devices}
+								placeholder="Choose your device..."
+								on:confirm={handleDeviceConfirm}
+								on:toggle={onToggleSelect}
+							>
+								<div slot="prepend"><RouterIcon class="w-4 h-4 mr-2.5" /></div>
+							</Select>
 						</div>
 
 						{#if message.error}

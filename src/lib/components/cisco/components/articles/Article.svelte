@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { Article, i18nType } from '$lib/types';
-	import { getContext, onMount } from 'svelte';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { slide } from 'svelte/transition';
-	import { page } from '$app/stores';
 	import { addNewArticle } from '$lib/apis/articles';
 	import { getSeriesByName } from '$lib/apis/series';
+	import { updateUserSavedArticles } from '$lib/apis/users';
 	import type { Model } from '$lib/stores';
 	import {
 		ExpGradeSelected,
@@ -27,11 +27,16 @@
 	import readingTime from 'reading-time/lib/reading-time';
 	import Controls from '$lib/components/chat/Controls/Controls.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import ArticleStep from './ArticleStep.svelte';
 	import DetailsGetSupport from './DetailsGetSupport.svelte';
+	import { SaveIcon } from 'lucide-svelte';
 
 	const i18n: i18nType = getContext('i18n');
+	const dispatch = createEventDispatcher();
+
+	let lang = $i18n.language;
 
 	let articleWrapper: HTMLDivElement;
 	let observer: IntersectionObserver;
@@ -174,11 +179,11 @@
 			console.log('testTime', testTime);
 		}
 		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
-		(async () => {
-			if ($activeArticle) {
-				await addArticle($activeArticle);
-			}
-		})();
+		// (async () => {
+		// 	if ($activeArticle) {
+		// 		await addArticle($activeArticle);
+		// 	}
+		// })();
 		// (async () => {
 		// 	if ($page.url.searchParams.has('id')) {
 		// 		activeArticle.set(await getArticleById(localStorage.token, $page.url.searchParams.get('id')!));
@@ -254,10 +259,24 @@
 		return a;
 	}, [] as Model[]);
 
-	$: time = $activeArticle ? readingTime(generateReadingText($activeArticle)).text : '12 minute read';
+	$: time = $activeArticle
+		? articleWrapper
+			? readingTime(extractText(articleWrapper)).text
+			: readingTime(generateReadingText($activeArticle)).text
+		: '12 minute read';
 
 	const concatSupportString = (title: string, stepNum: number) => {
 		return `${title} | Step ${stepNum}`;
+	};
+
+	const _updateUserSavedArticles = async (articleId: string) => {
+		const articleIds = await updateUserSavedArticles(localStorage.token, articleId).catch((err) => {
+			toast.error($i18n.t('Failed to save article {{title}} to your account', { title: $activeArticle?.title }));
+			return null;
+		});
+		if (articleIds) {
+			dispatch('save');
+		}
 	};
 </script>
 
@@ -294,12 +313,28 @@
 		>
 			<div class="flex flex-col mx-auto {$showSidebar ? 'w-[calc(100%-16px)]' : 'w-[calc(100%-50px)]'}">
 				<div class="mix-blend-darken rounded-xl">
-					<div class="frostedGlass">
-						<!-- <img id="heroImage" src={backgroundImage} alt="hero dynamic experience background" /> -->
-
-						<div class="band" />
-
+					<div>
 						<h1 class="text-3xl text-left font-bold text-[#414344] my-4 text-pretty">{$activeArticle.title}</h1>
+						<div class="control-bar py-4 px-8 bg-gray-200 text-gray-800 rounded-md shadow-md">
+							<div class="flex items-center justify-between">
+								<div class="flex flex-col justify-start">
+									<p class="text-md font-bold">{$i18n.t('Document Id')}:</p>
+									<p class="text-sm">{$activeArticle.document_id}</p>
+								</div>
+								<div class="flex items-center">
+									<button
+										class="flex items-center justify-center self-end py-2 px-4 rounded-md bg-gray-300 hover:bg-gray-50"
+										on:click={async () => {
+											await _updateUserSavedArticles($activeArticle.id);
+										}}
+									>
+										<Tooltip content={$i18n.t('Save to your account')}>
+											<SaveIcon class="w-6 h-6 text-gray-800" />
+										</Tooltip>
+									</button>
+								</div>
+							</div>
+						</div>
 						<h2 class="text-2xl my-5 font-bold">Objective</h2>
 						<div data-section="Objective" bind:this={objectiveElement}>
 							<p>{$activeArticle.objective}</p>
@@ -402,7 +437,7 @@
 					<GetSupportDetailsFooter index={$mostRecentStep} /> 
 				{/if} -->
 				{#each $activeArticle.steps as step, index}
-					<div class="stepContainer" bind:this={stepElements[index]}>
+					<div class="my-8" bind:this={stepElements[index]}>
 						{#if step.step_number === 1}
 							<h4 class="text-xl font-bold my-4 text-[#132d4e]">{step.section}</h4>
 						{/if}
@@ -429,6 +464,31 @@
 				{/each}
 				<slot />
 			</div>
+			{#if $activeArticle.revision_history && $activeArticle.revision_history.length > 0}
+				<div class="m-4">
+					<table class="table-auto border-collapse border-spacing-2 border-2 border-slate-500">
+						<caption class="caption-top mb-2 font-bold text-lg">{$i18n.t('Revision History')}</caption>
+						<thead>
+							<tr>
+								{#each [$i18n.t('Revision'), $i18n.t('Publish Date'), $i18n.t('Comments')] as header}
+									<th class="bg-[#0d47a1] text-white font-['CiscoSansLight'] font-bold p-2 border-2 border-slate-700"
+										>{header}</th
+									>
+								{/each}
+							</tr>
+						</thead>
+						<tbody>
+							{#each $activeArticle.revision_history ?? [] as rh, i (i)}
+								<tr>
+									<td class="border-2 border-slate-700 p-2">{rh.revision}</td>
+									<td class="border-2 border-slate-700 p-2">{new Date(rh.publish_date).toLocaleDateString(lang)}</td>
+									<td class="border-2 border-slate-700 p-2">{rh.comments}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
 		</div>
 	{/if}
 	{#if largeScreen}
@@ -472,29 +532,19 @@
 		height: 0;
 	}
 
-	.frostedGlass {
-		background: rgba(255, 255, 255, 0.5);
-		backdrop-filter: blur(10px);
-		border-radius: 16px;
-		padding: 1em;
-		z-index: -1;
-		transition: all 0.1s ease;
-	}
-
 	:global(#eot-doc-wrapper ul > li::before) {
 		content: '●';
 		color: #9b9b9b;
 		font-weight: 100;
 		font-size: 1em;
 		display: inline-block;
-		width: 0.25em;
 		height: 0.25em;
 		text-align: left;
-		padding-right: 1.5rem;
+		padding-right: 0.5rem;
 	}
 
 	:global(#eot-doc-wrapper ul > li) {
-		margin: 6px 0;
+		margin: 6px;
 	}
 
 	:global(#eot-doc-wrapper ul > li > a) {

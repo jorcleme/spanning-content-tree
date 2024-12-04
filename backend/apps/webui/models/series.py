@@ -133,5 +133,15 @@ class SeriesTable:
             log.error(f"Error getting series with articles: {e}")
             return None
 
+    def delete_all_series(self) -> bool:
+        try:
+            with get_db() as db:
+                db.query(Series).delete()
+                db.commit()
+                return True
+        except Exception as e:
+            log.error(f"Error deleting all series: {e}")
+            return False
+
 
 Series_Table = SeriesTable()

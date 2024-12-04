@@ -13,7 +13,7 @@
 		toggleFunctionById,
 		toggleGlobalById
 	} from '$lib/apis/functions';
-	import type { Func } from '$lib/stores';
+	import type { _Function } from '$lib/stores';
 	import { WEBUI_NAME, functions, models } from '$lib/stores';
 	import fileSaver from 'file-saver';
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
@@ -38,11 +38,11 @@
 
 	let showManifestModal = false;
 	let showValvesModal = false;
-	let selectedFunction: Func | null = null;
+	let selectedFunction: _Function | null = null;
 
 	let showDeleteConfirm = false;
 
-	const shareHandler = async (func: Func) => {
+	const shareHandler = async (func: _Function) => {
 		const item = await getFunctionById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -69,7 +69,7 @@
 		console.log(item);
 	};
 
-	const cloneHandler = async (func: Func) => {
+	const cloneHandler = async (func: _Function) => {
 		const _function = await getFunctionById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -85,7 +85,7 @@
 		}
 	};
 
-	const exportHandler = async (func: Func) => {
+	const exportHandler = async (func: _Function) => {
 		const _function = await getFunctionById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -99,7 +99,7 @@
 		}
 	};
 
-	const deleteHandler = async (func: Func) => {
+	const deleteHandler = async (func: _Function) => {
 		const res = await deleteFunctionById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 			return null;
@@ -113,7 +113,7 @@
 		}
 	};
 
-	const toggleGlobalHandler = async (func: Func) => {
+	const toggleGlobalHandler = async (func: _Function) => {
 		const res = await toggleGlobalById(localStorage.token, func.id).catch((error) => {
 			toast.error(error);
 		});

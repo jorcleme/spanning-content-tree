@@ -1,8 +1,8 @@
-import type { Func } from '$lib/stores';
 import type { Nullable, Valve } from '$lib/types';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
+import type { _Function } from '$lib/stores';
 
-export const createNewFunction = async (token: string, func: object): Promise<Nullable<Func>> => {
+export const createNewFunction = async (token: string, func: object): Promise<Nullable<_Function>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/create`, {
@@ -33,7 +33,7 @@ export const createNewFunction = async (token: string, func: object): Promise<Nu
 	return res;
 };
 
-export const getFunctions = async (token: string = ''): Promise<Func[]> => {
+export const getFunctions = async (token: string = ''): Promise<_Function[]> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/`, {
@@ -64,7 +64,7 @@ export const getFunctions = async (token: string = ''): Promise<Func[]> => {
 	return res;
 };
 
-export const exportFunctions = async (token: string = ''): Promise<Func[]> => {
+export const exportFunctions = async (token: string = ''): Promise<_Function[]> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/export`, {
@@ -95,7 +95,7 @@ export const exportFunctions = async (token: string = ''): Promise<Func[]> => {
 	return res;
 };
 
-export const getFunctionById = async (token: string, id: string): Promise<Nullable<Func>> => {
+export const getFunctionById = async (token: string, id: string): Promise<Nullable<_Function>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}`, {
@@ -127,7 +127,7 @@ export const getFunctionById = async (token: string, id: string): Promise<Nullab
 	return res;
 };
 
-export const updateFunctionById = async (token: string, id: string, func: object): Promise<Nullable<Func>> => {
+export const updateFunctionById = async (token: string, id: string, func: object): Promise<Nullable<_Function>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/update`, {
@@ -194,7 +194,7 @@ export const deleteFunctionById = async (token: string, id: string): Promise<boo
 	return res;
 };
 
-export const toggleFunctionById = async (token: string, id: string): Promise<Func> => {
+export const toggleFunctionById = async (token: string, id: string): Promise<_Function> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/toggle`, {
@@ -226,7 +226,7 @@ export const toggleFunctionById = async (token: string, id: string): Promise<Fun
 	return res;
 };
 
-export const toggleGlobalById = async (token: string, id: string): Promise<Func> => {
+export const toggleGlobalById = async (token: string, id: string): Promise<_Function> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/functions/id/${id}/toggle/global`, {

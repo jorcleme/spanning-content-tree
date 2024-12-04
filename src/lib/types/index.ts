@@ -194,6 +194,7 @@ export interface ArticleStep {
 	text: string;
 	src: string | null;
 	alt: string | null;
+	video_src?: string | null;
 	note: string | null;
 	emphasized_text: string[];
 	emphasized_tags: string[];
@@ -213,6 +214,9 @@ export interface Article {
 	introduction: string;
 	steps: ArticleStep[];
 	revision_history: ArticleRevisionHistory[];
+	published: boolean;
+	user_id?: string | null;
+	sources?: Record<string, string>[] | null;
 	created_at: number;
 	updated_at: number;
 }

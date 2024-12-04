@@ -19,12 +19,13 @@
 	import { createNewDoc, getDocs } from '$lib/apis/documents';
 	import { uploadFile } from '$lib/apis/files';
 	import { queryMemory } from '$lib/apis/memories';
+	import { updateModelById } from '$lib/apis/models';
 	import { generateChatCompletion, generateTextCompletion } from '$lib/apis/ollama';
 	import { generateOpenAIChatCompletion, generateOpenAIChatCompletionQuestions } from '$lib/apis/openai';
 	import { processDocToVectorDB, runWebSearch } from '$lib/apis/rag';
 	import { createOpenAITextStream } from '$lib/apis/streaming';
 	import { getAndUpdateUserLocation, getUserSettings } from '$lib/apis/users';
-	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { SUPPORTED_FILE_EXTENSIONS, SUPPORTED_FILE_TYPE, WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import {
 		type Model,
 		WEBUI_NAME,
@@ -49,6 +50,7 @@
 		extractSentencesForAudio,
 		getUserPosition,
 		isErrorWithDetail,
+		isErrorWithMessage,
 		promptTemplate,
 		splitStream,
 		transformFileName
@@ -124,7 +126,7 @@
 	};
 
 	let params: { [x: string]: any } = {
-		proficiency: 0
+		proficiency: undefined
 	};
 	let valves = {};
 
@@ -167,6 +169,7 @@
 	let _stopGeneratingArticle: boolean = false;
 	let chatHasArticle: boolean = false;
 	let articleId = '';
+	let isArticleLoading = false;
 
 	/////////////////////////
 	//
@@ -494,10 +497,6 @@
 
 	// Cisco Logging
 	$: {
-		console.log(`[selectedModels:Chat.svelte] -> ${JSON.stringify(selectedModels, null, 2)}`);
-		console.log(`[selectedModelIds:Chat.svelte] -> ${selectedModelIds}`);
-		console.log(`[$page:Chat.svelte] -> ${JSON.stringify($page, null, 2)}`);
-		// console.log(`[$socket:Chat.svelte] -> ${JSON.stringify($socket, jsonCircularReplacer(), 2)}`);
 		console.log('[files:Chat.svelte] ->', files);
 	}
 
@@ -587,42 +586,62 @@
 	const exportArticleToFile = (article: Article) => {
 		const doc = new jsPDF({ unit: 'px' });
 		let y = 10;
+		const pageWidth = doc.internal.pageSize.getWidth();
+
 		doc.setFontSize(20);
 		doc.text(article.title, 10, y, { align: 'left' });
-		y += 5;
+		y += 20;
+
 		doc.setFontSize(12);
 		doc.text('Objective', 10, y, { align: 'left' });
-		y += 2;
-		doc.text(article.objective, 10, y, { align: 'left' });
-		y += 5;
+		y += 10;
+
+		const objectiveText = doc.splitTextToSize(article.objective, pageWidth - 20);
+		doc.text(objectiveText, 10, y, { align: 'left' });
+		y += objectiveText.length * 10;
+
 		doc.text('Applicable Devices', 10, y, { align: 'left' });
-		y += 2;
+		y += 10;
+
 		article.applicable_devices.forEach((device) => {
-			doc.text(`${device.device} (Software Version: ${device.software ?? 'Unknown'})`, 10, y, { align: 'left' });
-			y += 4;
+			const deviceText = `${device.device} ${device.software ? `(Software Version: ${device.software})` : ''}`;
+			const wrappedText = doc.splitTextToSize(deviceText, pageWidth - 20);
+			doc.text(wrappedText, 10, y, { align: 'left' });
+			y += wrappedText.length * 10;
 		});
+
 		doc.text('Introduction', 10, y, { align: 'left' });
-		y += 2;
-		doc.text(article.introduction, 10, y, { align: 'left' });
-		y += 5;
+		y += 10;
+
+		const introductionText = doc.splitTextToSize(article.introduction, pageWidth - 20);
+		doc.text(introductionText, 10, y, { align: 'left' });
+		y += introductionText.length * 10;
+
 		article.steps.forEach((step, i) => {
 			if (i > 0) {
-				y += 5;
+				y += 20;
 			}
 			if (step.step_number === 1) {
-				doc.text(`${step.section}`, 10, y, { align: 'left' });
-				y += 2;
+				const sectionText = doc.splitTextToSize(step.section, pageWidth - 20);
+				doc.text(sectionText, 10, y, { align: 'left' });
+				y += sectionText.length * 10;
 			}
 			doc.text(`Step ${step.step_number}`, 10, y, { align: 'left' });
-			y += 5;
-			doc.text(`${step.text}`, 10, y, { align: 'left' });
+			y += 10;
+
+			const stepText = doc.splitTextToSize(step.text, pageWidth - 20);
+			doc.text(stepText, 10, y, { align: 'left' });
+			y += stepText.length * 10;
+
 			if (step.note) {
-				y += 5;
-				doc.text(`Note: ${step.note}`, 10, y, { align: 'left' });
+				y += 10;
+				const noteText = doc.splitTextToSize(`Note: ${step.note}`, pageWidth - 20);
+				doc.text(`Note: ${noteText}`, 10, y, { align: 'left' });
+				y += noteText.length * 10;
 			}
 		});
 		const blob = doc.output('blob');
-		const file = new File([blob], `${article.title}.pdf`, { type: 'application/pdf' });
+		const file = new File([blob], `${transformFileName(article.title)}.pdf`, { type: 'application/pdf' });
 		return file;
 	};
 	let inputFiles;
@@ -1023,12 +1042,16 @@
 				params = chatContent?.params ?? {};
 				chatFiles = chatContent?.files ?? [];
 
+				console.log('loaded Chat Params', params);
+				console.log('loaded Chat Files', files);
+
 				autoScroll = true;
 				await tick();
 
-				if (messages.length > 0) {
-					history.messages[messages.at(-1)!.id].done = true;
+				if (history.currentId) {
+					history.messages[history.currentId].done = true;
 				}
+
 				await tick();
 
 				if (chatContent.article) {
@@ -1064,26 +1087,12 @@
 		}
 	};
 
-	// const createMessagesList = (responseMessageId: string): Message[] => {
-	// 	const message = history.messages[responseMessageId];
-	// 	if (message.parentId) {
-	// 		const parentMessages = createMessagesList(message.parentId);
-	// 		const unique = new Set(parentMessages.map((m) => m.id));
-	// 		if (!unique.has(message.id)) {
-	// 			return [...parentMessages, message];
-	// 		} else {
-	// 			return parentMessages.map((m) => (m.id === message.id ? message : m));
-	// 		}
-	// 	} else {
-	// 		return [message];
-	// 	}
-	// };
-
 	const chatCompletedHandler = async (
 		chatId: string,
 		modelId: string,
 		responseMessageId: string,
-		messages: Message[]
+		messages: Message[],
+		articleId: string | null = null
 	) => {
 		await mermaid.run({
 			querySelector: '.mermaid'
@@ -1123,19 +1132,33 @@
 
 		if ($chatId == chatId) {
 			if ($settings.saveChatHistory ?? true) {
-				await updateChatById(localStorage.token, chatId, {
-					models: selectedModels,
-					messages: messages,
-					history: history,
-					params: params,
-					files: chatFiles
-				});
+				await updateChatById(
+					localStorage.token,
+					chatId,
+					articleId
+						? {
+								models: selectedModels,
+								messages: messages,
+								history: history,
+								params: params,
+								files: chatFiles,
+								article: articleId
+						  }
+						: {
+								models: selectedModels,
+								messages: messages,
+								history: history,
+								params: params,
+								files: chatFiles
+						  }
+				);
 				chats.set(await getChatList(localStorage.token));
 			}
 		}
 	};
 
 	const chatActionHandler = async (chatId: string, actionId: string, modelId: string, responseMessageId: string) => {
+		const messages = createMessagesList(responseMessageId);
 		const res = await chatAction(localStorage.token, actionId, {
 			model: modelId,
 			messages: messages.map((m) => ({
@@ -1145,7 +1168,7 @@
 				info: m.info ? m.info : undefined,
 				timestamp: m.timestamp
 			})),
-			chat_id: chatId,
+			chat_id: $chatId,
 			session_id: $socket?.id,
 			id: responseMessageId
 		}).catch((error) => {
@@ -1470,7 +1493,7 @@
 			await tick();
 
 			if (isGeneratingNewArticle) {
-				isGeneratingNewArticle = !isGeneratingNewArticle;
+				isGeneratingNewArticle = false;
 				_responses = await sendPromptForArticleGen(userPrompt, userMessageId, { newChat: true });
 			} else {
 				_responses = await sendPrompt(userPrompt, userMessageId, { newChat: true });
@@ -1489,6 +1512,7 @@
 		let refinedPrompt = prompt;
 		let refinementCount = 0;
 		let selectedModelIds = modelId ? [modelId] : atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
+		isArticleLoading = true;
 
 		const responseMessageIds: { [id: string]: string } = {};
 
@@ -1530,7 +1554,7 @@
 Steps:
 1. Review the user-provided article configuration query.
 2. Rewrite the query to improve its clarity and alignment with typical search terms and keywords used in this domain.
-3. Ensure the refined query removes the Device Name to improve results.
+3. Ensure the refined query removes any mention of the Device Name or product names to improve results.
 4. Use decomposition to simplify the query and improve search results.
 
 User's article configuration: {{QUERY}}
@@ -1640,6 +1664,35 @@ Please rewrite the query for optimal search results. Return only the refined que
 		return _responses;
 	};
 
+	const processFileItem = async (fileItem: ClientFile) => {
+		console.log(`[Chat.svelte] processFileItem (fileItem) => fileItem is: `, fileItem);
+		try {
+			const res = await processDocToVectorDB(localStorage.token, fileItem.id as string);
+
+			if (res) {
+				fileItem.status = 'processed';
+				fileItem.collection_name = res.collection_name;
+				fileItem.type = 'doc';
+				files = files;
+			}
+			return res;
+		} catch (e) {
+			// Remove the failed doc from the files array
+			// files = files.filter((f) => f.id !== fileItem.id);
+			if (isErrorWithMessage(e)) {
+				toast.error(e.message);
+			} else if (isErrorWithDetail(e)) {
+				toast.error(e.detail);
+			} else {
+				toast.error(e as string);
+			}
+
+			fileItem.status = 'processed';
+			files = files;
+			return null;
+		}
+	};
+
 	const sendPromptArticleGenOpenAI = async (
 		model: Model,
 		prompt: string,
@@ -1649,12 +1702,12 @@ Please rewrite the query for optimal search results. Return only the refined que
 		let _response = null;
 		const responseMessage = history.messages[responseMessageId];
 
-		let files = JSON.parse(JSON.stringify(chatFiles));
+		let _files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...(model.info?.meta.knowledge ?? []));
+			_files.push(...(model.info?.meta.knowledge ?? []));
 		}
 		if (responseMessage?.files) {
-			files.push(...responseMessage?.files.filter((item) => item.type && ['web_search_results'].includes(item.type)));
+			_files.push(...responseMessage?.files.filter((item) => item.type && ['web_search_results'].includes(item.type)));
 		}
 
 		scrollToBottom();
@@ -1686,7 +1739,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 		if (refinedQuery) {
 			responseMessage.content = `We have refined your query to: ${refinedQuery}`;
 			messages = createMessagesList(responseMessageId);
-			await chatCompletedHandler(_chatId, model.id, responseMessageId, messages);
 			_response = responseMessage.content;
 		}
 		responseMessage.done = true;
@@ -1720,11 +1772,74 @@ Please rewrite the query for optimal search results. Return only the refined que
 			const _title = await generateChatTitle(prompt);
 			await setChatTitle(_chatId, _title);
 		}
+		isArticleLoading = true;
+		const article = await createNewArticle(
+			localStorage.token,
+			refinedQuery ?? responseMessage.content.replace('We have refined your query to:', '').trim(),
+			seriesName
+		);
 
-		const article = await createNewArticle(localStorage.token, responseMessage.content, seriesName);
+		chatHasArticle = true;
+		articleId = article.id;
+		const file = exportArticleToFile(article);
+		await tick();
+		const uploadedFile = await uploadFile(localStorage.token, file);
+		if (uploadedFile) {
+			const fileItem: ClientFile = {
+				type: 'file',
+				file: uploadedFile,
+				id: uploadedFile.id,
+				url: `${WEBUI_API_BASE_URL}/files/${uploadedFile.id}`,
+				name: file.name,
+				collection_name: '',
+				status: 'uploaded',
+				error: ''
+			};
+			// TODO: Check if tools & functions have files support to skip this step to delegate file processing
+			// Default Upload to VectorDB
+			let document;
+			if (
+				SUPPORTED_FILE_TYPE.includes(file.type) ||
+				SUPPORTED_FILE_EXTENSIONS.includes(file?.name?.split('.').at(-1) ?? '')
+			) {
+				document = await processFileItem(fileItem);
+			} else {
+				toast.error(
+					$i18n.t(`Unknown file type '{{file_type}}'. Proceeding with the file upload anyway.`, {
+						file_type: file['type']
+					})
+				);
+				document = await processFileItem(fileItem);
+			}
+
+			if (document) {
+				const doc = await createNewDoc(
+					localStorage.token,
+					document.collection_name,
+					document.filename,
+					transformFileName(document.filename),
+					document.filename
+				).catch((error) => {
+					toast.error(error);
+					return null;
+				});
+				if (doc) {
+					console.log('Doc (Article) created:');
+					console.log('Adding doc to model knowledge base:', doc);
+					if (model.info) {
+						model.info.meta.knowledge = [...(model.info.meta.knowledge ?? []), { ...doc, type: 'doc' }];
+					}
+					await updateModelById(localStorage.token, model.id, {
+						...model.info
+					});
+					chatFiles = [...chatFiles, fileItem];
+				}
+				documents.set(await getDocs(localStorage.token));
+			}
+		}
 		if ($chatId == _chatId) {
 			if ($settings.saveChatHistory ?? true) {
-				chat = await updateChatById(localStorage.token, _chatId, {
+				await updateChatById(localStorage.token, _chatId, {
 					models: selectedModels,
 					messages: messages,
 					history: history,
@@ -1735,36 +1850,12 @@ Please rewrite the query for optimal search results. Return only the refined que
 				chats.set(await getChatList(localStorage.token));
 			}
 		}
-		chatHasArticle = true;
-		articleId = article.id;
-		const pdf = exportArticleToFile(article);
-		await tick();
-		const doc = await uploadFile(localStorage.token, pdf);
-		if (doc) {
-			const res = await processDocToVectorDB(localStorage.token, doc.id);
-			if (res) {
-				const doc = await createNewDoc(
-					localStorage.token,
-					res.collection_name,
-					res.filename,
-					transformFileName(res.filename),
-					res.filename
-				).catch((error) => {
-					toast.error(error);
-					return null;
-				});
-				if (doc) {
-					console.log('Doc (Article) created:');
-					console.log('Adding doc to model knowledge base:', doc);
-					(model.info?.meta.knowledge ?? []).push(doc);
-				}
-				documents.set(await getDocs(localStorage.token));
-			}
-		}
+		isArticleLoading = false;
 		_stopGeneratingArticle = false;
+		isGeneratingNewArticle = false;
 		activeArticle.set(article);
-		console.log('article', article);
 		console.log('activeArticle', $activeArticle);
+		await chatCompletedHandler(_chatId, model.id, responseMessageId, messages);
 		return _response;
 	};
 
@@ -2219,7 +2310,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		if (model?.info?.meta?.knowledge ?? false) {
-			files.push(...(model.info?.meta.knowledge ?? []));
+			files.push(...model.info!.meta!.knowledge!);
 		}
 		if (responseMessage?.files) {
 			files.push(...responseMessage?.files.filter((item) => item.type && ['web_search_results'].includes(item.type)));
@@ -2280,38 +2371,36 @@ Please rewrite the query for optimal search results. Return only the refined que
 		console.log('messagesBody', messagesBody);
 
 		try {
-			const [res, controller] = await generateOpenAIChatCompletion(
-				localStorage.token,
-				{
-					stream: true,
-					model: model.id,
-					stream_options:
-						model.info?.meta?.capabilities?.usage ?? false
-							? {
-									include_usage: true
-							  }
-							: undefined,
-					messages: messagesBody,
-					seed: params?.seed ?? $settings?.params?.seed ?? undefined,
-					stop:
-						params?.stop ?? $settings?.params?.stop ?? undefined
-							? (params?.stop ?? $settings.params?.stop).map((str: string) =>
-									decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
-							  )
-							: undefined,
-					temperature: params?.temperature ?? $settings?.params?.temperature ?? undefined,
-					top_p: params?.top_p ?? $settings?.params?.top_p ?? undefined,
-					frequency_penalty: params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined,
-					max_tokens: params?.max_tokens ?? $settings?.params?.max_tokens ?? undefined,
-					tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
-					files: files.length > 0 ? files : undefined,
-					...(Object.keys(valves).length ? { valves } : {}),
-					session_id: $socket?.id,
-					chat_id: $chatId,
-					id: responseMessageId
-				},
-				`${WEBUI_BASE_URL}/api`
-			);
+			const body = {
+				stream: true,
+				model: model.id,
+				stream_options:
+					model.info?.meta?.capabilities?.usage ?? false
+						? {
+								include_usage: true
+						  }
+						: undefined,
+				messages: messagesBody,
+				seed: params?.seed ?? $settings?.params?.seed ?? undefined,
+				stop:
+					params?.stop ?? $settings?.params?.stop ?? undefined
+						? (params?.stop ?? $settings.params?.stop).map((str: string) =>
+								decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
+						  )
+						: undefined,
+				temperature: params?.temperature ?? $settings?.params?.temperature ?? undefined,
+				top_p: params?.top_p ?? $settings?.params?.top_p ?? undefined,
+				frequency_penalty: params?.frequency_penalty ?? $settings?.params?.frequency_penalty ?? undefined,
+				max_tokens: params?.max_tokens ?? $settings?.params?.max_tokens ?? undefined,
+				tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
+				files: files.length > 0 ? files : undefined,
+				...(Object.keys(valves).length ? { valves } : {}),
+				session_id: $socket?.id,
+				chat_id: $chatId,
+				id: responseMessageId
+			};
+			console.log('body', body);
+			const [res, controller] = await generateOpenAIChatCompletion(localStorage.token, body, `${WEBUI_BASE_URL}/api`);
 
 			// Wait until history/message have been updated
 			await tick();
@@ -2888,7 +2977,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 
 		<div class="flex flex-col flex-auto z-10">
 			<div
-				class=" pb-2.5 flex flex-col justify-between w-full flex-auto overflow-auto h-0 max-w-full z-10 scrollbar-hidden {showControls
+				class="pb-2.5 flex flex-col justify-between w-full flex-auto overflow-auto h-0 max-w-full z-10 scrollbar-hidden {showControls
 					? 'lg:pr-[24rem]'
 					: ''}"
 				id="messages-container"
@@ -2899,7 +2988,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 						messagesContainerElement.clientHeight + 5;
 				}}
 			>
-				<div class=" h-full w-full flex flex-col {chatIdProp ? 'py-4' : 'pt-2 pb-4'}">
+				<div class="h-full w-full flex flex-col {chatIdProp ? 'py-4' : 'pt-2 pb-4'}">
 					<Messages
 						chatId={$chatId}
 						{selectedModels}
@@ -2917,6 +3006,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 						{seriesId}
 						{seriesName}
 						{generateNewArticle}
+						{isArticleLoading}
 					/>
 				</div>
 			</div>
@@ -2947,7 +3037,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 					{submitPrompt}
 					{stopResponse}
 					{openConfigAssistant}
-					bind:chatHasArticle
+					{chatHasArticle}
 					{articleId}
 				/>
 			</div>

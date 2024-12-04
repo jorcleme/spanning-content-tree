@@ -33,6 +33,9 @@ class User(Base):
 
     oauth_sub = Column(Text, unique=True)
 
+    # List of saved articles
+    saved_article_ids = Column(JSONField, nullable=True)
+
 
 class UserSettings(BaseModel):
     ui: Optional[dict] = {}
@@ -57,6 +60,8 @@ class UserModel(BaseModel):
 
     oauth_sub: Optional[str] = None
 
+    saved_article_ids: Optional[List[str]] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -75,6 +80,10 @@ class UserUpdateForm(BaseModel):
     email: str
     profile_image_url: str
     password: Optional[str] = None
+
+
+class UserSavedArticleIdsUpdateForm(BaseModel):
+    article_id: str
 
 
 class UsersTable:
@@ -100,6 +109,7 @@ class UsersTable:
                     "created_at": int(time.time()),
                     "updated_at": int(time.time()),
                     "oauth_sub": oauth_sub,
+                    "saved_article_ids": [],
                 }
             )
             result = User(**user.model_dump())

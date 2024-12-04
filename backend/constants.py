@@ -27,6 +27,9 @@ class ERROR_MESSAGES(str, Enum):
     EMAIL_MISMATCH = "Uh-oh! This email does not match the email your provider is registered with. Please check your email and try again."
     EMAIL_TAKEN = "Uh-oh! This email is already registered. Sign in with your existing account or choose another email to start anew."
     SERIES_NOT_FOUND = "Oops! It looks like this series doesn't exist. Please check the series id or name and try again."
+    ARTICLE_ATTR_NOT_FOUND = (
+        lambda attr="": f"Oops! It looks like this article doesn't exist. Please check the article {attr} and try again."
+    )
     ARTICLE_ID_NOT_FOUND = "Oops! It looks like this article doesn't exist. Please check the article id and try again."
     ARTICLE_URL_NOT_FOUND = "Oops! It looks like this article doesn't exist. Please check the article URL and try again."
     ARTICLE_DOC_ID_NOT_FOUND = "Oops! It looks like this article doesn't exist. Please check the article document id and try again."

@@ -1,10 +1,9 @@
-import type { i18nType } from '$lib/types';
 import { writable } from 'svelte/store';
-import i18next from 'i18next';
+import i18next, { type i18n } from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import resourcesToBackend from 'i18next-resources-to-backend';
 
-const createI18nStore = (i18n: i18nType) => {
+const createI18nStore = (i18n: i18n) => {
 	const i18nWritable = writable(i18n);
 
 	i18n.on('initialized', () => {
@@ -20,7 +19,7 @@ const createI18nStore = (i18n: i18nType) => {
 	return i18nWritable;
 };
 
-const createIsLoadingStore = (i18n: i18nType) => {
+const createIsLoadingStore = (i18n: i18n) => {
 	const isLoading = writable(false);
 
 	// if loaded resources are empty || {}, set loading to true

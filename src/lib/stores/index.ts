@@ -35,7 +35,7 @@ export const prompts: Writable<Prompt[]> = writable([]);
 export const documents: Writable<Document[]> = writable([]);
 
 export const tools = writable<Tool[]>([]);
-export const functions = writable<Func[]>([]);
+export const functions = writable<_Function[]>([]);
 
 export const banners: Writable<Banner[]> = writable([]);
 
@@ -47,16 +47,16 @@ export const showArchivedChats = writable(false);
 export const showChangelog = writable(false);
 export const showCallOverlay = writable(false);
 
-type FuncMeta = {
+type FunctionMeta = {
 	description: string;
 } & { [key: string]: any };
 
-export type Func = {
+export type _Function = {
 	id: string;
 	user_id: string;
 	type: string;
 	name: string;
-	meta: FuncMeta;
+	meta: FunctionMeta;
 	content: string;
 	is_active: boolean;
 	is_global: boolean;

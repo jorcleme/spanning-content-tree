@@ -4,18 +4,21 @@
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { getModels as _getModels } from '$lib/apis';
+	import { getArticlesByUser as _getArticlesByUser } from '$lib/apis/articles';
 	import { updateUserSettings } from '$lib/apis/users';
 	import { models, settings, user } from '$lib/stores';
 	import Modal from '../common/Modal.svelte';
 	import User from '../icons/User.svelte';
 	import About from './Settings/About.svelte';
 	import Account from './Settings/Account.svelte';
+	import Articles from './Settings/Articles.svelte';
 	import Audio from './Settings/Audio.svelte';
 	import Chats from './Settings/Chats.svelte';
 	import General from './Settings/General.svelte';
 	import Interface from './Settings/Interface.svelte';
 	import Personalization from './Settings/Personalization.svelte';
 	import Valves from './Settings/Valves.svelte';
+	import { Scroll } from 'lucide-svelte';
 
 	const i18n: i18nType = getContext('i18n');
 
@@ -255,6 +258,21 @@
 
 				<button
 					class="px-2.5 py-2.5 min-w-fit rounded-lg flex-1 md:flex-none flex text-right transition {selectedTab ===
+					'articles'
+						? 'bg-gray-200 dark:bg-gray-800'
+						: ' hover:bg-gray-100 dark:hover:bg-gray-850'}"
+					on:click={() => {
+						selectedTab = 'articles';
+					}}
+				>
+					<div class=" self-center mr-2">
+						<Scroll class="w-4 h-4" />
+					</div>
+					<div class=" self-center">{$i18n.t('Articles')}</div>
+				</button>
+
+				<button
+					class="px-2.5 py-2.5 min-w-fit rounded-lg flex-1 md:flex-none flex text-right transition {selectedTab ===
 					'about'
 						? 'bg-gray-200 dark:bg-gray-800'
 						: ' hover:bg-gray-100 dark:hover:bg-gray-850'}"
@@ -316,6 +334,12 @@
 				{:else if selectedTab === 'account'}
 					<Account
 						saveHandler={() => {
+							toast.success($i18n.t('Settings saved successfully!'));
+						}}
+					/>
+				{:else if selectedTab === 'articles'}
+					<Articles
+						on:save={() => {
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
 					/>

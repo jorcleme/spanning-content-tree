@@ -103,3 +103,9 @@ async def insert_new_series(form_data: InsertNewSeriesForm):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ERROR_MESSAGES.DEFAULT(),
         )
+
+
+@router.delete("/delete/all")
+async def delete_all_series():
+    success = Series_Table.delete_all_series()
+    return {"status": success}

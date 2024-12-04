@@ -55,7 +55,7 @@
 	$: if (prompt) {
 		selectedIdx = 0;
 
-		console.log(filteredCollections);
+		console.log('filteredItems', filteredItems);
 	}
 
 	type ObjectWithName = {
@@ -142,7 +142,7 @@
 								<div class=" text-xs text-gray-600 dark:text-gray-100 line-clamp-1">
 									{$i18n.t('Collection')}
 								</div>
-							{:else if doc.type === 'doc'}
+							{:else}
 								<div class=" font-medium text-black dark:text-gray-100 line-clamp-1">
 									#{doc.name} ({doc.filename})
 								</div>

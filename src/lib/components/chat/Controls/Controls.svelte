@@ -1,11 +1,8 @@
 <script lang="ts">
-	import type { AdvancedModelParams, ModelParams, i18nType } from '$lib/types';
+	import type { AdvancedModelParams, i18nType } from '$lib/types';
 	import type { ChatFile } from '$lib/types';
 	import { createEventDispatcher, getContext } from 'svelte';
-	import { tweened } from 'svelte/motion';
-	import type { ChatParams, Model } from '$lib/stores';
-	// @ts-ignore
-	import { interpolateLab } from 'd3-interpolate';
+	import type { Model } from '$lib/stores';
 	import FileItem from '$lib/components/common/FileItem.svelte';
 	import Valves from '$lib/components/common/Valves.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
@@ -39,26 +36,8 @@
 		top_p: null,
 		template: null,
 		frequency_penalty: null,
-		proficiency: 0
+		proficiency: undefined
 	};
-
-	let proficiency = 0;
-	const labels = ['Beginner', 'Intermediate', 'Advanced'];
-	const colors = ['rgb(25, 144, 250)', 'rgb(15, 90, 210)', 'rgb(9, 70, 200)'];
-	const color = tweened(colors.at(0), {
-		duration: 800,
-		interpolate: interpolateLab
-	});
-
-	const handleProficiencyChange = async (e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
-		const value = Number((e.target as HTMLInputElement).value);
-		params.proficiency = value;
-		await color.set(colors[value]);
-	};
-
-	// {getProficiencyColor(
-	// 					proficiency
-	// 				)}
 </script>
 
 <div class=" dark:text-white">
@@ -112,30 +91,6 @@
 
 			<hr class="my-2 border-gray-100 dark:border-gray-800" />
 		{/if}
-		<div class="mb-4">
-			<label for="proficiency-slider" class="block text-md font-medium dark:text-gray-200 mb-2">
-				Network Proficiency Level
-			</label>
-			<div class="flex items-center space-x-4 justify-evenly">
-				<span class="text-sm dark:text-gray-300">Beginner</span>
-				<input
-					id="proficiency-slider"
-					type="range"
-					min="0"
-					max="2"
-					step="1"
-					bind:value={proficiency}
-					class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 max-w-fit"
-					style:background-color={$color}
-					on:change={handleProficiencyChange}
-				/>
-				<span class="text-sm dark:text-gray-300">Advanced</span>
-			</div>
-			<div class="text-center mt-2 text-sm font-medium dark:text-gray-400" id="proficiency-label">
-				{labels[proficiency]}
-			</div>
-		</div>
-
 		<div>
 			<div class="mb-1.5 font-medium">{$i18n.t('System Prompt')}</div>
 

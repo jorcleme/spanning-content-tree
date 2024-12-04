@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
 	import { getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { getArticleById } from '$lib/apis/articles';
@@ -18,6 +19,6 @@
 	});
 </script>
 
-<Article>
+<Article on:save={() => toast.success($i18n.t('Article saved successfully'))}>
 	<GetSupportWidgetContainer />
 </Article>

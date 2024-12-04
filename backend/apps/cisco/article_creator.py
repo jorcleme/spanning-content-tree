@@ -12,7 +12,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv, find_dotenv
 from pprint import pprint
 from huggingface_hub import snapshot_download
-from typing import Dict, List, Any, Optional, Literal
+from typing import Dict, List, Any, Optional, Literal, Tuple
 from chromadb.api.types import GetResult
 from chromadb import Collection as Coll
 from apps.webui.models.articles import (
@@ -206,7 +206,7 @@ def query_doc_with_hybrid_search(
     embedding_function=HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     ),
-    k: int = 2,
+    k: int = 4,
     reranking_function=HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-v2-m3"),
     r: float = 0.0,
 ):
@@ -273,7 +273,9 @@ except pymongo.errors.ConfigurationError as e:
     sys.exit(1)
 
 
-def get_llm(model: str = "gpt-4o", temperature: int = 0, verbose: bool = True):
+def setup_chat_openai(
+    model: str = "gpt-4o", temperature: int = 0, verbose: bool = True
+):
     return ChatOpenAI(model=model, temperature=temperature, verbose=verbose)
 
 
@@ -310,12 +312,12 @@ def convert_to_documents(results: GetResult) -> List[Document]:
     """
     return [
         Document(page_content=doc, metadata=meta)
-        for doc, meta in zip(results["documents"], results["metadatas"])
+        for doc, meta in zip(results.get("documents"), results.get("metadatas"))
     ]
 
 
 def get_text_splitter(
-    chunk_size: int = 300, chunk_overlap: int = 0
+    chunk_size: int = 300, chunk_overlap: int = 0, add_start_index: bool = False
 ) -> RecursiveCharacterTextSplitter:
     """
     Returns a configured RecursiveCharacterTextSplitter instance.
@@ -324,7 +326,9 @@ def get_text_splitter(
         RecursiveCharacterTextSplitter: Text splitter configured for chunking text.
     """
     return RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=True
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        add_start_index=add_start_index,
     )
 
 
@@ -446,79 +450,29 @@ def init_self_query_retriever(
     return self_query_retriever
 
 
-class CiscoMultiVectorRetriever(MultiVectorRetriever):
-    def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
-    ) -> List[Document]:
-        """Get documents relevant to a query.
-        Args:
-            query: String to find relevant documents for
-            run_manager: The callbacks handler to use
-        Returns:
-            List of relevant documents
-        """
-        # results = self.vectorstore.similarity_search_with_score(
-        #     query, **self.search_kwargs
-        # )
-        # # results is a list of tuples (doc, score)
-        # # the doc is a sub-document of a parent document
-        # # we fetch the parent document from the docstore
-        # docs = []
-        # seen_ids: set[str] = set()
-        # for doc, score in results:
-        #     doc_id: str = doc.metadata.get("doc_id")
-        #     if doc_id and doc_id not in seen_ids:
-        #         seen_ids.add(doc_id)
-        #         full_doc = self.docstore.mget([doc_id])
-        #         if found := full_doc[0]:
-        #             found.metadata["score"] = score
-        #             docs.append(found)
-        # return docs
-        if self.search_type == SearchType.mmr:
-            sub_docs = self.vectorstore.max_marginal_relevance_search(
-                query, **self.search_kwargs
-            )
-        elif self.search_type == SearchType.similarity_score_threshold:
-            sub_docs_and_similarities = (
-                self.vectorstore.similarity_search_with_relevance_scores(
-                    query, **self.search_kwargs
-                )
-            )
-            sub_docs = [sub_doc for sub_doc, _ in sub_docs_and_similarities]
-        else:
-            sub_docs = self.vectorstore.similarity_search(query, **self.search_kwargs)
-
-        # We do this to maintain the order of the ids that are returned
-        ids = []
-        for d in sub_docs:
-            if self.id_key in d.metadata and d.metadata[self.id_key] not in ids:
-                ids.append(d.metadata[self.id_key])
-        docs = self.docstore.mget(ids)
-        return [d for d in docs if d is not None]
-
-
 def init_parent_document_retriever(collection_name: str):
     """
     Initialize a parent document retriever for the given collection.
 
     Args:
         collection_name (str): The name of the collection to use.
-        vectordb (Chroma): The vector database to use.
 
     Returns:
         ParentDocumentRetriever: The parent document retriever instance.
     """
 
     lc_vector_db = create_or_retrieve_db(collection_name)
-
-    docstore = InMemoryStore()
     id_key = "doc_id"
-    retriever = CiscoMultiVectorRetriever(
-        search_type=SearchType.mmr,
-        search_kwargs={"k": 6},
-        docstore=docstore,
+    docstore = InMemoryStore()
+    retriever = ParentDocumentRetriever(
         vectorstore=lc_vector_db,
+        docstore=docstore,
         id_key=id_key,
+        child_splitter=RecursiveCharacterTextSplitter(
+            chunk_size=300, chunk_overlap=0, add_start_index=True
+        ),
+        search_type=SearchType.similarity,
+        search_kwargs={"k": 3},
     )
 
     try:
@@ -527,51 +481,39 @@ def init_parent_document_retriever(collection_name: str):
         raise ValueError(f"Failed to get collection {collection_name}: {e}")
 
     docs = convert_to_documents(collection.get())
-    ids = [doc.metadata.get(id_key) for doc in docs]
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=300, chunk_overlap=0, add_start_index=True
+    ids: List[str] = [doc.metadata.get(id_key) for doc in docs]
+
+    retriever.add_documents(docs, ids)
+    # Smoketest to check large and small chunks
+    # Retriever should return the large chunks
+    # Vectorstore should return the small chunks
+    large_chunks = retriever.invoke("Smartport Features")
+    print(
+        f'Large Chunks Documents: {" ".join([doc.page_content for doc in large_chunks])}'
     )
-    sub_docs = []
-    existing_ids_in_docstore = set(docstore.yield_keys())
-    for i, doc in enumerate(docs):
-        _id = ids[i]
-        if _id not in existing_ids_in_docstore:
-            logger.info(f"Adding document {_id} to doc + vector store")
-            _sub_docs = text_splitter.split_documents([doc])
-            for _doc in _sub_docs:
-                _doc.metadata[id_key] = _id
-            sub_docs.extend(_sub_docs)
-
-    retriever.vectorstore.add_documents(sub_docs)
-    retriever.docstore.mset(list(zip(ids, docs)))
+    print(f"Large Chunks: {len(large_chunks[0].page_content)}")
+    small_chunks = retriever.vectorstore.similarity_search("Smartport Features", k=3)
+    print(f"Small Chunks: {len(small_chunks[0].page_content)}")
+    print("Store Length of Keys " + str(len(list(docstore.yield_keys()))))
+    print(f"Chroma DB Documents {len(collection.get().get('documents'))}")
+    # Print the length of documents in the vectorstore
+    print("Length of Formatted Docs" + str(len(docs)))
     return retriever
-    # store = InMemoryStore()
-    # retriever = ParentDocumentRetriever(
-    #     vectorstore=vectordb,
-    #     docstore=docstore,
-    #     id_key="doc_id",
-    #     child_splitter=RecursiveCharacterTextSplitter(
-    #         chunk_size=300, chunk_overlap=0, add_start_index=True
-    #     ),
-    #     search_type=SearchType.mmr,
-    # )
-    # formatted_documents = convert_to_documents(docs)
-    # retriever.add_documents(documents=formatted_documents, ids=ids)
-
-    # return retriever
 
 
-def decompose_question(question: str, retriever: BaseRetriever) -> List[str]:
+def decompose_question(
+    question: str, retriever: ParentDocumentRetriever | SelfQueryRetriever
+) -> Tuple[List[str], List[Document]]:
     examples = create_decomposition_search_examples()
     example_messages = [
         msg for ex in examples for msg in tool_example_to_messages_helper(ex)
     ]
     system = """
         You are an expert at converting user question into database queries. You have access to a database of documents that contain information about configuring a Cisco Switch, Cisco Router, or Cisco Wireless Access Point.
-
-        Perform query decomposition. Given a user question, break it down into subtopics which will help answer questions related to the main topic.
-        Each subtopic should be about a single concept/fact/idea. The subtopic should be other configurations, commands, or settings that are directly related to the main topic.
-
+        
+        Perform query decomposition. Given a user question, break it down into subtopics which will help answer questions about the main topic or prerequisites to the main topic/question.
+        Each subtopic should be about a single concept/fact/idea. The subtopic should be other configurations, commands, or settings that are requirements to the main topic/question.
+        
         If there are acronyms or words you are not familiar with, do not try to rephrase them."""
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -583,22 +525,24 @@ def decompose_question(question: str, retriever: BaseRetriever) -> List[str]:
     query_analyzer = (
         {"question": RunnablePassthrough()}
         | prompt.partial(examples=example_messages)
-        | get_llm().with_structured_output(Search)
+        | setup_chat_openai().with_structured_output(Search)
     )
     answer = query_analyzer.invoke(question)
     expanded_questions = [query for query in answer.subtopics]
-    return expanded_questions
-    # print(f"Queries: {expanded_questions}")
-    # documents = []
-    # for query in expanded_questions + [question]:
-    #     documents.extend(retriever.invoke(query))
-    # return documents
+    expanded_questions.append(question)  # Add the original question
+    print(f"Queries: {expanded_questions}")
+    documents = []
+    for query in expanded_questions:
+        documents.extend(retriever.invoke(query, kwargs={"k": 3}))
+    return expanded_questions, documents
 
 
-def search_vector_db(queries: List[str], retriever: BaseRetriever) -> List[Document]:
+def search_vector_db(
+    queries: List[str], retriever: ParentDocumentRetriever | SelfQueryRetriever
+) -> List[Document]:
     documents = []
     for query in queries:
-        documents.extend(retriever.invoke(query))
+        documents.extend(retriever.invoke(query, kwargs={"k": 3}))
     return documents
 
 
@@ -634,11 +578,13 @@ def test_prompt_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"]):
     
     Your task is to generate a step-by-step guide for configuring a specific feature on a Cisco network device. Use the question as the configuration topic. 
     
-    Use the subtopics provided to help guide the list of steps sections. If you do not have context for a subtopic, ignore that entry.
+    Use the subtopics provided to help guide the list of step sections. If you do not have context for a subtopic, ignore that entry.
     
     Personalize the article for the device mentioned in XML-Style Tag device.
     
-    Only use the context as your knowledge base to generate the article. Ensure step text is written in Markdown.
+    Only use the context as your knowledge base to generate the article. Use each document sufficiently and pay attention to the order you are guiding the user. For example, before configuring Link Aggregation Control Protocol the user must first Configure the Link Aggregation Settings. 
+    
+    Ensure step text is written in Markdown.
           
     <device>
         {device}
@@ -651,22 +597,6 @@ def test_prompt_template(datasource: Literal["ADMIN_GUIDE", "CLI_GUIDE"]):
     <subtopics>
         {subtopics}
     </subtopics>
-    
-    <article-format>
-        Title: Create a title based on the question '{question}' and context provided.
-        
-        Objective: Provide a concise objective in 1-2 sentences. Ensure to mention this configuration will be performed through the Web-Based Utility.
-        
-        Introduction: Write an introduction explaining the configuration, its features, and its benefits. Use Markdown. Markdown List if applicable.
-        
-        List of Steps:
-            Each step should be a dictionary with the following keys:
-                1. section: Describe what will be done in this group of related steps.
-                2. step_number: The step number within the section. Step numbers start at 1 and increment by 1.
-                3. text: Describe the action required to advance toward completing the objective. Write in Markdown format.
-                4. note (optional): Provide additional context, cautions, notes or common details often overlooked. Examples could be supported cable types, default settings, or common mistakes.
-    </article-format>
-    
     
     <rules>
         1. The first step should always be "Log in to the web user interface (UI) of your switch". This step's section header should not be similar to "Access the Web User Interface".
@@ -876,7 +806,7 @@ def identify_category(title: str):
     Return only the category name as a string and nothing else.
     """
     prompt = ChatPromptTemplate.from_template(template)
-    model = get_llm()
+    model = setup_chat_openai()
     chain = prompt | model | StrOutputParser()
     category = chain.invoke(
         {"categories": format_categories_list(categories), "title": title}
@@ -927,8 +857,8 @@ def determine_datasource(state: GraphState) -> str:
     Returns:
         str: Either "ADMIN_GUIDE" or "CLI_GUIDE".
     """
-    state_dict = state["keys"]
-    question = state_dict["question"]
+    state_dict = state.get("keys")
+    question = state_dict.get("question")
 
     template = """You are a world class router. Using the question provided, determine which datasource to retrieve. You can only choose between: 'ADMIN_GUIDE' or 'CLI_GUIDE'.
     
@@ -946,7 +876,7 @@ def determine_datasource(state: GraphState) -> str:
     Question: {question}
     """
     prompt = ChatPromptTemplate.from_template(template)
-    model = get_llm().bind_tools(
+    model = setup_chat_openai().bind_tools(
         tools=[DataSourceType],
         tool_choice={"type": "function", "function": {"name": "DataSourceType"}},
     )
@@ -967,14 +897,13 @@ def retrieve(state: GraphState) -> GraphState:
         Dict: New key added to state, documents, that contain documents.
     """
     print("------RETRIEVE------")
-    state_dict = state["keys"]
-    question = state_dict["question"]
-    datasource = state_dict["datasource"]
+    state_dict = state.get("keys")
+    question = state_dict.get("question")
+    datasource = state_dict.get("datasource")
     device_name = state_dict.get("device", "Cisco Catalyst 1200 Series Switches")
 
     if datasource == "ADMIN_GUIDE":
         collection_name = CollectionFactory.get_admin_guide_collection(device_name)
-        # vectordb = create_or_retrieve_db(collection_name=collection_name)
         retriever = init_parent_document_retriever(collection_name)
     else:
         collection_name = CollectionFactory.get_cli_guide_collection(device_name)
@@ -985,42 +914,48 @@ def retrieve(state: GraphState) -> GraphState:
             llm, vectordb, document_contents, collection_name
         )
 
-    article_subtopics = decompose_question(question, retriever)
-    documents = search_vector_db(article_subtopics, retriever)
-    # documents = decompose_question(question, retriever)
-    article_collection_name = CollectionFactory.get_article_collection(device_name)
-    article_documents = query_doc_with_hybrid_search(article_collection_name, question)
-    similar_docs = [doc for doc in article_documents if doc.metadata.get("score") > 0.7]
-    documents.extend(similar_docs)
+    subtopics, extended_documents = decompose_question(question, retriever)
+    documents = search_vector_db([question], retriever)
+    test_documents = query_doc_with_hybrid_search(
+        collection_name=collection_name, query=question
+    )
+    documents.extend(extended_documents + test_documents)
     # filter out documents with same metadata doc_id
     filtered_docs = list({doc.metadata["doc_id"]: doc for doc in documents}.values())
-    state["keys"].update({"documents": filtered_docs, "subtopics": article_subtopics})
+    state["keys"].update({"documents": filtered_docs, "subtopics": subtopics})
     return state
 
 
 def grade_documents(state: GraphState):
-    state_dict = state["keys"]
-    documents = state_dict["documents"]
-    question = state_dict["question"]
+    state_dict = state.get("keys")
+    documents = state_dict.get("documents", [])
+    question = state_dict.get("question")
+    subtopics = state_dict.get("subtopics", [])
 
-    model = get_llm()
+    model = setup_chat_openai()
     grade_tool = convert_to_openai_tool(Grader)
     llm_with_tool = model.bind(
         tools=[convert_to_openai_tool(grade_tool)],
         tool_choice={"type": "function", "function": {"name": "Grader"}},
     )
     parser = PydanticToolsParser(tools=[Grader])
-    template = """You are a grader assessing relevance of a retrieved document to a user's questions.
+    template = """You are a grader assessing relevance of a retrieved document to a user's question and a set of possible subtopics derived from the question. The data will be supplied using XML Style Tags.
     
-    Here is the retrieved document:
+    <document>
+        {context}
+    </document>
     
-    {context}
     
-    Here is the original user question:
+    <question>
+        {question}
+    </question>
     
-    {question}
+    <subtopics>
+        {subtopics}
+    </subtopics>
     
-    If the documents contains keyword(s) or semantic meaning related to the user question, grade it as 'yes' (relevant).
+    
+    If the documents contains keyword(s) or semantic meaning related to the user question and/or subtopics, grade it as 'yes' (relevant).
     Give a binary score of 'yes' or 'no' to indicate whether the document is relevant to the user question.
     
     """
@@ -1028,7 +963,13 @@ def grade_documents(state: GraphState):
     chain = prompt | llm_with_tool | parser
     filtered_docs = []
     for doc in documents:
-        score = chain.invoke({"context": doc.page_content, "question": question})
+        score = chain.invoke(
+            {
+                "context": doc.page_content,
+                "question": question,
+                "subtopics": ", ".join(subtopics),
+            }
+        )
         grade = score[0].binary_score if isinstance(score, list) else score.binary_score
         if grade == "yes":
             logger.info(f"Document: {doc} is relevant.")
@@ -1057,7 +998,7 @@ def generate_article_with_context(state: GraphState):
 
     tools = [CreatedArticle]
     prompt = ChatPromptTemplate.from_template(template)
-    model = get_llm().bind_tools(
+    model = setup_chat_openai().bind_tools(
         tools=tools,
         tool_choice={"type": "function", "function": {"name": "CreatedArticle"}},
     )
@@ -1152,7 +1093,7 @@ def generate_article_with_example(state: GraphState):
     )
     tools = [CreatedArticle]
 
-    model = get_llm().bind_tools(
+    model = setup_chat_openai().bind_tools(
         tools=tools,
         tool_choice={"type": "function", "function": {"name": "CreatedArticle"}},
     )
@@ -1251,7 +1192,7 @@ def refine_article_steps(state: GraphState):
     
     """
     prompt = ChatPromptTemplate.from_template(template)
-    model = get_llm().bind_tools(
+    model = setup_chat_openai().bind_tools(
         tools=[CreatedArticle],
         tool_choice={"type": "function", "function": {"name": "CreatedArticle"}},
     )
@@ -1288,7 +1229,7 @@ def renumber_article_steps(state: GraphState):
     </steps>
     """
     prompt = ChatPromptTemplate.from_template(template)
-    model = get_llm().bind_tools(
+    model = setup_chat_openai().bind_tools(
         tools=[Steps], tool_choice={"type": "function", "function": {"name": "Steps"}}
     )
     chain = prompt | model | PydanticToolsParser(tools=[Steps])
@@ -1301,10 +1242,10 @@ def renumber_article_steps(state: GraphState):
     validated_steps = [
         Step.model_validate(step.model_dump()) for step in modelled_steps
     ]
-    modelled_article = CreatedArticle.model_construct(
+    created_article = CreatedArticle.model_construct(
         **{**article, "steps": validated_steps}
     )
-    state.get("keys").update({"article": [modelled_article]})
+    state.get("keys").update({"article": [created_article]})
     return state
 
 
@@ -1468,7 +1409,7 @@ def build_html_for_cli_guide_sources(state: GraphState):
     Returns:
         Dict: The final state of the agent.
     """
-    model = get_llm()
+    model = setup_chat_openai()
     template = """You are a Senior Frontend Developer. You have been tasked with taking an article and converting its components into valid HTML for the front-end.
         Following the rules below, convert the article into valid HTML.
 
@@ -1515,46 +1456,49 @@ workflow = StateGraph(GraphState)
 
 workflow.add_node("determine_datasource", determine_datasource)
 workflow.add_node("retrieve", retrieve)
-# workflow.add_node("grade_documents", grade_documents)
+workflow.add_node("grade_documents", grade_documents)
 workflow.add_node("generate_article_with_context", generate_article_with_context)
-# workflow.add_node("generate_article_with_example", generate_article_with_example)
 workflow.add_node("refine_article_steps", refine_article_steps)
 workflow.add_node("renumber_article_steps", renumber_article_steps)
 workflow.add_node("add_article_metadata", add_article_metadata)
-# workflow.add_node(
-#     "build_html_for_admin_guide_sources", build_html_for_admin_guide_sources
-# )
-# workflow.add_node("build_html_for_cli_guide_sources", build_html_for_cli_guide_sources)
-# workflow.add_node("article_to_html", article_to_html)
 
 workflow.set_entry_point("determine_datasource")
 workflow.add_edge("determine_datasource", "retrieve")
-# workflow.add_edge("retrieve", "grade_documents")
-workflow.add_edge("retrieve", "generate_article_with_context")
-# workflow.add_edge("grade_documents", "generate_article_with_context")
+workflow.add_edge("retrieve", "grade_documents")
+workflow.add_edge("grade_documents", "generate_article_with_context")
 workflow.add_edge("generate_article_with_context", "refine_article_steps")
 workflow.add_edge("refine_article_steps", "renumber_article_steps")
 workflow.add_edge("renumber_article_steps", "add_article_metadata")
-# workflow.add_conditional_edges(
-#     "add_article_metadata",
-#     decide_html_build_path,
-#     {
-#         "build_html_for_admin_guide_sources": "build_html_for_admin_guide_sources",
-#         "build_html_for_cli_guide_sources": "build_html_for_cli_guide_sources",
-#     },
-# )
-# workflow.add_edge("build_html_for_admin_guide_sources", END)
-# workflow.add_edge("build_html_for_cli_guide_sources", END)
 workflow.add_edge("add_article_metadata", END)
+
+
+from langchain_core.runnables import RunnableConfig
 
 
 async def build_article(question: str, device: str):
     ARTICLE_GRAPH = workflow.compile()
     inputs: dict[str, GraphState] = {"keys": {"question": question, "device": device}}
     article = None
+    sources = []
     html = None
 
-    state = await ARTICLE_GRAPH.ainvoke(inputs)
+    state: dict[str, GraphState] = await ARTICLE_GRAPH.ainvoke(inputs)
+    if graph_state := state.get("keys"):
+        documents = graph_state.get("documents", [])
+        for doc in documents:
+            sources.append(
+                {
+                    "id": doc.metadata.get("doc_id"),
+                    "source": (
+                        doc.metadata.get("source")
+                        if doc.metadata.get("source", None)
+                        else doc.metadata.get("url", None)
+                    ),
+                }
+            )
+    if len(sources) > 0:
+        print(f"Sources: {sources}")
+
     if isinstance(state.get("keys").get("article"), list):
         return state.get("keys").get("article")[0].model_dump()
     return state.get("keys").get("article").model_dump()

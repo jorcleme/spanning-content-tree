@@ -1,7 +1,7 @@
-import { WEBUI_API_BASE_URL } from '$lib/constants';
-import { getUserPosition } from '$lib/utils';
-import type { SessionUser, PersistentConfigSettings } from '$lib/stores';
 import type { Nullable } from '$lib/types';
+import { WEBUI_API_BASE_URL } from '$lib/constants';
+import type { PersistentConfigSettings, SessionUser } from '$lib/stores';
+import { getUserPosition } from '$lib/utils';
 
 type UserPermissions = {
 	chat: {
@@ -36,10 +36,7 @@ export const getUserPermissions = async (token: string): Promise<UserPermissions
 	return res;
 };
 
-export const updateUserPermissions = async (
-	token: string,
-	permissions: object
-): Promise<Nullable<UserPermissions>> => {
+export const updateUserPermissions = async (token: string, permissions: object): Promise<Nullable<UserPermissions>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/permissions/user`, {
@@ -69,11 +66,7 @@ export const updateUserPermissions = async (
 	return res;
 };
 
-export const updateUserRole = async (
-	token: string,
-	id: string,
-	role: string
-): Promise<Nullable<SessionUser>> => {
+export const updateUserRole = async (token: string, id: string, role: string): Promise<Nullable<SessionUser>> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/users/update/role`, {
@@ -86,6 +79,88 @@ export const updateUserRole = async (
 			id: id,
 			role: role
 		})
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			console.log(err);
+			error = err.detail;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const getUserSavedArticles = async (token: string): Promise<string[]> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/users/user/saved-articles`, {
+		method: 'GET',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		}
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			console.log(err);
+			error = err.detail;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const updateUserSavedArticles = async (token: string, article_id: string): Promise<string[]> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/users/user/saved-articles/update`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ article_id })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			console.log(err);
+			error = err.detail;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const deleteOneUserSavedArticle = async (token: string, articleId: string): Promise<string[]> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/users/user/saved-articles/delete/${articleId}`, {
+		method: 'DELETE',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		}
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
@@ -131,20 +206,15 @@ export const getUsers = async (token: string): Promise<Nullable<SessionUser[]>> 
 	return res ? res : [];
 };
 
-export const getUserSettings = async (
-	token: string
-): Promise<Nullable<PersistentConfigSettings>> => {
+export const getUserSettings = async (token: string): Promise<Nullable<PersistentConfigSettings>> => {
 	let error = null;
-	const res: PersistentConfigSettings | null = await fetch(
-		`${WEBUI_API_BASE_URL}/users/user/settings`,
-		{
-			method: 'GET',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${token}`
-			}
+	const res: PersistentConfigSettings | null = await fetch(`${WEBUI_API_BASE_URL}/users/user/settings`, {
+		method: 'GET',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
 		}
-	)
+	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
 			return await res.json();

@@ -3,7 +3,7 @@
 	import { afterUpdate, createEventDispatcher, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { flip } from 'svelte/animate';
-	import { cubicIn, cubicInOut, quintInOut } from 'svelte/easing';
+	import { cubicIn, cubicInOut, cubicOut, quintInOut } from 'svelte/easing';
 	import { crossfade, fade, fly, slide } from 'svelte/transition';
 	import { updateArticleStep } from '$lib/apis/articles';
 	import { synthesizeOpenAISpeech } from '$lib/apis/audio';
@@ -1705,7 +1705,10 @@
 											/></summary
 										>
 										<h3 class="mb-2">How did we use AI and Cisco experts to provide this answer?</h3>
-										<div class="flex flex-col space-y-3 items-start mt-2">
+										<div
+											class="flex flex-col space-y-3 items-start mt-2"
+											transition:slide={{ axis: 'x', duration: 1000, delay: 300, easing: cubicIn }}
+										>
 											<div class="flex flex-col gap-y-2 divide-slate-300" id="sourcescontentcontainer">
 												<p>
 													We search our content database for similar text to the question and context. We then use small

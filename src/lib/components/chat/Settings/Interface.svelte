@@ -148,6 +148,27 @@
 
 		backgroundImageUrl = $settings.backgroundImageUrl ?? null;
 	});
+
+	const onChange = async () => {
+		let reader = new FileReader();
+		reader.onload = (event) => {
+			let originalImageUrl = `${event.target?.result}`;
+			backgroundImageUrl = originalImageUrl;
+			saveSettings({ backgroundImageUrl });
+		};
+		if (
+			inputFiles &&
+			inputFiles.length > 0 &&
+			['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
+		) {
+			reader.readAsDataURL(inputFiles[0]);
+		} else {
+			if (inputFiles) {
+				console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
+				inputFiles = null;
+			}
+		}
+	};
 </script>
 
 <form
@@ -163,28 +184,7 @@
 		type="file"
 		hidden
 		accept="image/*"
-		on:change={() => {
-			let reader = new FileReader();
-			reader.onload = (event) => {
-				let originalImageUrl = `${event.target.result}`;
-
-				backgroundImageUrl = originalImageUrl;
-				saveSettings({ backgroundImageUrl });
-			};
-
-			if (
-				inputFiles &&
-				inputFiles.length > 0 &&
-				['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
-			) {
-				reader.readAsDataURL(inputFiles[0]);
-			} else {
-				if (inputFiles) {
-					console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
-					inputFiles = null;
-				}
-			}
-		}}
+		on:change={async () => await onChange()}
 	/>
 
 	<div class=" space-y-3 pr-1.5 overflow-y-scroll max-h-[25rem] scrollbar-hidden">

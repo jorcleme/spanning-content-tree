@@ -1,39 +1,20 @@
 <script lang="ts">
 	import { beforeUpdate, createEventDispatcher, onDestroy, onMount } from 'svelte';
-	import { offset, flip, shift } from 'svelte-floating-ui/dom';
 	import { createFloatingActions } from 'svelte-floating-ui';
+	import type { ComputeConfig } from 'svelte-floating-ui';
+	import { flip, offset, shift } from 'svelte-floating-ui/dom';
 	import { getSeriesByName } from '$lib/apis/series';
-
-	const dispatch = createEventDispatcher();
-
-	interface Device {
-		[key: string]: string;
-	}
-	const devices: Device[] = [
-		{ label: 'Catalyst 1200', value: 'Cisco Catalyst 1200 Series Switches', category: 'Switches' },
-		{ label: 'Catalyst 1300', value: 'Cisco Catalyst 1300 Series Switches', category: 'Switches' },
-		{ label: 'CBS110 Series', value: 'Cisco Business 110 Series Unmanaged Switches', category: 'Switches' },
-		{ label: 'CBS220 Series', value: 'Cisco Business 220 Series Smart Switches', category: 'Switches' },
-		{ label: 'CBS250 Series', value: 'Cisco Business 250 Series Smart Switches', category: 'Switches' },
-		{ label: 'CBS350 Series', value: 'Cisco Business 350 Series Managed Switches', category: 'Switches' },
-		{ label: '350 Series', value: 'Cisco 350 Series Managed Switches', category: 'Switches' },
-		{ label: '350X Series', value: 'Cisco 350X Series Stackable Managed Switches', category: 'Switches' },
-		{ label: '550X Series', value: 'Cisco 550X Series Stackable Managed Switches', category: 'Switches' },
-		{ label: 'RV100 Series', value: 'RV100 Product Family', category: 'Routers' },
-		{ label: 'RV320 Series', value: 'RV320 Product Family', category: 'Routers' },
-		{ label: 'RV340 Series', value: 'RV340 Product Family', category: 'Routers' },
-		{ label: 'RV160 VPN Series', value: 'RV160 VPN Router', category: 'Routers' },
-		{ label: 'RV260 VPN Series', value: 'RV260 VPN Router', category: 'Routers' },
-		{ label: 'CBW-AC', value: 'Cisco Business Wireless AC', category: 'Wireless' },
-		{ label: 'CBW-AX', value: 'Cisco Business Wireless AX', category: 'Wireless' }
-	];
 	import { filterSelect, getSelectItems } from '$lib/utils/index';
-
+	import type { Placement } from '@floating-ui/core/dist/floating-ui.core';
 	import ChevronIcon from './ChevronIcon.svelte';
 	import ClearIcon from './ClearIcon.svelte';
 	import LoadingIcon from './LoadingIcon.svelte';
 
-	let justValue = null; // read-only
+	const dispatch = createEventDispatcher();
+
+	interface ListItem {
+		[key: string]: string;
+	}
 
 	let filter = filterSelect;
 	let getItems = getSelectItems;
@@ -46,9 +27,9 @@
 	export let focused = false;
 	export let value: any = null;
 	export let filterText = '';
-	export let placeholder = 'Select Your Device';
+	export let placeholder = 'Select an option...';
 	export let placeholderAlwaysShow = false;
-	export let items: Array<{ [key: string]: string }> = devices;
+	export let items: ListItem[];
 	export let label: string = 'label';
 	export let itemId: string = 'value';
 	export let debounceWait = 300;
@@ -73,9 +54,6 @@
 		};
 	};
 
-	const getFilteredItems = () => {
-		return filteredItems;
-	};
 	let container: HTMLDivElement;
 	let input: HTMLInputElement;
 	let searchable = true;
@@ -83,23 +61,22 @@
 	let clearable = true;
 	let loading = false;
 	let listOpen = false;
+	let listAutoWidth = true;
+	let showChevron = true;
+	let activeValue: any;
+	let prev_value: any;
+	let prev_filterText: string;
+	let prev_multiple: boolean;
 
 	let timeout: Timer | number;
+
 	let debounce = (fn: (...args: any[]) => any, wait = 1) => {
 		clearTimeout(timeout);
 		timeout = setTimeout(fn, wait);
 	};
 
-	let listAutoWidth = true;
-	let showChevron = true;
-
 	let itemFilter = (label: string, filterText: string) => `${label}`.toLowerCase().includes(filterText.toLowerCase());
 	let groupBy = (group: { [key: string]: string }) => group.category;
-
-	let activeValue: any;
-	let prev_value: any;
-	let prev_filterText: string;
-	let prev_multiple: boolean;
 
 	const handleConfirm = async () => {
 		console.log('value', value);
@@ -110,7 +87,7 @@
 		}
 	};
 
-	function setValue() {
+	const setValue = () => {
 		if (typeof value === 'string') {
 			let item = (items || []).find((item) => item[itemId] === value);
 			value = item || {
@@ -120,8 +97,9 @@
 		} else if (multiple && Array.isArray(value) && value.length > 0) {
 			value = value.map((item) => (typeof item === 'string' ? { value: item, label: item } : item));
 		}
-	}
-	type _InputAttrs = {
+	};
+
+	type InputAttrs = {
 		autocapitalize: string;
 		autocomplete: string;
 		autocorrect: string;
@@ -132,8 +110,10 @@
 		id?: string;
 		readonly?: boolean;
 	};
-	let _inputAttributes: _InputAttrs;
-	function assignInputAttributes() {
+
+	let _inputAttributes: InputAttrs;
+
+	const assignInputAttributes = () => {
 		_inputAttributes = Object.assign(
 			{},
 			{
@@ -154,9 +134,9 @@
 		if (!searchable) {
 			_inputAttributes['readonly'] = true;
 		}
-	}
+	};
 
-	function convertStringItemsToObjects(_items: string[]) {
+	const convertStringItemsToObjects = (_items: string[]) => {
 		return _items.map((item, index) => {
 			return {
 				index,
@@ -164,9 +144,9 @@
 				label: `${item}`
 			};
 		});
-	}
+	};
 
-	function filterGroupedItems(_items: Device[]) {
+	const filterGroupedItems = (_items: ListItem[]) => {
 		const groupValues: string[] = [];
 		const groups: { [key: string]: any } = {};
 
@@ -198,9 +178,9 @@
 		});
 
 		return sortedGroupedItems;
-	}
+	};
 
-	function dispatchSelectedItem() {
+	const dispatchSelectedItem = () => {
 		if (multiple) {
 			if (JSON.stringify(value) !== JSON.stringify(prev_value)) {
 				if (checkValueForDuplicates()) {
@@ -213,9 +193,9 @@
 		if (!prev_value || JSON.stringify(value[itemId]) !== JSON.stringify(prev_value[itemId])) {
 			dispatch('input', value);
 		}
-	}
+	};
 
-	function setupMulti() {
+	const setupMulti = () => {
 		if (value) {
 			if (Array.isArray(value)) {
 				value = [...value];
@@ -223,44 +203,32 @@
 				value = [value];
 			}
 		}
-	}
+	};
 
-	function setupSingle() {
+	const setupSingle = () => {
 		if (value) value = null;
-	}
+	};
 
-	$: if ((items, value)) setValue();
-	$: if (inputAttributes || !searchable) assignInputAttributes();
-	$: if (multiple) setupMulti();
-	$: if (prev_multiple && !multiple) setupSingle();
-	$: if (multiple && value && value.length > 1) checkValueForDuplicates();
-	$: if (value) dispatchSelectedItem();
-	$: if (!value && multiple && prev_value) dispatch('input', value);
-	$: if (!focused && input) closeList();
-	$: if (filterText !== prev_filterText) setupFilterText();
-	$: if (!multiple && listOpen && value && filteredItems) setValueIndexAsHoverIndex();
-	$: dispatchHover(hoverItemIndex);
+	const checkHoverSelectable = (startingIndex = 0, ignoreGroup: boolean = false) => {
+		hoverItemIndex = startingIndex < 0 ? 0 : startingIndex;
+		if (!ignoreGroup && filteredItems[hoverItemIndex] && !filteredItems[hoverItemIndex].selectable) {
+			setHoverIndex(1);
+		}
+	};
 
-	function setValueIndexAsHoverIndex() {
+	const setValueIndexAsHoverIndex = () => {
 		const valueIndex = filteredItems.findIndex((i: { [key: string]: string }) => {
 			return i[itemId] === value[itemId];
 		});
 
 		checkHoverSelectable(valueIndex, true);
-	}
+	};
 
-	function dispatchHover(i: number) {
+	const dispatchHover = (i: number) => {
 		dispatch('hoverItem', i);
-	}
+	};
 
-	function checkHoverSelectable(startingIndex = 0, ignoreGroup: boolean = false) {
-		hoverItemIndex = startingIndex < 0 ? 0 : startingIndex;
-		if (!ignoreGroup && filteredItems[hoverItemIndex] && !filteredItems[hoverItemIndex].selectable) {
-			setHoverIndex(1);
-		}
-	}
-
-	function setupFilterText() {
+	const setupFilterText = () => {
 		if (!loadOptions && filterText.length === 0) return;
 
 		if (loadOptions) {
@@ -291,7 +259,173 @@
 				activeValue = undefined;
 			}
 		}
-	}
+	};
+
+	const handleFilterEvent = (items: { [key: string]: any }[]) => {
+		if (listOpen) dispatch('filter', items);
+	};
+
+	const checkValueForDuplicates = () => {
+		let noDuplicates = true;
+		if (value) {
+			const ids: any[] = [];
+			const uniqueValues: any[] = [];
+
+			value.forEach((val: any) => {
+				if (!ids.includes(val[itemId])) {
+					ids.push(val[itemId]);
+					uniqueValues.push(val);
+				} else {
+					noDuplicates = false;
+				}
+			});
+
+			if (!noDuplicates) value = uniqueValues;
+		}
+		return noDuplicates;
+	};
+
+	const findItem = (selection?: { [key: string]: any }) => {
+		let matchTo = selection ? selection[itemId] : value[itemId];
+		return items.find((item) => item[itemId] === matchTo);
+	};
+
+	const updateValueDisplay = (items?: { [key: string]: any }[]) => {
+		if (!items || items.length === 0 || items.some((item) => typeof item !== 'object')) return;
+		if (!value || (multiple ? value.some((selection: any) => !selection || !selection[itemId]) : !value[itemId]))
+			return;
+
+		if (Array.isArray(value)) {
+			value = value.map((selection) => findItem(selection) || selection);
+		} else {
+			value = findItem() || value;
+		}
+	};
+
+	const handleMultiItemClear = async (i: number) => {
+		const itemToRemove = value[i];
+
+		if (value.length === 1) {
+			value = undefined;
+		} else {
+			value = value.filter((item: any) => {
+				return item !== itemToRemove;
+			});
+		}
+
+		dispatch('clear', itemToRemove);
+	};
+
+	const itemSelected = (selection?: { [key: string]: any }) => {
+		if (selection) {
+			filterText = '';
+			const item = Object.assign({}, selection);
+
+			if (item.groupHeader && !item.selectable) return;
+			value = multiple ? (value ? value.concat([item]) : [item]) : (value = item);
+
+			setTimeout(() => {
+				if (closeListOnChange) closeList();
+				activeValue = undefined;
+				dispatch('change', value);
+				dispatch('select', selection);
+			});
+		}
+	};
+
+	let ariaValues = (values: any) => {
+		return `Option ${values}, selected.`;
+	};
+
+	let ariaListOpen = (label: string, count: number) => {
+		return `You are currently focused on option ${label}. There are ${count} results available.`;
+	};
+
+	let ariaFocused = () => {
+		return `Select is focused, type to refine list, press down to open the menu.`;
+	};
+
+	const handleAriaSelection = (_multiple: boolean) => {
+		let selected = undefined;
+
+		if (_multiple && value.length > 0) {
+			selected = value.map((v: any) => v[label]).join(', ');
+		} else {
+			selected = value[label];
+		}
+
+		return ariaValues(selected);
+	};
+
+	const handleAriaContent = () => {
+		if (!filteredItems || filteredItems.length === 0) return '';
+		let _item = filteredItems[hoverItemIndex];
+		if (listOpen && _item) {
+			let count = filteredItems ? filteredItems.length : 0;
+			return ariaListOpen(_item[label], count);
+		} else {
+			return ariaFocused();
+		}
+	};
+
+	const setHoverIndex = (increment: number) => {
+		let selectableFilteredItems = filteredItems.filter(
+			(item) => !Object.hasOwn(item, 'selectable') || item.selectable === true
+		);
+
+		if (selectableFilteredItems.length === 0) {
+			return (hoverItemIndex = 0);
+		}
+
+		if (increment > 0 && hoverItemIndex === filteredItems.length - 1) {
+			hoverItemIndex = 0;
+		} else if (increment < 0 && hoverItemIndex === 0) {
+			hoverItemIndex = filteredItems.length - 1;
+		} else {
+			hoverItemIndex = hoverItemIndex + increment;
+		}
+
+		const hover = filteredItems[hoverItemIndex];
+
+		if (hover && hover.selectable === false) {
+			if (increment === 1 || increment === -1) setHoverIndex(increment);
+			return;
+		}
+	};
+
+	const isItemActive = (item: { [key: string]: any }, value: { [key: string]: any }, itemId: string) => {
+		if (multiple) return;
+		return value && value[itemId] === item[itemId];
+	};
+
+	const isItemFirst = (index: number) => (index === 0 ? true : false);
+
+	const isItemSelectable = (item: any) => {
+		return (item.groupHeader && item.selectable) || item.selectable || !item.hasOwnProperty('selectable');
+	};
+
+	const scrollAction = (node: HTMLElement, p0: { scroll: boolean | undefined; listDom: boolean }) => {
+		return {
+			update(args: any) {
+				if (args.scroll) {
+					handleListScroll();
+					node.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+				}
+			}
+		};
+	};
+
+	$: if ((items, value)) setValue();
+	$: if (inputAttributes || !searchable) assignInputAttributes();
+	$: if (multiple) setupMulti();
+	$: if (prev_multiple && !multiple) setupSingle();
+	$: if (multiple && value && value.length > 1) checkValueForDuplicates();
+	$: if (value) dispatchSelectedItem();
+	$: if (!value && multiple && prev_value) dispatch('input', value);
+	$: if (!focused && input) closeList();
+	$: if (filterText !== prev_filterText) setupFilterText();
+	$: if (!multiple && listOpen && value && filteredItems) setValueIndexAsHoverIndex();
+	$: dispatchHover(hoverItemIndex);
 
 	$: hasValue = multiple ? value && value.length > 0 : value;
 	$: hideSelectedItem = hasValue && filterText.length > 0;
@@ -307,7 +441,6 @@
 	$: ariaSelection = value ? handleAriaSelection(multiple) : '';
 	$: ariaContext = handleAriaContent();
 	$: updateValueDisplay(items);
-	$: justValue = computeJustValue();
 	$: if (!multiple && prev_value && !value) dispatch('input', value);
 	$: filteredItems = filter({
 		filterText,
@@ -332,73 +465,17 @@
 	$: if (input && listOpen && !focused) handleFocus();
 	$: if (filterText) hoverItemIndex = 0;
 
-	function handleFilterEvent(items: { [key: string]: any }[]) {
-		if (listOpen) dispatch('filter', items);
-	}
-
 	beforeUpdate(async () => {
 		prev_value = value;
 		prev_filterText = filterText;
 		prev_multiple = multiple;
 	});
 
-	function computeJustValue() {
-		if (multiple) return value ? value.map((item: { [key: string]: any }) => item[itemId]) : null;
-		return value ? value[itemId] : value;
-	}
+	//////////////////////////
+	// Event Handlers
+	//////////////////////////
 
-	function checkValueForDuplicates() {
-		let noDuplicates = true;
-		if (value) {
-			const ids: any[] = [];
-			const uniqueValues: any[] = [];
-
-			value.forEach((val: any) => {
-				if (!ids.includes(val[itemId])) {
-					ids.push(val[itemId]);
-					uniqueValues.push(val);
-				} else {
-					noDuplicates = false;
-				}
-			});
-
-			if (!noDuplicates) value = uniqueValues;
-		}
-		return noDuplicates;
-	}
-
-	function findItem(selection?: { [key: string]: any }) {
-		let matchTo = selection ? selection[itemId] : value[itemId];
-		return items.find((item) => item[itemId] === matchTo);
-	}
-
-	function updateValueDisplay(items?: { [key: string]: any }[]) {
-		if (!items || items.length === 0 || items.some((item) => typeof item !== 'object')) return;
-		if (!value || (multiple ? value.some((selection: any) => !selection || !selection[itemId]) : !value[itemId]))
-			return;
-
-		if (Array.isArray(value)) {
-			value = value.map((selection) => findItem(selection) || selection);
-		} else {
-			value = findItem() || value;
-		}
-	}
-
-	async function handleMultiItemClear(i: number) {
-		const itemToRemove = value[i];
-
-		if (value.length === 1) {
-			value = undefined;
-		} else {
-			value = value.filter((item: any) => {
-				return item !== itemToRemove;
-			});
-		}
-
-		dispatch('clear', itemToRemove);
-	}
-
-	function handleKeyDown(e: KeyboardEvent) {
+	const handleKeyDown = (e: KeyboardEvent) => {
 		if (!focused) return;
 		e.stopPropagation();
 		switch (e.key) {
@@ -482,16 +559,16 @@
 				}
 				break;
 		}
-	}
+	};
 
-	function handleFocus(e?: FocusEvent & { currentTarget: EventTarget & HTMLInputElement }) {
+	const handleFocus = (e?: FocusEvent & { currentTarget: EventTarget & HTMLInputElement }) => {
 		if (focused && input === document?.activeElement) return;
 		if (e) dispatch('focus', e);
 		input?.focus();
 		focused = true;
-	}
+	};
 
-	async function handleBlur(e?: FocusEvent & { currentTarget: EventTarget & HTMLInputElement }) {
+	const handleBlur = async (e?: FocusEvent & { currentTarget: EventTarget & HTMLInputElement }) => {
 		if (isScrolling) return;
 		if (listOpen || focused) {
 			dispatch('blur', e);
@@ -500,97 +577,73 @@
 			activeValue = undefined;
 			input?.blur();
 		}
-	}
+	};
 
-	function handleClick() {
+	const handleClick = () => {
 		if (disabled) return;
 		if (filterText.length > 0) return (listOpen = true);
 		listOpen = !listOpen;
 		dispatch('toggle', { state: listOpen });
-	}
+	};
 
-	export function handleClear() {
+	const handleSelect = (item: any) => {
+		if (!item || item.selectable === false) return;
+		itemSelected(item);
+	};
+
+	const handleHover = (i: number) => {
+		if (isScrolling) return;
+		hoverItemIndex = i;
+	};
+
+	const handleItemClick = (args: any) => {
+		const { item, i } = args;
+		if (item?.selectable === false) return;
+		if (value && !multiple && value[itemId] === item[itemId]) return closeList();
+		if (isItemSelectable(item)) {
+			hoverItemIndex = i;
+			handleSelect(item);
+		}
+	};
+
+	export let handleClear = () => {
 		dispatch('clear', value);
 		value = undefined;
 		closeList();
 		handleFocus();
-	}
+	};
+
+	//////////////////////////
+	// Lifecycle
+	//////////////////////////
 
 	onMount(() => {
 		if (listOpen) focused = true;
 		if (focused && input) input.focus();
 	});
 
-	function itemSelected(selection?: { [key: string]: any }) {
-		if (selection) {
-			filterText = '';
-			const item = Object.assign({}, selection);
+	onDestroy(() => {
+		list?.remove();
+	});
 
-			if (item.groupHeader && !item.selectable) return;
-			value = multiple ? (value ? value.concat([item]) : [item]) : (value = item);
-
-			setTimeout(() => {
-				if (closeListOnChange) closeList();
-				activeValue = undefined;
-				dispatch('change', value);
-				dispatch('select', selection);
-			});
-		}
-	}
-
-	function closeList() {
+	const closeList = () => {
 		if (clearFilterTextOnBlur) {
 			filterText = '';
 		}
 		listOpen = false;
-	}
-
-	let ariaValues = (values: any) => {
-		return `Option ${values}, selected.`;
 	};
-
-	let ariaListOpen = (label: string, count: number) => {
-		return `You are currently focused on option ${label}. There are ${count} results available.`;
-	};
-
-	let ariaFocused = () => {
-		return `Select is focused, type to refine list, press down to open the menu.`;
-	};
-
-	function handleAriaSelection(_multiple: boolean) {
-		let selected = undefined;
-
-		if (_multiple && value.length > 0) {
-			selected = value.map((v: any) => v[label]).join(', ');
-		} else {
-			selected = value[label];
-		}
-
-		return ariaValues(selected);
-	}
-
-	function handleAriaContent() {
-		if (!filteredItems || filteredItems.length === 0) return '';
-		let _item = filteredItems[hoverItemIndex];
-		if (listOpen && _item) {
-			let count = filteredItems ? filteredItems.length : 0;
-			return ariaListOpen(_item[label], count);
-		} else {
-			return ariaFocused();
-		}
-	}
 
 	let list: HTMLDivElement;
 
 	let isScrollingTimer: Timer | number;
-	function handleListScroll() {
+	const handleListScroll = () => {
 		clearTimeout(isScrollingTimer);
 		isScrollingTimer = setTimeout(() => {
 			isScrolling = false;
 		}, 100);
-	}
+	};
 
-	function handleClickOutside(event: MouseEvent & { currentTarget: EventTarget & Window }) {
+	const handleClickOutside = (event: MouseEvent & { currentTarget: EventTarget & Window }) => {
 		if (
 			!listOpen &&
 			!focused &&
@@ -600,93 +653,17 @@
 		) {
 			handleBlur();
 		}
-	}
-
-	onDestroy(() => {
-		list?.remove();
-	});
+	};
 
 	let isScrolling = false;
-
-	function handleSelect(item: any) {
-		if (!item || item.selectable === false) return;
-		itemSelected(item);
-	}
-
-	function handleHover(i: number) {
-		if (isScrolling) return;
-		hoverItemIndex = i;
-	}
-
-	function handleItemClick(args: any) {
-		const { item, i } = args;
-		if (item?.selectable === false) return;
-		if (value && !multiple && value[itemId] === item[itemId]) return closeList();
-		if (isItemSelectable(item)) {
-			hoverItemIndex = i;
-			handleSelect(item);
-		}
-	}
-
-	function setHoverIndex(increment: number) {
-		let selectableFilteredItems = filteredItems.filter(
-			(item) => !Object.hasOwn(item, 'selectable') || item.selectable === true
-		);
-
-		if (selectableFilteredItems.length === 0) {
-			return (hoverItemIndex = 0);
-		}
-
-		if (increment > 0 && hoverItemIndex === filteredItems.length - 1) {
-			hoverItemIndex = 0;
-		} else if (increment < 0 && hoverItemIndex === 0) {
-			hoverItemIndex = filteredItems.length - 1;
-		} else {
-			hoverItemIndex = hoverItemIndex + increment;
-		}
-
-		const hover = filteredItems[hoverItemIndex];
-
-		if (hover && hover.selectable === false) {
-			if (increment === 1 || increment === -1) setHoverIndex(increment);
-			return;
-		}
-	}
-
-	function isItemActive(item: { [key: string]: any }, value: { [key: string]: any }, itemId: string) {
-		if (multiple) return;
-		return value && value[itemId] === item[itemId];
-	}
-
-	function isItemFirst(itemIndex: number) {
-		return itemIndex === 0;
-	}
-
-	function isItemSelectable(item: any) {
-		return (item.groupHeader && item.selectable) || item.selectable || !item.hasOwnProperty('selectable');
-	}
-
 	const activeScroll = scrollAction;
 	const hoverScroll = scrollAction;
+	let prefloat = true;
 
-	function scrollAction(node: HTMLElement, p0: { scroll: boolean | undefined; listDom: boolean }) {
-		return {
-			update(args: any) {
-				if (args.scroll) {
-					handleListScroll();
-					node.scrollIntoView({ behavior: 'auto', block: 'nearest' });
-				}
-			}
-		};
-	}
-
-	function setListWidth() {
+	const setListWidth = () => {
 		const { width } = container.getBoundingClientRect();
-		list.style.width = listAutoWidth ? width + 'px' : 'auto';
-	}
-
-	import type { Placement } from '@floating-ui/core/dist/floating-ui.core';
-	import type { ComputeConfig } from 'svelte-floating-ui';
+		list.style.width = listAutoWidth ? `${width}px` : 'auto';
+	};
 
 	let _floatingConfig: ComputeConfig = {
 		strategy: 'absolute',
@@ -697,13 +674,12 @@
 
 	const [floatingRef, floatingContent, floatingUpdate] = createFloatingActions(_floatingConfig);
 
-	let prefloat = true;
-	function listMounted(list: any, listOpen: boolean) {
+	const listMounted = (list: any, listOpen: boolean) => {
 		if (!list || !listOpen) return (prefloat = true);
 		setTimeout(() => {
 			prefloat = false;
 		}, 0);
-	}
+	};
 </script>
 
 <svelte:window on:click={handleClickOutside} on:keydown={handleKeyDown} />

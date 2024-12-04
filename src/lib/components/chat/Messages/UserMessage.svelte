@@ -1,9 +1,8 @@
 <script lang="ts">
-	import type { i18nType } from '$lib/types';
+	import type { Message, i18nType } from '$lib/types';
 	import { createEventDispatcher, getContext, tick } from 'svelte';
 	import { getFileContentById } from '$lib/apis/files';
-	import type { SessionUser } from '$lib/stores';
-	import { models, settings } from '$lib/stores';
+	import { type SessionUser, models, settings } from '$lib/stores';
 	import { user as _user } from '$lib/stores';
 	import dayjs from 'dayjs';
 	import FileItem from '$lib/components/common/FileItem.svelte';
@@ -16,7 +15,7 @@
 	const dispatch = createEventDispatcher();
 
 	export let user: SessionUser;
-	export let message;
+	export let message: Message;
 	export let siblings;
 	export let isFirstMessage: boolean;
 	export let readOnly: boolean;
@@ -60,19 +59,14 @@
 
 <div class=" flex w-full user-message" dir={$settings.chatDirection}>
 	{#if !($settings?.chatBubble ?? true)}
-		<ProfileImage
-			src={message.user
-				? $models.find((m) => m.id === message.user)?.info?.meta?.profile_image_url ?? '/user.png'
-				: user?.profile_image_url ?? '/user.png'}
-		/>
+		<ProfileImage src={user ? (user.profile_image_url ? user.profile_image_url : '/user.png') : '/user.png'} />
 	{/if}
 	<div class="w-full overflow-hidden pl-1">
 		{#if !($settings?.chatBubble ?? true)}
 			<div>
 				<Name>
-					{#if message.user}
-						{$i18n.t('You')}
-						<span class=" text-gray-500 text-sm font-medium">{message?.user ?? ''}</span>
+					{#if $settings.showUsername && $_user?.name === user.name}
+						<span class=" text-gray-500 text-sm font-medium">{$_user?.name ?? ''}</span>
 					{:else if $settings.showUsername || $_user?.name !== user.name}
 						{user.name}
 					{:else}

@@ -193,7 +193,7 @@
 	});
 
 	const onChange = () => {
-		console.log(importFiles);
+		console.log(`importFiles`, importFiles);
 
 		let reader = new FileReader();
 		reader.onload = async (event) => {

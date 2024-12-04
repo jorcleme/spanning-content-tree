@@ -13,6 +13,7 @@ from apps.webui.models.users import (
     UserModel,
     UserUpdateForm,
     UserRoleUpdateForm,
+    UserSavedArticleIdsUpdateForm,
     UserSettings,
     Users,
 )
@@ -77,6 +78,95 @@ async def update_user_role(form_data: UserRoleUpdateForm, user=Depends(get_admin
         status_code=status.HTTP_403_FORBIDDEN,
         detail=ERROR_MESSAGES.ACTION_PROHIBITED,
     )
+
+
+############################
+# GetUserSavedArticleIdsBySessionUser
+############################
+
+
+@router.get("/user/saved-articles", response_model=Optional[List[str]])
+async def get_user_saved_article_ids_by_session_user(user=Depends(get_verified_user)):
+    user = Users.get_user_by_id(user.id)
+    if user:
+        if user.saved_article_ids is None:
+            user.saved_article_ids = []
+        return user.saved_article_ids
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.USER_NOT_FOUND,
+        )
+
+
+############################
+# UpdateUserSavedArticleIdsBySessionUser
+############################
+
+
+@router.post("/user/saved-articles/update", response_model=Optional[List[str]])
+async def update_user_saved_article_ids_by_session_user(
+    form_data: UserSavedArticleIdsUpdateForm, user=Depends(get_current_user)
+):
+    user = Users.get_user_by_id(user.id)
+    if user:
+        if user.saved_article_ids is None:
+            user.saved_article_ids = []
+
+        user = Users.update_user_by_id(
+            user.id,
+            {"saved_article_ids": [*user.saved_article_ids, form_data.article_id]},
+        )
+        if user:
+            return user.saved_article_ids
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ERROR_MESSAGES.USER_NOT_FOUND,
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.USER_NOT_FOUND,
+        )
+
+
+############################
+# DeleteUserSavedArticleIdsBySessionUser
+############################
+
+
+@router.delete(
+    "/user/saved-articles/delete/{article_id}", response_model=Optional[List[str]]
+)
+async def delete_user_saved_article_ids_by_session_user(
+    article_id: str, user=Depends(get_current_user)
+):
+    user = Users.get_user_by_id(user.id)
+    if user:
+        if user.saved_article_ids is None:
+            user.saved_article_ids = []
+
+        user = Users.update_user_by_id(
+            user.id,
+            {
+                "saved_article_ids": [
+                    x for x in user.saved_article_ids if x != article_id
+                ]
+            },
+        )
+        if user:
+            return user.saved_article_ids
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ERROR_MESSAGES.USER_NOT_FOUND,
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.USER_NOT_FOUND,
+        )
 
 
 ############################

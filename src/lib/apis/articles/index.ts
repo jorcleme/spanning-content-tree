@@ -1,5 +1,5 @@
+import type { Article, Nullable } from '$lib/types';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
-import type { Nullable, Article } from '$lib/types';
 
 export const getArticles = async (
 	token: string,
@@ -131,6 +131,62 @@ export const getArticleByDocumentId = async (token: string, documentId: string):
 		.catch((err) => {
 			console.error(err);
 			error = err.detail;
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const getArticlesByUser = async (token: string, userId: string): Promise<Article[]> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/user/${userId}`, {
+		method: 'GET',
+		headers: {
+			'Content-Type': 'application/json',
+			Accept: 'application/json',
+			Authorization: `Bearer ${token}`
+		}
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const getManyArticlesByIds = async (ids: string[]): Promise<Article[]> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/many`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Accept: 'application/json'
+		},
+		body: JSON.stringify({ ids })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			console.error(err);
 			return null;
 		});
 

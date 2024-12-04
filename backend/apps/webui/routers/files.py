@@ -122,6 +122,11 @@ def upload_file(file: UploadFile = File(...), user=Depends(get_verified_user)):
             f.write(contents)
             f.close()
 
+        # Note: this is how we should store paths in the database
+        # This makes us portable across different systems
+        # I would expect relative path to log "/backend/data/uploads/uuid_filename"
+        relative_path = os.path.relpath(file_path, os.getcwd())
+        log.info(f"relative_path: {relative_path}")
         file = Files.insert_new_file(
             user.id,
             FileForm(
@@ -176,6 +181,7 @@ async def delete_all_files(user=Depends(get_admin_user)):
 
     if result:
         folder = f"{UPLOAD_DIR}"
+        relative_folder = os.path.relpath(folder, os.getcwd())
         try:
             # Check if the directory exists
             if os.path.exists(folder):
@@ -230,6 +236,9 @@ async def get_file_content_by_id(id: str, user=Depends(get_verified_user)):
     file = Files.get_file_by_id(id)
 
     if file:
+        # Note: we should convert paths from relative paths to absolute paths
+        # Paths are stored as absolute paths but this is not portable
+        # file_path = Path(os.path.join(os.getcwd(), file.meta["path"]))
         file_path = Path(file.meta["path"])
 
         # Check if the file already exists in the cache
@@ -253,6 +262,9 @@ async def get_file_content_by_id(id: str, user=Depends(get_verified_user)):
     file = Files.get_file_by_id(id)
 
     if file:
+        # Note: we should convert paths from relative paths to absolute paths
+        # Paths are stored as absolute paths but this is not portable
+        # file_path = Path(os.path.join(os.getcwd(), file.meta["path"]))
         file_path = Path(file.meta["path"])
 
         # Check if the file already exists in the cache

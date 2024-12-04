@@ -13,8 +13,8 @@ from apps.webui.models.articles import (
     BulkInsertNewArticleForm,
 )
 import json
-from apps.webui.models.articles import ArticleResponse
-from utils.utils import get_verified_user, get_admin_user
+from apps.webui.models.articles import ArticleResponse, ManyArticlesByIDs
+from utils.utils import get_verified_user, get_admin_user, get_current_user
 from apps.webui.models.series import Series_Table
 from constants import ERROR_MESSAGES
 from config import SRC_LOG_LEVELS
@@ -73,7 +73,7 @@ async def get_article_by_id(id: str):
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ERROR_MESSAGES.ARTICLE_ID_NOT_FOUND,
+            detail=ERROR_MESSAGES.ARTICLE_ATTR_NOT_FOUND("id"),
         )
 
 
@@ -90,7 +90,7 @@ async def get_article_by_document_id(document_id: str, user=Depends(get_verified
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ERROR_MESSAGES.ARTICLE_DOC_ID_NOT_FOUND,
+            detail=ERROR_MESSAGES.ARTICLE_ATTR_NOT_FOUND("document id"),
         )
 
 
@@ -107,8 +107,41 @@ async def get_article_by_url(request: ArticleUrlRequest):
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ERROR_MESSAGES.ARTICLE_URL_NOT_FOUND,
+            detail=ERROR_MESSAGES.ARTICLE_ATTR_NOT_FOUND("url"),
         )
+
+
+################
+# GetArticlesByUser
+################
+
+
+@router.get("/user/{user_id}", response_model=List[ArticleModel])
+async def get_articles_by_user(user_id: str, user=Depends(get_current_user)):
+    if user:
+        if user_id == user.id:
+            return Article_Table.get_articles_by_user_id(user_id)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=ERROR_MESSAGES.ACTION_PROHIBITED,
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=ERROR_MESSAGES.ACTION_PROHIBITED,
+        )
+
+
+################
+# GetManyArticlesByIds
+################
+
+
+@router.post("/many", response_model=List[ArticleModel])
+async def get_many_articles_by_ids(form_data: ManyArticlesByIDs):
+    articles = Article_Table.get_many_articles_by_ids(form_data.ids)
+    return articles
 
 
 ################
@@ -126,7 +159,7 @@ def is_valid_uuid(value: str) -> bool:
         return False
 
 
-@router.post("/add", response_model=Optional[ArticleModel])
+@router.post("/add", response_model=Optional[ArticleResponse])
 async def add_new_article(form_data: InsertNewArticleForm):
 
     article = Article_Table.insert_new_article(
@@ -141,11 +174,19 @@ async def add_new_article(form_data: InsertNewArticleForm):
         steps=form_data.steps,
         revision_history=form_data.revision_history,
         series_id=form_data.series_id,
+        published=form_data.published,
+        user_id=form_data.user_id,
+        sources=form_data.sources,
     )
 
     if article:
         log.debug(f"Article: {article.title}")
-        return article
+        return ArticleResponse(
+            **{
+                **article.model_dump(),
+                "sources": json.loads(article.sources if article.sources else "[]"),
+            }
+        )
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -209,7 +250,14 @@ async def update_article_by_id(
         updated_article = Article_Table.update_article_by_id(id, updated)
         log.debug(f"Updated Article: {updated_article}")
         if updated_article:
-            return ArticleResponse(**{**updated_article.model_dump()})
+            return ArticleResponse(
+                **{
+                    **updated_article.model_dump(),
+                    "sources": json.loads(
+                        updated_article.sources if updated_article.sources else "[]"
+                    ),
+                }
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -235,7 +283,12 @@ async def update_article_steps_by_id(
         article = Article_Table.update_article_steps_by_id(
             id, updated_article_steps, form_data.step_index
         )
-        return ArticleResponse(**{**article.model_dump()})
+        return ArticleResponse(
+            **{
+                **article.model_dump(),
+                "sources": json.loads(article.sources if article.sources else "[]"),
+            }
+        )
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -254,16 +307,50 @@ class GenerateArticleForm(BaseModel):
     device: str
 
 
-@router.post("/generate")
+@router.post("/generate", response_model=Optional[ArticleResponse])
 async def generate_new_article(
     form_data: GenerateArticleForm, user=Depends(get_verified_user)
 ):
     from apps.cisco.article_creator import build_article
+    from apps.webui.models.series import Series_Table
+
+    series = Series_Table.get_series_by_name(form_data.device.strip())
+    if not series:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.DEFAULT(
+                "Series not found. Please contact your admin to create a new series."
+            ),
+        )
+    series_id = series.id
 
     article = await build_article(form_data.query, form_data.device)
 
     if article:
-        return article
+        created_article = Article_Table.insert_new_article(
+            id=article["id"],
+            title=article["title"],
+            document_id=article["document_id"],
+            objective=article["objective"],
+            category=article["category"],
+            url=article["url"],
+            series_id=series_id,
+            introduction=article["introduction"],
+            applicable_devices=article["applicable_devices"],
+            steps=article["steps"],
+            revision_history=article["revision_history"],
+            published=False,
+            user_id=user.id,
+            sources=article.get("sources", None),
+        )
+        return ArticleResponse(
+            **{
+                **created_article.model_dump(),
+                "sources": json.loads(
+                    created_article.sources if created_article.sources else "[]"
+                ),
+            }
+        )
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -284,3 +371,9 @@ async def delete_article_by_id(id: str, user=Depends(get_admin_user)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ERROR_MESSAGES.DEFAULT("Article not found"),
         )
+
+
+@router.delete("/delete/all")
+async def delete_all_articles():
+    success = Article_Table.delete_all_articles()
+    return {"message": "All articles deleted successfully", "status": success}

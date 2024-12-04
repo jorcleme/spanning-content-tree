@@ -12,6 +12,7 @@ from sqlalchemy import (
     Table,
     text,
     Boolean,
+    CHAR,
 )
 from sqlalchemy.orm import relationship, Mapped
 from enum import Enum as PyEnum
@@ -54,6 +55,12 @@ ARTICLE_ON_SERIES = Table(
 ####################
 
 
+def _resolve_series_model():
+    from apps.webui.models.series import Series
+
+    return Series
+
+
 class Article(Base):
     __tablename__ = "articles"
 
@@ -67,7 +74,9 @@ class Article(Base):
     introduction = Column(Text, nullable=True)
     steps = Column(JSONField, nullable=True)
     revision_history = Column(JSONField, nullable=True)
-    # published = Column(Boolean, nullable=False, default=False)
+    published = Column(Boolean)
+    user_id = Column(CHAR(length=255), nullable=True)
+    sources = Column(Text, nullable=True)
     created_at = Column(BigInteger, nullable=False)
     updated_at = Column(BigInteger, nullable=False)
 
@@ -101,6 +110,9 @@ class ArticleModel(BaseModel):
     revision_history: Optional[List[Any]] = (
         None  # JSON-encoded list of dictionaries (JSONField)
     )
+    published: Optional[bool] = False
+    user_id: Optional[str] = None
+    sources: Optional[str] = None
     created_at: int
     updated_at: int
 
@@ -120,6 +132,10 @@ class ArticleResponse(BaseModel):
     introduction: Optional[str]
     steps: Optional[List[Dict[str, Any]]]
     revision_history: Optional[List[Dict[str, Any]]]
+    series_ids: Optional[List[str]] = Field(default_factory=list)
+    published: Optional[bool] = False
+    user_id: Optional[str] = None
+    sources: List[dict]
     created_at: int
     updated_at: int
 
@@ -136,10 +152,17 @@ class InsertNewArticleForm(BaseModel):
     steps: Optional[List[Dict[str, Any]]]
     revision_history: Optional[List[Dict[str, Any]]]
     series_id: str
+    published: Optional[bool] = False
+    user_id: Optional[str] = None
+    sources: Optional[List[Dict[str, Any]]] = None
 
 
 class BulkInsertNewArticleForm(BaseModel):
     articles: List[InsertNewArticleForm]
+
+
+class ManyArticlesByIDs(BaseModel):
+    ids: List[str]
 
 
 class Search(BaseModel):
@@ -239,6 +262,22 @@ class CreateArticleForm(BaseModel):
     question: str
 
 
+class ArticleForm(BaseModel):
+    title: str
+    document_id: str
+    objective: str
+    category: ArticleCategory
+    url: str
+    series_id: str
+    introduction: Optional[str] = None
+    applicable_devices: Optional[List[str]] = None
+    steps: Optional[List[Dict[str, Any]]] = None
+    revision_history: Optional[List[Dict[str, Any]]] = None
+    published: Optional[bool] = False
+    user_id: Optional[str] = None
+    id: Optional[str] = None
+
+
 class ArticlesTable:
     def insert_new_article(
         self,
@@ -254,6 +293,9 @@ class ArticlesTable:
         applicable_devices: Optional[List[str]] = None,
         steps: Optional[List[Dict[str, Any]]] = None,
         revision_history: Optional[List[Dict[str, Any]]] = None,
+        published: Optional[bool] = False,
+        user_id: Optional[str] = None,
+        sources: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[ArticleModel]:
         from apps.webui.models.series import Series
 
@@ -282,7 +324,10 @@ class ArticlesTable:
                         "applicable_devices": article.applicable_devices,
                         "steps": article.steps,
                         "revision_history": article.revision_history,
+                        "published": article.published,
+                        "user_id": article.user_id,
                         "series_ids": [series.id for series in article.series],
+                        "sources": article.sources,
                         "created_at": article.created_at,
                         "updated_at": article.updated_at,
                     }
@@ -306,6 +351,9 @@ class ArticlesTable:
                     applicable_devices=applicable_devices or [],
                     steps=steps or [],
                     revision_history=revision_history or [],
+                    published=published,
+                    user_id=user_id,
+                    sources=json.dumps(sources) if sources else None,
                     created_at=int(time.time()),
                     updated_at=int(time.time()),
                 )
@@ -316,9 +364,15 @@ class ArticlesTable:
                 # Associate the new article with the series
                 result.series.append(series)
                 db.commit()
-
+                db.refresh(result)
+                series_ids = [series.id for series in result.series]
+                article = {
+                    column.name: getattr(result, column.name)
+                    for column in result.__table__.columns
+                }
+                article["series_ids"] = series_ids
                 # Return the newly created article
-                return ArticleModel.model_validate(result)
+                return ArticleModel.model_validate(article)
 
     def get_article_by_id(self, id: str) -> Optional[ArticleModel]:
         try:
@@ -392,8 +446,18 @@ class ArticlesTable:
 
             return [ArticleModel.model_validate(article) for article in a]
 
+    def get_articles_by_user_id(self, user_id: str) -> List[ArticleModel]:
+        with get_db() as db:
+            articles = db.query(Article).filter_by(user_id=user_id).all()
+            return [ArticleModel.model_validate(article) for article in articles]
+
+    def get_many_articles_by_ids(self, ids: List[str]) -> List[ArticleModel]:
+        with get_db() as db:
+            articles = db.query(Article).filter(Article.id.in_(ids)).all()
+            return [ArticleModel.model_validate(article) for article in articles]
+
     def update_article_by_id(self, id: str, updated: dict) -> Optional[ArticleModel]:
-        from apps.webui.models.series import SeriesModel, Series
+        from apps.webui.models.series import Series
 
         try:
             with get_db() as db:
@@ -410,13 +474,6 @@ class ArticlesTable:
                 db.commit()
                 db.refresh(article)
                 return ArticleModel.model_validate(article)
-                # db.query(Article).filter_by(id=id).update(updated)
-                # db.commit()
-                # article_obj = db.query(Article).filter_by(id=id).first()
-                # article_obj.updated_at = int(time.time())
-                # db.commit()
-                # db.refresh(article_obj)
-                return ArticleModel.model_validate(article_obj)
         except Exception as e:
             return None
 
@@ -470,6 +527,12 @@ class ArticlesTable:
                 return True
             else:
                 return False
+
+    def delete_all_articles(self) -> bool:
+        with get_db() as db:
+            db.query(Article).delete()
+            db.commit()
+            return True
 
 
 Article_Table = ArticlesTable()

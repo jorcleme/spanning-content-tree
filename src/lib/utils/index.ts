@@ -1,7 +1,8 @@
-import { v4 as uuidv4 } from 'uuid';
-import sha256 from 'js-sha256';
+import type { Article, Message, MessageHistory } from '$lib/types';
+import type { Chat } from '$lib/types';
 import { WEBUI_BASE_URL } from '$lib/constants';
-import type { MessageHistory, Message, Article } from '$lib/types';
+import sha256 from 'js-sha256';
+import { v4 as uuidv4 } from 'uuid';
 
 //////////////////////////
 // Helper functions
@@ -185,7 +186,7 @@ export const generateInitialsImage = (name: string) => {
 		return '/user.png';
 	}
 
-	ctx.fillStyle = '#F39C12';
+	ctx.fillStyle = '#1990fa';
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 	ctx.fillStyle = '#FFFFFF';
@@ -422,7 +423,7 @@ const convertOpenAIMessages = (convo: any) => {
 	};
 	return chat;
 };
-import type { Chat } from '$lib/types';
+
 const validateChat = (chat: any) => {
 	// Because ChatGPT sometimes has features we can't use like DALL-E or migh have corrupted messages, need to validate
 	const messages = chat.messages;

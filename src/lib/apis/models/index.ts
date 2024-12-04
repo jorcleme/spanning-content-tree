@@ -1,5 +1,4 @@
 import type { Nullable } from '$lib/types';
-
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 import type { Model } from '$lib/stores';
 
@@ -115,10 +114,7 @@ export const updateModelById = async (token: string, id: string, model: object):
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.then((json) => {
-			return json;
+			return await res.json();
 		})
 		.catch((err) => {
 			error = err;

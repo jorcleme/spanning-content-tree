@@ -5,7 +5,8 @@
 	import { createEventDispatcher } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { flip } from 'svelte/animate';
-	import { cubicInOut } from 'svelte/easing';
+	import { quintOut } from 'svelte/easing';
+	import { crossfade } from 'svelte/transition';
 	import { getArticlesBySeriesId } from '$lib/apis/articles';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import { models, settings } from '$lib/stores';
@@ -31,9 +32,26 @@
 
 	let searchQuery = '';
 	let articles: Article[] = [];
-	let filteredArticles: Article[] = [];
 	let loading = false;
 	let showInfo = false;
+
+	const [send, receive] = crossfade({
+		duration: (d) => Math.sqrt(d * 200),
+
+		fallback(node, params) {
+			const style = getComputedStyle(node);
+			const transform = style.transform === 'none' ? '' : style.transform;
+
+			return {
+				duration: 600,
+				easing: quintOut,
+				css: (t) => `
+				transform: ${transform} scale(${t});
+				opacity: ${t}
+			`
+			};
+		}
+	});
 
 	const fetchArticles = async () => {
 		loading = true;
@@ -43,8 +61,7 @@
 			return null;
 		});
 		if (res) {
-			articles = res;
-			filteredArticles = [...articles];
+			articles = res.filter((a) => a.published);
 		}
 		loading = false;
 	};
@@ -111,15 +128,10 @@
 									{$i18n.t('Current Articles for {{seriesName}}', { seriesName })}
 								</h2>
 								<input
-									class="self-center"
+									class="self-center rounded-md border border-gray-300 dark:border-gray-700 px-2 py-1 w-full sm:max-w-sm mx-auto"
 									type="text"
-									placeholder="Search articles..."
+									placeholder={$i18n.t('Search Articles')}
 									bind:value={searchQuery}
-									on:input={() => {
-										filteredArticles = articles.filter((a) =>
-											a.title.toLowerCase().includes(searchQuery.toLowerCase())
-										);
-									}}
 								/>
 								<div class="flex">
 									{#if loading}
@@ -132,21 +144,34 @@
 											id="articles-container"
 											class="w-full mt-4 snap-x snap-mandatory overflow-x-scroll scroll-ml-2 scroll-smooth grid grid-flow-col gap-2 overscroll-x-contain h-max pb-2.5"
 										>
-											{#each filteredArticles as article, i (article.id)}
-												<div class="snap-center" animate:flip={{ delay: i * 200, easing: cubicInOut, duration: 800 }}>
-													<Card id={article.id} title={article.title} category={article.category} url={article.url} />
+											{#each articles.filter((a) => searchQuery === '' || a.title
+														.toLowerCase()
+														.includes(searchQuery.toLowerCase())) as article (article.id)}
+												<div
+													class="snap-center"
+													in:receive={{ key: article.id }}
+													out:send={{ key: article.id }}
+													animate:flip={{ duration: 400 }}
+												>
+													<Card
+														id={article.id}
+														title={article.title}
+														category={article.category}
+														url={article.url}
+														published={article.published}
+													/>
 												</div>
 											{/each}
 										</div>
 									{/if}
 								</div>
-								<small class="mt-2"
+								<small class="my-4 p-2"
 									>Not seeing the article you're looking for? Our writers publish new content all the time. In the
 									meantime, we can use AI to generate one for you.</small
 								>
 								<div class="grid grid-cols-4 items-center">
 									<button
-										class="btn col-start-2 col-span-2 self-center px-4 py-2 bg-[#1990fa] text-white rounded-md shadow-md"
+										class="btn col-start-2 col-span-2 self-center px-4 py-2 bg-[#1990fa] text-white rounded-md shadow-md hover:bg-[#1e88e5]"
 										on:click={() => dispatch('generate')}>Generate New Article</button
 									>
 									<div class="col-start-4 col-span-1 justify-self-end flex space-x-1 mr-1">

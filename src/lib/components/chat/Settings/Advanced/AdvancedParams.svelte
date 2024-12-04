@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { AdvancedModelParams, ModelParams, i18nType } from '$lib/types';
 	import { createEventDispatcher, getContext } from 'svelte';
+	import { tweened } from 'svelte/motion';
+	// @ts-ignore
+	import { interpolateLab } from 'd3-interpolate';
 	import Switch from '$lib/components/common/Switch.svelte';
 
 	const dispatch = createEventDispatcher();
@@ -30,7 +33,7 @@
 		use_mlock: undefined,
 		num_thread: null,
 		template: null,
-		proficiency: 0
+		proficiency: undefined
 	};
 
 	$: if (params) {
@@ -38,9 +41,74 @@
 	}
 
 	$: console.log('params: ', params);
+
+	let proficiency = 0;
+	const labels = ['Beginner', 'Intermediate', 'Advanced'];
+	const colors = ['rgb(25, 144, 250)', 'rgb(15, 90, 210)', 'rgb(9, 70, 200)'];
+	const color = tweened(colors.at(0), {
+		duration: 800,
+		interpolate: interpolateLab
+	});
+
+	const handleProficiencyChange = async (e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
+		const value = Number((e.target as HTMLInputElement).value);
+		params.proficiency = value;
+		await color.set(colors[value]);
+	};
 </script>
 
-<div class=" space-y-1 text-xs">
+<div class="space-y-1 text-xs">
+	<div class="py-0.5 w-full justify-between">
+		<div class="flex w-full justify-between">
+			<div class=" self-center text-xs font-medium">{$i18n.t('Network Profiency')}</div>
+
+			<button
+				class="p-1 px-3 text-xs flex rounded transition flex-shrink-0 outline-none"
+				type="button"
+				on:click={() => {
+					params.proficiency = (params?.proficiency ?? null) === null ? 0 : undefined;
+				}}
+			>
+				{#if (params?.proficiency ?? null) === null}
+					<span class="ml-2 self-center"> {$i18n.t('Default')} </span>
+				{:else}
+					<span class="ml-2 self-center"> {$i18n.t('Custom')} </span>
+				{/if}
+			</button>
+		</div>
+
+		{#if (params?.proficiency ?? null) !== null}
+			<div class="flex mt-0.5 space-x-2 justify-between">
+				<div class="flex items-center space-x-4 justify-evenly">
+					<span class="text-sm dark:text-gray-300">Beginner</span>
+					<div class="flex-1">
+						<input
+							id="proficiency-slider"
+							type="range"
+							min="0"
+							max="2"
+							step="1"
+							bind:value={proficiency}
+							class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 max-w-fit"
+							style:background-color={$color}
+							on:change={handleProficiencyChange}
+						/>
+					</div>
+					<span class="text-sm dark:text-gray-300">Advanced</span>
+				</div>
+				<div>
+					<input
+						bind:value={params.proficiency}
+						type="number"
+						class=" bg-transparent text-center w-14"
+						min="0"
+						max="2"
+						step="any"
+					/>
+				</div>
+			</div>
+		{/if}
+	</div>
 	<div class=" py-0.5 w-full justify-between">
 		<div class="flex w-full justify-between">
 			<div class=" self-center text-xs font-medium">{$i18n.t('Seed')}</div>

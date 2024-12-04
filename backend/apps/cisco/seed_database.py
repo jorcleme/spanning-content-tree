@@ -158,6 +158,7 @@ def insert_articles_for_series():
                     "applicable_devices": article.get("applicable_devices", []),
                     "steps": article.get("steps", []),
                     "revision_history": article.get("revision_history", []),
+                    "published": True,
                 }
                 article_schema["steps"] = list(
                     map(
