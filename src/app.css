@@ -314,7 +314,7 @@ input[type='number'] {
 
 /*Editor Stuff*/
 
-pre {
+.editor > pre {
 	line-height: 1.1;
 	background: #222;
 	color: #fff;
@@ -338,12 +338,12 @@ pre {
 	border-bottom-right-radius: 10px;
 }
 
-pre::-webkit-scrollbar {
+.editor > pre::-webkit-scrollbar {
 	background: transparent;
 	width: 10px;
 }
 
-pre::-webkit-scrollbar-thumb {
+.editor > pre::-webkit-scrollbar-thumb {
 	background: #999;
 }
 

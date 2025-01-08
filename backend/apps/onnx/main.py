@@ -9,7 +9,10 @@ async def get_all_models():
             "object": "model",
             "created": int(time.time()),
             "owned_by": "onnx",
-            "info": {"meta": {"task": "text-generation", "dtype": "q4"}},
+            "info": {
+                "meta": {"task": "text-generation", "dtype": "q4"},
+                "name": "Qwen2.5-Coder-0.5B-Instruct",
+            },
         },
         {
             "id": "Xenova/Phi-3-mini-4k-instruct",
@@ -17,7 +20,10 @@ async def get_all_models():
             "object": "model",
             "created": int(time.time()),
             "owned_by": "onnx",
-            "info": {"meta": {"task": "text-generation", "dtype": "fp16"}},
+            "info": {
+                "meta": {"task": "text-generation", "dtype": "fp16"},
+                "name": "Phi-3-mini-4k-instruct",
+            },
         },
         {
             "id": "onnx-community/Llama-3.2-1B-Instruct",
@@ -25,7 +31,10 @@ async def get_all_models():
             "object": "model",
             "created": int(time.time()),
             "owned_by": "onnx",
-            "info": {"meta": {"task": "text-generation", "dtype": None}},
+            "info": {
+                "meta": {"task": "text-generation", "dtype": None},
+                "name": "Llama-3.2-1B-Instruct",
+            },
         },
         {
             "id": "nomic-ai/nomic-embed-text-v1",
@@ -50,7 +59,8 @@ async def get_all_models():
                         ],
                         ["classification", "Purpose: embed texts to classify them"],
                     ],
-                }
+                },
+                "name": "nomic-embed-text-v1",
             },
         },
         {
@@ -64,7 +74,8 @@ async def get_all_models():
                     "task": "feature-extraction",
                     "dtype": None,
                     "context_length": 768,
-                }
+                },
+                "name": "all-MiniLM-L6-v2",
             },
         },
     ]
