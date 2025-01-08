@@ -23,6 +23,9 @@ jobs:
         with:
           node-version: '20' # Or specify any other version you want to use
 
+      - name: Use npm registry
+        run: npm config set registry https://registry.npmjs.org/
+
       - name: Install Dependencies
         run: npm install
 

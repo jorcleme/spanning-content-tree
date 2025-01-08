@@ -2,7 +2,8 @@ name: Release to PyPI
 
 on:
   push:
-    branches-ignore: -main
+    branches-ignore:
+      - main
     # branches:
     #   - main # or whatever branch you want to use
 

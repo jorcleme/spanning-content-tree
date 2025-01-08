@@ -368,6 +368,7 @@ langchain-core==0.3.10
 langchain-google-community==2.0.1
 langchain-openai==0.2.2
 langchain-text-splitters==0.3.0
+langchain-huggingface==0.1.0
 langdetect==1.0.9
 langfuse
 langgraph==0.2.38

@@ -524,6 +524,7 @@ def insert_as_documents():
 
     headers = {
         "Content-Type": "application/json",
+        # Insert your Bearer Token or pull it from local storage/environment variable
         "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImU2MDdkNjRiLTBmNzItNGNlMi05MGI0LTNiN2MzM2Q5ODU2OSJ9.0_dSn3vnFsJcYIJO0xDHe67uTI0H0fVbcA6erSk8Das",
     }
     for document in documents:
@@ -544,14 +545,22 @@ def insert_as_documents():
                     "file_id": uploaded_file.get("id", ""),
                     "collection_name": document.get("collection_name", ""),
                 }
-                
+
                 try:
-                    process_doc = requests.post(f"{RAG_BASE_URL}/process/doc", json=process_doc_form, headers=headers)
+                    process_doc = requests.post(
+                        f"{RAG_BASE_URL}/process/doc",
+                        json=process_doc_form,
+                        headers=headers,
+                    )
                     process_doc.raise_for_status()
                     doc = process_doc.json()
                     if doc:
                         try:
-                            res = requests.post(f"{DOCUMENTS_API}/create", json={**document, "content": "{}"}, headers=headers)
+                            res = requests.post(
+                                f"{DOCUMENTS_API}/create",
+                                json={**document, "content": "{}"},
+                                headers=headers,
+                            )
                             res.raise_for_status()
                             print(res.json())
                         except Exception as e:
@@ -562,8 +571,9 @@ def insert_as_documents():
         except Exception as err:
             print(err)
 
-if __name__ == "__main__":
-    insert_as_documents()
-    # seed_articles_to_vectordb()
-    # peek_db_collections()
-    # reset_db()
+
+# if __name__ == "__main__":
+#     insert_as_documents()
+# seed_articles_to_vectordb()
+# peek_db_collections()
+# reset_db()
