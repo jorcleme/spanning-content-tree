@@ -43,8 +43,9 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
         user_id=pw.CharField(max_length=255, null=True),
         sources=pw.TextField(null=True),
     )
+    database.commit()
     migrator.sql('UPDATE "articles" SET published = true WHERE published IS NULL')
-
+    database.commit()
     migrator.change_columns("articles", published=pw.BooleanField(null=False))
 
 

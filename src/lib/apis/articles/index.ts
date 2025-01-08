@@ -350,3 +350,62 @@ export const createNewArticle = async (
 
 	return res;
 };
+
+export const getArticlesForReview = async (token: string): Promise<Article[]> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/editor/review`, {
+		method: 'GET',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		}
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const updateArticlePublishedStatusById = async (
+	token: string,
+	id: string,
+	published: boolean
+): Promise<Nullable<Article>> => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/articles/editor/review/${id}`, {
+		method: 'PUT',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ published })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return await res.json();
+		})
+		.catch((err) => {
+			error = err;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};

@@ -12,6 +12,7 @@
 	import { getTools } from '$lib/apis/tools';
 	import { getUserSettings } from '$lib/apis/users';
 	import {
+		type Model,
 		banners,
 		config,
 		documents,
@@ -81,7 +82,24 @@
 
 			await Promise.all([
 				(async () => {
-					models.set(await getModels());
+					await models.set(
+						(
+							await getModels()
+						).filter((model) => {
+							if (model.owned_by === 'onnx') {
+								// Only show text-generation models
+								if (model.info?.meta?.task === 'text-generation') {
+									return true;
+								} else {
+									// Otherwise, its not a text-generation model
+									return false;
+								}
+							} else {
+								// Else get all models
+								return true;
+							}
+						})
+					);
 				})(),
 				(async () => {
 					prompts.set(await getPrompts(localStorage.token));
@@ -170,7 +188,7 @@
 			});
 
 			if ($user.role === 'admin') {
-				showChangelog.set(localStorage.version !== $config?.version);
+				showChangelog.set(String(localStorage.version) !== $config?.version);
 			}
 
 			await tick();

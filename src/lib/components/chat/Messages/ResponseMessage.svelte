@@ -76,7 +76,29 @@
 	let showRateComment = false;
 	let showCitationModal = false;
 
-	let selectedCitation = null;
+	type Citation = {
+		source: {
+			name: string;
+		};
+		document: string[];
+		metadata: {
+			file_id: string;
+			name: string;
+		}[];
+	};
+
+	type MergedDocument = {
+		source: {
+			name: string;
+		};
+		document: string;
+		metadata: {
+			file_id: string;
+			name: string;
+		};
+	};
+
+	let selectedCitation: Citation | null = null;
 
 	$: tokens = marked.lexer(replaceTokens(sanitizeResponseContent(message?.content), model?.name, $user?.name));
 
@@ -564,6 +586,7 @@
 							{#if message.citations}
 								<div class="mt-1 mb-2 w-full flex gap-1 items-center flex-wrap">
 									{#each message.citations.reduce((acc, citation) => {
+										console.log('citation', citation);
 										citation.document.forEach((document, index) => {
 											const metadata = citation.metadata?.[index];
 											const id = metadata?.source ?? 'N/A';

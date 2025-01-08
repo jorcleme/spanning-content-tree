@@ -411,7 +411,6 @@ class ArticlesTable:
             return None
 
     def get_articles(self, skip: int = 0, limit: int = 50) -> List[ArticleModel]:
-        from apps.webui.models.series import SeriesModel
 
         with get_db() as db:
             articles = db.query(Article).offset(skip).limit(limit).all()
@@ -533,6 +532,24 @@ class ArticlesTable:
             db.query(Article).delete()
             db.commit()
             return True
+
+    def get_articles_for_editor_review(self) -> List[ArticleModel]:
+        with get_db() as db:
+            articles = db.query(Article).filter_by(published=False).all()
+            return [ArticleModel.model_validate(article) for article in articles]
+
+    def update_article_review_status_by_id(
+        self, id: str, published: bool
+    ) -> Optional[ArticleModel]:
+        with get_db() as db:
+            article = db.query(Article).filter_by(id=id).first()
+            if article:
+                article.published = published
+                db.commit()
+                db.refresh(article)
+                return ArticleModel.model_validate(article)
+            else:
+                return None
 
 
 Article_Table = ArticlesTable()

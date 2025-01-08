@@ -1,6 +1,6 @@
-import type { Article, ChatListResponse, TagsByUserResponse, Tool } from '$lib/types';
-import type { ModelConfig } from '$lib/types';
+import type { Article, ChatListResponse, ModelConfig, TagsByUserResponse, Tool } from '$lib/types';
 import { type Writable, derived, writable } from 'svelte/store';
+import type { AccessLevel, Role } from '$lib/constants';
 import { APP_NAME } from '$lib/constants';
 import type { Socket } from 'socket.io-client';
 
@@ -64,7 +64,7 @@ export type _Function = {
 	created_at: number;
 };
 
-export type Model = OpenAIModel | OllamaModel;
+export type Model = OpenAIModel | OllamaModel | OnnxTransformerModel;
 
 type BaseModel = {
 	id: string;
@@ -84,6 +84,10 @@ export interface Banner {
 	url?: string;
 	dismissible?: boolean;
 	timestamp: number;
+}
+
+export interface OnnxTransformerModel extends BaseModel {
+	owned_by: 'onnx';
 }
 
 export interface OpenAIModel extends BaseModel {
@@ -130,6 +134,48 @@ type OllamaModelDetails = {
 	quantization_level: string;
 };
 
+export type BaseSettings = {
+	models?: string[];
+	conversationMode?: boolean;
+	speechAutoSend?: boolean;
+	responseAutoPlayback?: boolean;
+	audio?: AudioSettings;
+	showUsername?: boolean;
+	saveChatHistory?: boolean;
+	notificationEnabled?: boolean;
+	title?: TitleSettings;
+	splitLargeDeltas?: boolean;
+	chatDirection: 'LTR' | 'RTL';
+	system?: string;
+	requestFormat?: string;
+	keepAlive?: string;
+	seed?: number;
+	temperature?: string;
+	repeat_penalty?: string;
+	top_k?: string;
+	top_p?: string;
+	num_ctx?: string;
+	num_batch?: string;
+	num_keep?: string;
+	options?: ModelOptions;
+	memory?: boolean;
+	userLocation?: string | { latitude: any; longitude: any };
+	params?: Record<string, any>;
+	responseAutoCopy?: boolean;
+	splitLargeChunks?: boolean;
+	backgroundImageUrl?: string;
+	chatBubble?: boolean;
+	showEmojiInCall?: boolean;
+	voiceInterruption?: boolean;
+	widescreenMode?: boolean;
+	collaborationMode?: boolean;
+};
+
+// Experimental Settings type for Admins
+export type _Settings<User extends SessionUser> = User['role'] extends 'admin'
+	? BaseSettings
+	: Omit<BaseSettings, 'collaborationMode'>;
+
 export type Settings = {
 	models?: string[];
 	conversationMode?: boolean;
@@ -164,6 +210,7 @@ export type Settings = {
 	showEmojiInCall?: boolean;
 	voiceInterruption?: boolean;
 	widescreenMode?: boolean;
+	collaborationMode?: boolean;
 };
 
 // Cisco Defined Types
@@ -332,7 +379,8 @@ export type SessionUser = {
 	email: string;
 	name: string;
 	username?: string;
-	role: string;
+	role: Role;
+	access_level: AccessLevel;
 	profile_image_url: string;
 	last_active_at: number; // epoch time in seconds
 	updated_at: number; // epoch time in seconds

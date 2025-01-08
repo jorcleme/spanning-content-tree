@@ -1,33 +1,36 @@
-<script>
-	import { WEBUI_BASE_URL } from '$lib/constants';
-	import { WEBUI_NAME, config, user, showSidebar } from '$lib/stores';
+<script lang="ts">
+	import type { i18nType } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
-	import { onMount, getContext } from 'svelte';
-
+	import { deleteUserById, getUsers, updateUserRole } from '$lib/apis/users';
+	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { type SessionUser } from '$lib/stores';
+	import { user } from '$lib/stores';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
+	import AddUserModal from '$lib/components/admin/AddUserModal.svelte';
+	import EditUserModal from '$lib/components/admin/EditUserModal.svelte';
+	import UserChatsModal from '$lib/components/admin/UserChatsModal.svelte';
+	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import Pagination from '$lib/components/common/Pagination.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import ChatBubbles from '$lib/components/icons/ChatBubbles.svelte';
+
+	interface ExtendedUser extends SessionUser {
+		[key: string]: any;
+	}
+
 	dayjs.extend(relativeTime);
 
-	import { toast } from 'svelte-sonner';
-
-	import { updateUserRole, getUsers, deleteUserById } from '$lib/apis/users';
-
-	import EditUserModal from '$lib/components/admin/EditUserModal.svelte';
-	import Pagination from '$lib/components/common/Pagination.svelte';
-	import ChatBubbles from '$lib/components/icons/ChatBubbles.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import UserChatsModal from '$lib/components/admin/UserChatsModal.svelte';
-	import AddUserModal from '$lib/components/admin/AddUserModal.svelte';
-	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
-
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	let loaded = false;
 	let tab = '';
-	let users = [];
+	let users: ExtendedUser[] = [];
 
 	let search = '';
-	let selectedUser = null;
+	let selectedUser: ExtendedUser | null = null;
 
 	let page = 1;
 
@@ -37,35 +40,35 @@
 	let showUserChatsModal = false;
 	let showEditUserModal = false;
 
-	const updateRoleHandler = async (id, role) => {
+	const updateRoleHandler = async (id: string, role: string) => {
 		const res = await updateUserRole(localStorage.token, id, role).catch((error) => {
 			toast.error(error);
 			return null;
 		});
 
 		if (res) {
-			users = await getUsers(localStorage.token);
+			users = (await getUsers(localStorage.token)) ?? [];
 		}
 	};
 
-	const editUserPasswordHandler = async (id, password) => {
+	const editUserPasswordHandler = async (id: string, password: string) => {
 		const res = await deleteUserById(localStorage.token, id).catch((error) => {
 			toast.error(error);
 			return null;
 		});
 		if (res) {
-			users = await getUsers(localStorage.token);
+			users = (await getUsers(localStorage.token)) ?? [];
 			toast.success($i18n.t('Successfully updated.'));
 		}
 	};
 
-	const deleteUserHandler = async (id) => {
+	const deleteUserHandler = async (id: string) => {
 		const res = await deleteUserById(localStorage.token, id).catch((error) => {
 			toast.error(error);
 			return null;
 		});
 		if (res) {
-			users = await getUsers(localStorage.token);
+			users = (await getUsers(localStorage.token)) ?? [];
 		}
 	};
 
@@ -73,14 +76,14 @@
 		if ($user?.role !== 'admin') {
 			await goto('/');
 		} else {
-			users = await getUsers(localStorage.token);
+			users = (await getUsers(localStorage.token)) ?? [];
 		}
 		loaded = true;
 	});
-	let sortKey = 'created_at'; // default sort key
+	let sortKey: string = 'created_at'; // default sort key
 	let sortOrder = 'asc'; // default sort order
 
-	function setSortKey(key) {
+	function setSortKey(key: string) {
 		if (sortKey === key) {
 			sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
 		} else {
@@ -93,7 +96,9 @@
 <ConfirmDialog
 	bind:show={showDeleteConfirmDialog}
 	on:confirm={() => {
-		deleteUserHandler(selectedUser.id);
+		if (selectedUser) {
+			deleteUserHandler(selectedUser.id);
+		}
 	}}
 />
 
@@ -103,7 +108,7 @@
 		{selectedUser}
 		sessionUser={$user}
 		on:save={async () => {
-			users = await getUsers(localStorage.token);
+			users = (await getUsers(localStorage.token)) ?? [];
 		}}
 	/>
 {/key}
@@ -111,7 +116,7 @@
 <AddUserModal
 	bind:show={showAddUserModal}
 	on:save={async () => {
-		users = await getUsers(localStorage.token);
+		users = (await getUsers(localStorage.token)) ?? [];
 	}}
 />
 <UserChatsModal bind:show={showUserChatsModal} user={selectedUser} />
@@ -139,12 +144,7 @@
 							showAddUserModal = !showAddUserModal;
 						}}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="w-4 h-4"
-						>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 							<path
 								d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
 							/>
@@ -159,11 +159,7 @@
 		<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400 table-auto max-w-full">
 			<thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-850 dark:text-gray-400">
 				<tr>
-					<th
-						scope="col"
-						class="px-3 py-2 cursor-pointer select-none"
-						on:click={() => setSortKey('role')}
-					>
+					<th scope="col" class="px-3 py-2 cursor-pointer select-none" on:click={() => setSortKey('role')}>
 						{$i18n.t('Role')}
 						{#if sortKey === 'role'}
 							{sortOrder === 'asc' ? '▲' : '▼'}
@@ -171,11 +167,7 @@
 							<span class="invisible">▲</span>
 						{/if}
 					</th>
-					<th
-						scope="col"
-						class="px-3 py-2 cursor-pointer select-none"
-						on:click={() => setSortKey('name')}
-					>
+					<th scope="col" class="px-3 py-2 cursor-pointer select-none" on:click={() => setSortKey('name')}>
 						{$i18n.t('Name')}
 						{#if sortKey === 'name'}
 							{sortOrder === 'asc' ? '▲' : '▼'}
@@ -183,11 +175,7 @@
 							<span class="invisible">▲</span>
 						{/if}
 					</th>
-					<th
-						scope="col"
-						class="px-3 py-2 cursor-pointer select-none"
-						on:click={() => setSortKey('email')}
-					>
+					<th scope="col" class="px-3 py-2 cursor-pointer select-none" on:click={() => setSortKey('email')}>
 						{$i18n.t('Email')}
 						{#if sortKey === 'email'}
 							{sortOrder === 'asc' ? '▲' : '▼'}
@@ -195,11 +183,7 @@
 							<span class="invisible">▲</span>
 						{/if}
 					</th>
-					<th
-						scope="col"
-						class="px-3 py-2 cursor-pointer select-none"
-						on:click={() => setSortKey('oauth_sub')}
-					>
+					<th scope="col" class="px-3 py-2 cursor-pointer select-none" on:click={() => setSortKey('oauth_sub')}>
 						{$i18n.t('OAuth ID')}
 						{#if sortKey === 'oauth_sub'}
 							{sortOrder === 'asc' ? '▲' : '▼'}
@@ -207,11 +191,7 @@
 							<span class="invisible">▲</span>
 						{/if}
 					</th>
-					<th
-						scope="col"
-						class="px-3 py-2 cursor-pointer select-none"
-						on:click={() => setSortKey('last_active_at')}
-					>
+					<th scope="col" class="px-3 py-2 cursor-pointer select-none" on:click={() => setSortKey('last_active_at')}>
 						{$i18n.t('Last Active')}
 						{#if sortKey === 'last_active_at'}
 							{sortOrder === 'asc' ? '▲' : '▼'}
@@ -219,11 +199,7 @@
 							<span class="invisible">▲</span>
 						{/if}
 					</th>
-					<th
-						scope="col"
-						class="px-3 py-2 cursor-pointer select-none"
-						on:click={() => setSortKey('created_at')}
-					>
+					<th scope="col" class="px-3 py-2 cursor-pointer select-none" on:click={() => setSortKey('created_at')}>
 						{$i18n.t('Created at')}
 						{#if sortKey === 'created_at'}
 							{sortOrder === 'asc' ? '▲' : '▼'}
@@ -255,10 +231,10 @@
 					<tr class="bg-white border-b dark:bg-gray-900 dark:border-gray-850 text-xs">
 						<td class="px-3 py-2 min-w-[7rem] w-28">
 							<button
-								class=" flex items-center gap-2 text-xs px-3 py-0.5 rounded-lg {user.role ===
-									'admin' && 'text-sky-600 dark:text-sky-200 bg-sky-200/30'} {user.role ===
-									'user' && 'text-green-600 dark:text-green-200 bg-green-200/30'} {user.role ===
-									'pending' && 'text-gray-600 dark:text-gray-200 bg-gray-200/30'}"
+								class=" flex items-center gap-2 text-xs px-3 py-0.5 rounded-lg {user.role === 'admin' &&
+									'text-sky-600 dark:text-sky-200 bg-sky-200/30'} {user.role === 'user' &&
+									'text-green-600 dark:text-green-200 bg-green-200/30'} {user.role === 'pending' &&
+									'text-gray-600 dark:text-gray-200 bg-gray-200/30'}"
 								on:click={() => {
 									if (user.role === 'user') {
 										updateRoleHandler(user.id, 'admin');
@@ -270,9 +246,8 @@
 								}}
 							>
 								<div
-									class="w-1 h-1 rounded-full {user.role === 'admin' &&
-										'bg-sky-600 dark:bg-sky-300'} {user.role === 'user' &&
-										'bg-green-600 dark:bg-green-300'} {user.role === 'pending' &&
+									class="w-1 h-1 rounded-full {user.role === 'admin' && 'bg-sky-600 dark:bg-sky-300'} {user.role ===
+										'user' && 'bg-green-600 dark:bg-green-300'} {user.role === 'pending' &&
 										'bg-gray-600 dark:bg-gray-300'}"
 								/>
 								{$i18n.t(user.role)}</button

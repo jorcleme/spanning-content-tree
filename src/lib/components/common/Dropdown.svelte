@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { DropdownMenu } from 'bits-ui';
-	import { createEventDispatcher } from 'svelte';
-
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { flyAndScale } from '$lib/utils/transitions';
+	import { DropdownMenu } from 'bits-ui';
 
 	export let show = false;
+	export let typeahead = false;
 	const dispatch = createEventDispatcher();
 </script>
 
@@ -14,7 +14,7 @@
 	onOpenChange={(state) => {
 		dispatch('change', state);
 	}}
-	typeahead={false}
+	{typeahead}
 >
 	<DropdownMenu.Trigger>
 		<slot />

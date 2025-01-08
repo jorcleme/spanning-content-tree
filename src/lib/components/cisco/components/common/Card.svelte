@@ -1,20 +1,25 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
 	import { getContext } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { TagIcon } from 'lucide-svelte';
 
 	const i18n: i18nType = getContext('i18n');
 
-	export let id: string | null = null;
+	export let id: string = '';
 	export let title: string = '';
 	export let category: string = 'Configuration';
-	export let url: string = '';
 	export let published: boolean = false;
 	export let MAX_TITLE_LENGTH = 65;
 
-	const handleArticleClick = async (url: string) => {
-		window.open(url, '_blank');
+	const handleArticleClick = async (id: string) => {
+		if ($page.url.pathname.includes('/admin')) {
+			await goto(`/admin/editor/${id}`);
+		} else {
+			await goto(`/article/${id}`);
+		}
 	};
 </script>
 
@@ -22,7 +27,7 @@
 	{#if published}
 		<Tooltip content={$i18n.t('Published on Cisco.com')}>
 			<div
-				class="absolute top-0 right-0 bg-green-500 text-neutral-50 text-xs font-bold px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm"
+				class="absolute top-0 right-0 bg-green-400 text-neutral-50 text-xs font-bold px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm"
 			>
 				Published
 			</div>
@@ -50,7 +55,7 @@
 		<div class="card-actions flex flex-wrap items-start gap-4">
 			<button
 				class="btn rounded-lg px-4 py-2 bg-[#1990fa] text-neutral-50 font-bold"
-				on:click={async () => await handleArticleClick(url)}>View</button
+				on:click={async () => await handleArticleClick(id)}>View</button
 			>
 		</div>
 	</div>

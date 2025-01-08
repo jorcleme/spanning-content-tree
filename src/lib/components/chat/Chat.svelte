@@ -13,7 +13,7 @@
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { chatAction, chatCompleted, generateSearchQuery, generateTitle } from '$lib/apis';
+	import { chatAction, chatCompleted, generateSearchQuery, generateTitle, getTaskConfig } from '$lib/apis';
 	import { createNewArticle } from '$lib/apis/articles';
 	import { createNewChat, getChatById, getChatList, getTagsById, updateChatById } from '$lib/apis/chats';
 	import { createNewDoc, getDocs } from '$lib/apis/documents';
@@ -28,6 +28,7 @@
 	import { SUPPORTED_FILE_EXTENSIONS, SUPPORTED_FILE_TYPE, WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import {
 		type Model,
+		type SessionUser,
 		WEBUI_NAME,
 		tags as _tags,
 		activeArticle,
@@ -55,6 +56,8 @@
 		splitStream,
 		transformFileName
 	} from '$lib/utils';
+	import PipelineWorker from '$lib/workers/pipeline.worker?worker';
+	import { type Chat, TextStreamer, env, pipeline } from '@huggingface/transformers';
 	import { jsPDF } from 'jspdf';
 	import mermaid from 'mermaid';
 	import { v4 as uuidv4 } from 'uuid';
@@ -1991,6 +1994,9 @@ Please rewrite the query for optimal search results. Return only the refined que
 					} else if (model.owned_by === 'ollama') {
 						console.log('Sending via Ollama Model');
 						_response = await sendPromptOllama(model, prompt, responseMessageId, _chatId);
+					} else if (model.owned_by === 'onnx') {
+						console.log('Sending via Onnx Model');
+						_response = await sendPromptOnnyx(model, prompt, responseMessageId, _chatId);
 					}
 					_responses.push(_response as string);
 
@@ -2003,6 +2009,191 @@ Please rewrite the query for optimal search results. Return only the refined que
 
 		chats.set(await getChatList(localStorage.token));
 		return _responses;
+	};
+
+	const sendPromptOnnyx = async (model: Model, userPrompt: string, responseMessageId: string, _chatId: string) => {
+		let _response: string | null = null;
+
+		const responseMessage = history.messages[responseMessageId];
+
+		// Wait until history/message have been updated
+		await tick();
+
+		// Scroll down
+		scrollToBottom();
+
+		// Define the list of messages
+		const msgs = [
+			{ role: 'system', content: 'You are a helpful assistant.' },
+			{ role: 'user', content: userPrompt }
+		];
+
+		// const worker = new PipelineWorker();
+
+		// type PipelineWorkerEvent = {
+		// 	status: 'progress' | 'stream' | 'complete' | 'error';
+		// 	text?: string;
+		// 	result?: string;
+		// 	error?: string;
+		// 	progress?: (...args: any[]) => void;
+		// };
+		// const options = { max_new_tokens: 512, do_sample: false };
+		// const result = await new Promise((resolve, reject) => {
+		// 	worker.onmessage = (event: MessageEvent<PipelineWorkerEvent>) => {
+		// 		const { status, text, result, error, progress } = event.data;
+
+		// 		if (status === 'progress') {
+		// 			console.log('Onnx Progress: ', progress);
+		// 		} else if (status === 'stream') {
+		// 			responseMessage.content += text;
+		// 			console.log('Onnx Stream: ', text);
+		// 		} else if (status === 'complete') {
+		// 			console.log('Complete: ', result);
+		// 			responseMessage.done = true;
+		// 			history.messages[responseMessageId] = responseMessage;
+		// 			resolve(result);
+		// 			worker.terminate();
+		// 		} else if (status === 'error') {
+		// 			console.error('Onnx Error: ', error);
+		// 			responseMessage.error = { content: error };
+		// 			history.messages[responseMessageId] = responseMessage;
+		// 			responseMessage.done = true;
+		// 			reject(error);
+		// 			worker.terminate();
+		// 		}
+		// 	};
+
+		// 	worker.onerror = (error) => {
+		// 		console.error('Worker error:', error);
+		// 		reject(error);
+		// 		worker.terminate();
+		// 	};
+
+		// 	// Send data to the worker
+		// 	worker.postMessage({ messages: msgs, options });
+		// });
+
+		// console.log('Onnx Response:', result);
+
+		// const messagesBody = [
+		// 	params?.system || $settings.system || (responseMessage?.userContext ?? null)
+		// 		? ({
+		// 				role: 'system',
+		// 				content: `${promptTemplate(
+		// 					params?.system ?? $settings?.system ?? '',
+		// 					$user?.name,
+		// 					$settings?.userLocation ? await getAndUpdateUserLocation(localStorage.token) : undefined
+		// 				)}${responseMessage?.userContext ?? null ? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}` : ''}`
+		// 		  } as Partial<Message>)
+		// 		: undefined,
+		// 	...messages
+		// ]
+		// 	.filter((message) => message?.content?.trim())
+		// 	.map((message) => {
+		// 		// Prepare the base message object
+		// 		const baseMessage: { role?: string; content?: string } = {
+		// 			role: message?.role,
+		// 			content: message?.content
+		// 		};
+
+		// 		return baseMessage;
+		// 	});
+
+		// let files = JSON.parse(JSON.stringify(chatFiles));
+		// if (model?.info?.meta?.knowledge ?? false) {
+		// 	files.push(...(model.info!.meta.knowledge ?? []));
+		// }
+		// if (responseMessage?.files) {
+		// 	files.push(...responseMessage?.files.filter((item) => ['web_search_results'].includes(item.type as string)));
+		// }
+
+		eventTarget.dispatchEvent(
+			new CustomEvent('chat:start', {
+				detail: {
+					id: responseMessageId
+				}
+			})
+		);
+
+		await tick();
+		// Create a text generation pipeline
+		const generator = await pipeline('text-generation', model.id, {
+			...(model.info?.meta?.dtype && { dtype: model.info.meta.dtype })
+		});
+
+		// Create text streamer
+		const streamer = new TextStreamer(generator.tokenizer, {
+			skip_prompt: true,
+			// Optionally, do something with the text (e.g., write to a textbox)
+			callback_function: (text) => {
+				console.log('Onnx Streamer:', text);
+				responseMessage.content += text;
+			}
+		});
+
+		// Generate a response
+		const result = await generator(msgs, { max_new_tokens: 512, streamer, temperature: 0 });
+		await tick();
+
+		if (Array.isArray(result)) {
+			//@ts-expect-error
+			console.log('Onnx Response (isArray): ', result.at(-1).generated_text.at(-1).content);
+		} else {
+			//@ts-expect-error
+			console.log('Onnx Response:', result.generated_text.at(-1).content);
+		}
+
+		history.messages[responseMessageId] = responseMessage;
+
+		responseMessage.done = true;
+		if ($chatId == _chatId) {
+			if ($settings.saveChatHistory ?? true) {
+				chat = await updateChatById(localStorage.token, _chatId, {
+					messages: messages,
+					history: history,
+					models: selectedModels,
+					params: params,
+					files: chatFiles
+				});
+				chats.set(await getChatList(localStorage.token));
+			}
+		}
+		messages = createMessagesList(responseMessageId);
+		await chatCompletedHandler(_chatId, model.id, responseMessageId, createMessagesList(responseMessageId));
+
+		stopResponseFlag = false;
+		await tick();
+
+		let lastSentence = extractSentencesForAudio(responseMessage.content)?.at(-1) ?? '';
+		if (lastSentence) {
+			eventTarget.dispatchEvent(
+				new CustomEvent('chat', {
+					detail: { id: responseMessageId, content: lastSentence }
+				})
+			);
+		}
+
+		eventTarget.dispatchEvent(
+			new CustomEvent('chat:finish', {
+				detail: {
+					id: responseMessageId,
+					content: responseMessage.content
+				}
+			})
+		);
+
+		if (autoScroll) {
+			scrollToBottom();
+		}
+
+		messages = createMessagesList(responseMessageId);
+		if (messages.length == 2 && selectedModels[0] === model.id) {
+			window.history.replaceState(history.state, '', `/c/${_chatId}`);
+			const title = await generateChatTitleOnnx(userPrompt);
+			await setChatTitle(_chatId, title);
+		}
+
+		return _response;
 	};
 
 	const sendPromptOllama = async (model: Model, userPrompt: string, responseMessageId: string, _chatId: string) => {
@@ -2642,6 +2833,62 @@ Please rewrite the query for optimal search results. Return only the refined que
 			}
 		} else {
 			toast.error($i18n.t(`Model {{modelId}} not found`, { modelId }));
+		}
+	};
+
+	const promptTemplateGenerator = (template: string, variables: string[]) => {};
+
+	const titleGenerationTemplate = (template: string, prompt: string, user: SessionUser | null = null) => {
+		const replaceFn = (match: string, start?: string, end?: string, middle?: string) => {
+			if (match === '{{prompt}}') {
+				return prompt;
+			} else if (start !== undefined) {
+				return prompt.slice(0, parseInt(start));
+			} else if (end !== undefined) {
+				return prompt.slice(-parseInt(end));
+			} else if (middle !== undefined) {
+				if (prompt.length <= parseInt(middle)) {
+					return prompt;
+				}
+				const start = prompt.slice(0, Math.ceil(parseInt(middle) / 2));
+				const end = prompt.slice(-Math.floor(parseInt(middle) / 2));
+				return `${start}...${end}`;
+			}
+			return '';
+		};
+
+		template = template.replace(
+			/{{prompt}}|{{prompt:start:(\d+)}}|{{prompt:end:(\d+)}}|{{prompt:middletruncate:(\d+)}}/g,
+			(match, start, end, middle) => replaceFn(match, start, end, middle)
+		);
+
+		template = promptTemplate(
+			template,
+			user ? user.name : undefined,
+			user ? user.info?.location ?? undefined : undefined
+		);
+
+		return template;
+	};
+
+	const generateChatTitleOnnx = async (userPrompt: string): Promise<string> => {
+		if ($settings?.title?.auto ?? true) {
+			const { TITLE_GENERATION_PROMPT_TEMPLATE: template } = await getTaskConfig(localStorage.token);
+			const modelId = selectedModels[0];
+			const content = titleGenerationTemplate(template, userPrompt);
+			const generator = await pipeline('text-generation', modelId, {
+				dtype: 'q4'
+			});
+			const msgs = [{ role: 'user', content }];
+			const result = await generator(msgs, { max_new_tokens: 512, do_sample: false });
+			if (result) {
+				//@ts-ignore
+				return result.generated_text?.at(-1)?.content ?? 'Your Chat';
+			} else {
+				return `${userPrompt}`.slice(0, 20) + '...';
+			}
+		} else {
+			return `${userPrompt}`.slice(0, 20) + '...';
 		}
 	};
 

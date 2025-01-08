@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { DropdownMenu } from 'bits-ui';
-	import { flyAndScale } from '$lib/utils/transitions';
+	import type { i18nType } from '$lib/types';
 	import { getContext } from 'svelte';
-
-	import Dropdown from '$lib/components/common/Dropdown.svelte';
-	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
-	import Pencil from '$lib/components/icons/Pencil.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import { flyAndScale } from '$lib/utils/transitions';
+	import { DropdownMenu } from 'bits-ui';
 	import Tags from '$lib/components/chat/Tags.svelte';
-	import Share from '$lib/components/icons/Share.svelte';
+	import Dropdown from '$lib/components/common/Dropdown.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
 	import DocumentDuplicate from '$lib/components/icons/DocumentDuplicate.svelte';
+	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
+	import Pencil from '$lib/components/icons/Pencil.svelte';
+	import Share from '$lib/components/icons/Share.svelte';
 	import Star from '$lib/components/icons/Star.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let pinHandler: Function;
 	export let shareHandler: Function;

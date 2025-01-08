@@ -60,35 +60,46 @@
 		<div class="mb-4">
 			{#if userArticles.length === 0}
 				<div class="text-gray-500 py-2">{$i18n.t('No generated articles')}</div>
+			{:else}
+				<div class=" mb-2 text-sm font-medium">{$i18n.t('Generated Articles')}</div>
+				<div class="flex flex-wrap justify-between gap-3">
+					{#each userArticles as article, i (article.id)}
+						<Card
+							id={article.id}
+							title={article.title}
+							category={article.category}
+							published={i === 1 ? true : false}
+						/>
+					{/each}
+				</div>
 			{/if}
-			<div class=" mb-2 text-sm font-medium">{$i18n.t('Generated Articles')}</div>
-			<div class="flex flex-wrap justify-around gap-4">
-				{#each userArticles as article, i (article.id)}
-					<Card id={article.id} title={article.title} url={article.url} published={i === 1 ? true : false} />
-				{/each}
-			</div>
 			<div class="flex justify-start text-gray-300 text-sm font-bold py-2">Generated Count: {userArticles.length}</div>
 		</div>
 
 		<hr class=" dark:border-gray-850 my-3" />
 
 		<div>
-			<div class="my-3 text-sm font-medium">{$i18n.t('Saved Articles')}</div>
 			{#if savedArticles.length === 0}
 				<div class="text-gray-500 py-2">{$i18n.t('No saved articles')}</div>
-			{/if}
-			<div class="flex flex-wrap justify-around gap-4">
-				{#each savedArticles as article (article.id)}
-					<div class="relative">
-						<div class="absolute top-2 right-2 rounded-full bg-gray-100 hover:bg-gray-50 z-10">
-							<button class="p-2 text-gray-500" title="Remove" on:click={() => onRemoveSavedArticle(article.id)}>
-								<XIcon class="w-4 h-4" />
-							</button>
+			{:else}
+				<div class="my-3 text-sm font-medium">{$i18n.t('Saved Articles')}</div>
+				<div class="flex flex-wrap justify-between gap-3">
+					{#each savedArticles as article (article.id)}
+						<div class="relative">
+							<div class="absolute top-2 right-2 rounded-full bg-gray-100 hover:bg-gray-50 z-10">
+								<button
+									class="p-2 text-gray-500"
+									title="Remove"
+									on:click={async () => await onRemoveSavedArticle(article.id)}
+								>
+									<XIcon class="w-4 h-4" />
+								</button>
+							</div>
+							<Card id={article.id} title={article.title} category={article.category} published={article.published} />
 						</div>
-						<Card id={article.id} title={article.title} url={article.url} />
-					</div>
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{/if}
 			<div class="flex justify-start text-gray-300 text-sm font-bold py-2">Saved Count: {savedArticles.length}</div>
 		</div>
 	</div>

@@ -7,6 +7,9 @@ KEY_FILE=.webui_secret_key
 
 PORT="${PORT:-8080}"
 HOST="${HOST:-0.0.0.0}"
+SOCKET_PORT="${SOCKET_PORT:-1234}"
+SOCKET_HOST="${SOCKET_HOST:-localhost}"
+
 if test "$WEBUI_SECRET_KEY $WEBUI_JWT_SECRET_KEY" = " "; then
   echo "Loading WEBUI_SECRET_KEY from file, not provided as an environment variable."
 
@@ -55,4 +58,8 @@ if [ -n "$SPACE_ID" ]; then
   export WEBUI_URL=${SPACE_HOST}
 fi
 
+# WEBUI_SECRET_KEY="$WEBUI_SECRET_KEY" npx y-websocket --port "$SOCKET_PORT" --host "$SOCKET_HOST" &
+# exec uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*'
+# npx y-websocket &
+# exec uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*'
 WEBUI_SECRET_KEY="$WEBUI_SECRET_KEY" exec uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*'

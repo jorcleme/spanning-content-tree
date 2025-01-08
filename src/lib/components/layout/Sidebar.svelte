@@ -515,7 +515,7 @@
 									tags.set(await getAllChatTags(localStorage.token));
 									chatIds = await getChatList(localStorage.token);
 								}
-								if (chatIds) {
+								if (chatIds && chatIds.length > 0) {
 									chats.set(chatIds);
 								}
 							}}
@@ -650,11 +650,5 @@
 	}
 	.scrollbar-hidden::-webkit-scrollbar-thumb {
 		visibility: hidden;
-	}
-
-	#art {
-		fill: #1990fa;
-		width: 1.1rem;
-		height: auto;
 	}
 </style>

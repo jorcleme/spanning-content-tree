@@ -149,8 +149,15 @@ export const chatAction = async (token: string, action_id: string, body: ChatAct
 
 	return res;
 };
+type TaskConfig = {
+	TASK_MODEL: string;
+	TASK_MODEL_EXTERNAL: string;
+	TITLE_GENERATION_PROMPT_TEMPLATE: string;
+	SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE: string;
+	SEARCH_QUERY_PROMPT_LENGTH_THRESHOLD: number;
+};
 
-export const getTaskConfig = async (token: string = '') => {
+export const getTaskConfig = async (token: string = ''): Promise<TaskConfig> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_BASE_URL}/api/task/config`, {

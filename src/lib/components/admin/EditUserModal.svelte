@@ -1,24 +1,36 @@
 <script lang="ts">
-	import { toast } from 'svelte-sonner';
-	import dayjs from 'dayjs';
+	import type { i18nType } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
-	import { onMount, getContext } from 'svelte';
-
+	import { getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { updateUserById } from '$lib/apis/users';
+	import type { SessionUser } from '$lib/stores';
+	import dayjs from 'dayjs';
 	import Modal from '../common/Modal.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 	const dispatch = createEventDispatcher();
+
+	interface WithPassword {
+		password: string;
+	}
+	interface ExtendedUser
+		extends WithPassword,
+			Required<Pick<SessionUser, 'id' | 'profile_image_url' | 'name' | 'email' | 'created_at'>> {
+		[key: string]: any;
+	}
 
 	export let show = false;
 	export let selectedUser;
 	export let sessionUser;
 
-	let _user = {
+	let _user: ExtendedUser = {
 		profile_image_url: '',
+		id: '',
 		name: '',
 		email: '',
-		password: ''
+		password: '',
+		created_at: 0
 	};
 
 	const submitHandler = async () => {
@@ -50,12 +62,7 @@
 					show = false;
 				}}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="w-5 h-5"
-				>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 					<path
 						d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 					/>
@@ -157,18 +164,5 @@
 		/* display: none; <- Crashes Chrome on hover */
 		-webkit-appearance: none;
 		margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
-	}
-
-	.tabs::-webkit-scrollbar {
-		display: none; /* for Chrome, Safari and Opera */
-	}
-
-	.tabs {
-		-ms-overflow-style: none; /* IE and Edge */
-		scrollbar-width: none; /* Firefox */
-	}
-
-	input[type='number'] {
-		-moz-appearance: textfield; /* Firefox */
 	}
 </style>

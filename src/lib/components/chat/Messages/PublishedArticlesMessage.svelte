@@ -157,8 +157,7 @@
 														id={article.id}
 														title={article.title}
 														category={article.category}
-														url={article.url}
-														published={article.published}
+														published={article.published || true}
 													/>
 												</div>
 											{/each}

@@ -1,6 +1,6 @@
+import type { ChatListResponse, ChatResponse, ChatTagListResponse, Nullable, TagsByUserResponse } from '$lib/types';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 import { getTimeRange } from '$lib/utils';
-import type { ChatResponse, ChatListResponse, ChatTagListResponse, TagsByUserResponse, Nullable } from '$lib/types';
 
 export const createNewChat = async (token: string, chat: object): Promise<ChatResponse | null> => {
 	let error = null;
@@ -64,13 +64,10 @@ export const getChatList = async (token: string = ''): Promise<ChatListResponse>
 				...chat,
 				time_range: getTimeRange(chat.updated_at)
 		  }))
-		: null;
+		: [];
 };
 
-export const getChatListByUserId = async (
-	token: string = '',
-	userId: string
-): Promise<ChatListResponse & { time_range: number }> => {
+export const getChatListByUserId = async (token: string = '', userId: string): Promise<ChatListResponse> => {
 	let error = null;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/list/user/${userId}`, {
@@ -101,7 +98,7 @@ export const getChatListByUserId = async (
 				...chat,
 				time_range: getTimeRange(chat.updated_at)
 		  }))
-		: null;
+		: [];
 
 	// return res.map((chat) => ({
 	// 	...chat,

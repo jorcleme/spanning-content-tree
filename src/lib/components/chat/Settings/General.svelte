@@ -12,7 +12,6 @@
 	const i18n: i18nType = getContext('i18n');
 
 	export let saveSettings: Function;
-	export let getModels: Function;
 
 	// General
 	let themes = ['dark', 'light', 'rose-pine dark', 'rose-pine-dawn light', 'oled-dark', 'cisco'];

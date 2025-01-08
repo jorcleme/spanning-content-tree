@@ -57,8 +57,8 @@
 	};
 
 	onMount(async () => {
-		name = $user!.name;
-		profileImageUrl = $user!.profile_image_url;
+		name = $user?.name ?? '';
+		profileImageUrl = $user?.profile_image_url ?? '';
 		const res = await getAPIKey(localStorage.token).catch((error) => {
 			console.log(error);
 			return null;

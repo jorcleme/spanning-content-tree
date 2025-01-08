@@ -19,6 +19,7 @@
 		updateOpenAIKeys,
 		updateOpenAIUrls
 	} from '$lib/apis/openai';
+	import type { Model } from '$lib/stores';
 	import { models, user } from '$lib/stores';
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -63,7 +64,14 @@
 			}
 		}
 
-		await models.set(await getModels());
+		await models.set([
+			...(await getModels()),
+			{
+				id: 'microsoft/Phi-3-mini-4k-instruct-onnx-web',
+				name: 'microsoft/Phi-3-mini-4k-instruct-onnx-web',
+				owned_by: 'onnx'
+			}
+		]);
 	};
 
 	const verifyOllamaHandler = async (idx: number) => {
@@ -80,7 +88,14 @@
 			toast.success($i18n.t('Server connection verified'));
 		}
 
-		await models.set(await getModels());
+		await models.set([
+			...(await getModels()),
+			{
+				id: 'microsoft/Phi-3-mini-4k-instruct-onnx-web',
+				name: 'microsoft/Phi-3-mini-4k-instruct-onnx-web',
+				owned_by: 'onnx'
+			}
+		]);
 	};
 
 	const updateOpenAIHandler = async () => {
@@ -104,7 +119,14 @@
 
 		OPENAI_API_BASE_URLS = await updateOpenAIUrls(localStorage.token, OPENAI_API_BASE_URLS);
 		OPENAI_API_KEYS = await updateOpenAIKeys(localStorage.token, OPENAI_API_KEYS);
-		await models.set(await getModels());
+		await models.set([
+			...(await getModels()),
+			{
+				id: 'microsoft/Phi-3-mini-4k-instruct-onnx-web',
+				name: 'microsoft/Phi-3-mini-4k-instruct-onnx-web',
+				owned_by: 'onnx'
+			}
+		]);
 	};
 
 	const updateOllamaUrlsHandler = async () => {

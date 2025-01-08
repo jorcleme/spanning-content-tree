@@ -40,6 +40,7 @@ from apps.openai.main import (
     get_all_models as get_openai_models,
     generate_chat_completion as generate_openai_chat_completion,
 )
+from apps.onnx.main import get_all_models as get_onnx_models
 
 from apps.audio.main import app as audio_app
 from apps.images.main import app as images_app
@@ -963,6 +964,7 @@ async def get_all_models():
     pipe_models = []
     openai_models = []
     ollama_models = []
+    onnx_models = await get_onnx_models()
 
     pipe_models = await get_pipe_models()
 
@@ -984,7 +986,7 @@ async def get_all_models():
             for model in ollama_models["models"]
         ]
 
-    models = pipe_models + openai_models + ollama_models
+    models = pipe_models + openai_models + ollama_models + onnx_models
 
     global_action_ids = [
         function.id for function in Functions.get_global_action_functions()

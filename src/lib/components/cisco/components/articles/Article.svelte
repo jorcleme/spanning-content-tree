@@ -412,30 +412,6 @@
 						<span class="text-sm">{time}</span>
 					</div>
 				</div>
-				<!-- {#if expanded && hasRelatedVideo}
-					<div class="vid-card-container" in:slide>
-						<div
-							class="video-card"
-							in:fly={{ delay: 25, duration: 1000, y: 55, easing: quintIn }}
-							out:fly={{ duration: 1000, y: -55, easing: quintIn }}
-						>
-							<iframe
-								loading="lazy"
-								class="vid-card-iframe"
-								src={relatedVideo?.URL}
-								title="YouTube video player"
-								frameborder="0"
-								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-								allowfullscreen
-							/>
-							<div class="video-text-content">
-								<h3 class="video-card-title">{$activeArticle.title}</h3>
-								<p id="video-card-description">{$activeArticle.objective}</p>
-							</div>
-						</div>
-					</div>
-					<GetSupportDetailsFooter index={$mostRecentStep} /> 
-				{/if} -->
 				{#each $activeArticle.steps as step, index}
 					<div class="my-8" bind:this={stepElements[index]}>
 						{#if step.step_number === 1}

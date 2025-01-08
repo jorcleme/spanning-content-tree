@@ -377,3 +377,51 @@ async def delete_article_by_id(id: str, user=Depends(get_admin_user)):
 async def delete_all_articles():
     success = Article_Table.delete_all_articles()
     return {"message": "All articles deleted successfully", "status": success}
+
+
+@router.get("/editor/review", response_model=List[ArticleModel])
+async def get_articles_for_editor_review(user=Depends(get_admin_user)):
+    articles = Article_Table.get_articles_for_editor_review()
+    return articles
+
+
+class ReviewArticleForm(BaseModel):
+    published: bool
+
+
+@router.put("/editor/review/{id}", response_model=Optional[ArticleResponse])
+async def update_article_review_status_by_id(
+    id: str, form_data: ReviewArticleForm, user=Depends(get_admin_user)
+):
+    article = Article_Table.update_article_review_status_by_id(id, form_data.published)
+    if article:
+        return ArticleResponse(
+            **{
+                **article.model_dump(),
+                "sources": json.loads(article.sources if article.sources else "[]"),
+            }
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.ARTICLE_ATTR_NOT_FOUND("id"),
+        )
+
+
+class UpdateArticlePublishedField(BaseModel):
+    published: bool
+
+
+@router.patch("/update-articles-published", response_model=List[ArticleModel])
+async def update_articles(
+    form_data: UpdateArticlePublishedField, user=Depends(get_current_user)
+):
+    print(user)
+    articles = Article_Table.get_articles(skip=0, limit=10000)
+    updated_articles = []
+    for article in articles:
+        updated = Article_Table.update_article_by_id(article.id, {"published": True})
+        if updated:
+            updated_articles.append(updated)
+
+    return updated_articles

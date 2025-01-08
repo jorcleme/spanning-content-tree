@@ -1,8 +1,44 @@
 import type { Writable } from 'svelte/store';
 import type { FileUpload } from '$lib/apis/files';
 import type { i18n } from 'i18next';
+import type { LexicalEditor } from 'lexical';
+
+export type BlockType =
+	| 'bullet'
+	| 'check'
+	| 'code'
+	| 'h1'
+	| 'h2'
+	| 'h3'
+	| 'h4'
+	| 'h5'
+	| 'h6'
+	| 'number'
+	| 'paragraph'
+	| 'quote'
+	| 'image';
 
 export type i18nType = Writable<i18n>;
+export type LexicalEditorType = LexicalEditor;
+
+export type ActiveEditorContext = Writable<LexicalEditor>;
+export type IsBoldContext = Writable<boolean>;
+export type IsItalicContext = Writable<boolean>;
+export type IsUnderlineContext = Writable<boolean>;
+export type IsStrikethroughContext = Writable<boolean>;
+export type IsSubscriptContext = Writable<boolean>;
+export type IsSuperscriptContext = Writable<boolean>;
+export type IsCodeContext = Writable<boolean>;
+export type BlockTypeContext = Writable<BlockType>;
+export type SelectedElementKeyContext = Writable<string | null>;
+export type FontSizeContext = Writable<string>;
+export type FontFamilyContext = Writable<string>;
+export type FontColorContext = Writable<string>;
+export type BgColorContext = Writable<string>;
+export type IsRTLContext = Writable<boolean>;
+export type CodeLanguageContext = Writable<string>;
+export type IsLinkContext = Writable<boolean>;
+export type IsImageCaptionContext = Writable<boolean>;
 
 // Shared Utility
 export type Nullable<T> = T | null;
@@ -138,6 +174,10 @@ export interface ChatResponse {
 	updated_at: number; // epoch time in seconds
 	created_at: number; // epoch time in seconds
 }
+
+export interface ChatSummary extends Pick<ChatResponse, 'id' | 'title' | 'created_at' | 'updated_at'> {}
+
+export interface ChatSummaryWithTimeRange extends ChatSummary, Pick<ChatResponse, 'time_range'> {}
 
 export type ChatListResponse = ChatResponse[];
 export type ChatTagListResponse = Array<ChatTag>;
@@ -304,6 +344,51 @@ interface ModelMeta {
 		community?: boolean;
 		username: string;
 	};
+	task?:
+		| 'text-generation'
+		| 'feature-extraction'
+		| 'sentence-similarity'
+		| 'fill-mask'
+		| 'question-answering'
+		| 'summarization'
+		| 'table-question-answering'
+		| 'text-classification'
+		| 'sentiment-analysis'
+		| 'translation'
+		| 'ner'
+		| 'token-classification'
+		| 'zero-shot-classification'
+		| 'depth-estimation'
+		| 'image-classification'
+		| 'image-segmentation'
+		| 'image-to-image'
+		| 'mask-generation'
+		| 'object-detection'
+		| 'image-feature-extraction'
+		| 'audio-classification'
+		| 'automatic-speech-recognition'
+		| 'text-to-speech'
+		| 'text-to-audio'
+		| 'document-question-answering'
+		| 'image-to-text'
+		| 'text-to-image'
+		| 'visual-question-answering'
+		| 'zero-shot-audio-classification'
+		| 'zero-shot-image-classification'
+		| 'zero-shot-object-detection';
+	dtype?:
+		| 'auto'
+		| 'fp32'
+		| 'fp16'
+		| 'q8'
+		| 'int8'
+		| 'uint8'
+		| 'q4'
+		| 'bnb4'
+		| 'q4f16'
+		| Record<string, 'auto' | 'fp32' | 'fp16' | 'q8' | 'int8' | 'uint8' | 'q4' | 'bnb4' | 'q4f16'>;
+	context_length?: number;
+	task_instruction_prefixes?: [string, string][]; // [name, purpose]
 }
 export interface ModelConfig {
 	id: string;

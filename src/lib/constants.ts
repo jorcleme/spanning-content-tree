@@ -105,3 +105,34 @@ export const SUPPORTED_FILE_EXTENSIONS = [
 // This feature, akin to $env/static/private, exclusively incorporates environment variables
 // that are prefixed with config.kit.env.publicPrefix (usually set to PUBLIC_).
 // Consequently, these variables can be securely exposed to client-side code.
+
+export type Role = 'admin' | 'user' | 'pending';
+export type AccessLevel = 1 | 2 | 3 | 4;
+
+export const ROLES = {
+	ADMIN: 'admin' as Role,
+	USER: 'user' as Role,
+	PENDING: 'pending' as Role
+};
+
+export const ACCESS_LEVELS = {
+	GUEST: 1 as AccessLevel,
+	CUSTOMER: 2 as AccessLevel,
+	PARTNER: 3 as AccessLevel,
+	EMPLOYEE: 4 as AccessLevel
+};
+
+export const blockTypeToBlockName = {
+	bullet: 'Bulleted List',
+	check: 'Check List',
+	code: 'Code Block',
+	h1: 'Heading 1',
+	h2: 'Heading 2',
+	h3: 'Heading 3',
+	h4: 'Heading 4',
+	h5: 'Heading 5',
+	h6: 'Heading 6',
+	number: 'Numbered List',
+	paragraph: 'Normal',
+	quote: 'Quote'
+};

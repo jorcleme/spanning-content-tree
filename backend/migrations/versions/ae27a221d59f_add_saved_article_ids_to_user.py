@@ -21,12 +21,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "user",
-        sa.Column(
-            "saved_article_ids", apps.webui.internal.db.JSONField(), nullable=True
-        ),
-    )
+    inspector = sa.inspect(op.get_bind())
+    columns = [column["name"] for column in inspector.get_columns("user")]
+    if "saved_article_ids" not in columns:
+        op.add_column(
+            "user",
+            sa.Column(
+                "saved_article_ids", apps.webui.internal.db.JSONField(), nullable=True
+            ),
+        )
 
 
 def downgrade() -> None:

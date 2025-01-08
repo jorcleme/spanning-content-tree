@@ -295,7 +295,6 @@
 			<div class="flex-1 md:min-h-[28rem]">
 				{#if selectedTab === 'general'}
 					<General
-						{getModels}
 						{saveSettings}
 						on:save={() => {
 							toast.success($i18n.t('Settings saved successfully!'));
