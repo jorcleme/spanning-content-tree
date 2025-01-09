@@ -299,20 +299,7 @@
 		</div>
 	</div>
 </Composer>
-<button on:click={exportArticle}>Save Formatting</button>
-
-<style>
-	button {
-		margin-top: 1rem;
-		padding: 0.5rem 1rem;
-		background-color: #007bff;
-		color: white;
-		border: none;
-		border-radius: 4px;
-		cursor: pointer;
-	}
-
-	button:hover {
-		background-color: #0056b3;
-	}
-</style>
+<button
+	class="py-2.5 px-4 bg-[#007bff] text-white font-bold rounded-md cursor-pointer hover:bg-[#0056b3]"
+	on:click={exportArticle}>Save Formatting</button
+>

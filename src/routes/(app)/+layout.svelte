@@ -47,7 +47,15 @@
 		return _getModels(localStorage.token);
 	};
 
+	const getWebGPUInfo = () => {
+		if (!navigator.gpu) {
+			return { hasWebGPU: false, message: 'WebGPU not supported' };
+		}
+		return { hasWebGPU: true, message: 'WebGPU supported' };
+	};
+
 	onMount(async () => {
+		const webGPUInfo = getWebGPUInfo();
 		if ($user === undefined) {
 			await goto('/auth');
 		} else if (['user', 'admin'].includes($user.role)) {
@@ -82,12 +90,11 @@
 
 			await Promise.all([
 				(async () => {
-					await models.set(
-						(
-							await getModels()
-						).filter((model) => {
+					models.set(
+						(await getModels()).filter((model) => {
 							if (model.owned_by === 'onnx') {
 								// Only show text-generation models
+								// TODO: add webGPUInfo.hasWebGPU && to the condition to enable adding onnx models only if user has gpu hardware
 								if (model.info?.meta?.task === 'text-generation') {
 									return true;
 								} else {

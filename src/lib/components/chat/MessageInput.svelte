@@ -756,7 +756,10 @@
 									placeholder={chatInputPlaceholder !== '' ? chatInputPlaceholder : $i18n.t('Send a Message')}
 									bind:value={prompt}
 									on:keypress={(e) => {
-										if (!$mobile || !('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+										if (
+											!$mobile ||
+											!('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0)
+										) {
 											// Prevent Enter key from creating a new line
 											if (e.key === 'Enter' && !e.shiftKey) {
 												e.preventDefault();

@@ -15,6 +15,9 @@ jobs:
     name: Run Cypress Integration Tests
     runs-on: ubuntu-latest
     steps:
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 

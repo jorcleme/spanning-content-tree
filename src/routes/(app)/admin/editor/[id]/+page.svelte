@@ -263,7 +263,7 @@
 			</div>
 		{/each}
 		<button
-			class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-400"
+			class="py-2.5 px-4 bg-[#007bff] text-white font-bold rounded-md cursor-pointer hover:bg-[#0056b3]"
 			on:click={() => console.log(savedSections)}
 		>
 			Export Article HTML

@@ -36,10 +36,18 @@ interface EventData {
 self.addEventListener('message', async (event: EventData) => {
 	const { messages, options } = event.data;
 	console.log(messages, options);
+	if (options.task) {
+		PipelineSingleton.task = options.task as PipelineType;
+	}
+	if (options.model) {
+		PipelineSingleton.model = options.model;
+	}
 
-	const generator = await PipelineSingleton.getInstance((progress) => {
-		self.postMessage({ status: 'progress', progress });
-	});
+	// const generator = await PipelineSingleton.getInstance((progress) => {
+	// 	self.postMessage({ status: 'progress', progress });
+	// });
+
+	const generator = await PipelineSingleton.getInstance();
 
 	const streamer = new TextStreamer(generator.tokenizer, {
 		skip_prompt: true,
@@ -49,8 +57,8 @@ self.addEventListener('message', async (event: EventData) => {
 	});
 
 	try {
-		const result = await generator(messages, { ...options, streamer });
-		self.postMessage({ status: 'complete', result });
+		const result = await generator(messages, { streamer, ...options });
+		self.postMessage({ status: 'complete', result: result });
 	} catch (error) {
 		if (error instanceof Error) {
 			self.postMessage({ status: 'error', error: error.message });

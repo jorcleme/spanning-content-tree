@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
-	import { getContext, tick } from 'svelte';
+	import { createEventDispatcher, getContext, tick } from 'svelte';
 	import { getActiveEditor, getEditor } from '$lib/utils/editor';
 	import { getCommands } from '$lib/utils/editor/plugins/commands';
-	import { dispatch } from 'd3';
+	// import { dispatch } from 'd3';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import DropDownItem from '../dropdowns/DropdownItem.svelte';
 	import DropDown from '../dropdowns/EditorDropdown.svelte';
@@ -36,6 +36,8 @@
 		currentLabel = label;
 		currentValue = value;
 	};
+
+	const dispatch = createEventDispatcher();
 </script>
 
 <Modal bind:show>
@@ -47,7 +49,7 @@
 				title="Close"
 				on:click={() => {
 					show = false;
-					dispatch('close');
+					dispatch('close', { show });
 				}}
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">

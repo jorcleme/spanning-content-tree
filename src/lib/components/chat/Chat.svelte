@@ -59,6 +59,7 @@
 	import PipelineWorker from '$lib/workers/pipeline.worker?worker';
 	import { type Chat, TextStreamer, env, pipeline } from '@huggingface/transformers';
 	import { jsPDF } from 'jspdf';
+	import { options } from 'marked';
 	import mermaid from 'mermaid';
 	import { v4 as uuidv4 } from 'uuid';
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
@@ -2027,7 +2028,42 @@ Please rewrite the query for optimal search results. Return only the refined que
 			{ role: 'system', content: 'You are a helpful assistant.' },
 			{ role: 'user', content: userPrompt }
 		];
+		const worker = new PipelineWorker();
 
+		worker.onmessage = (event: MessageEvent) => {
+			console.log('event data: ', event.data);
+			const { status, result, error, progress, text } = event.data;
+
+			if (status === 'progress') {
+				console.log('Onnx Progress: ', progress);
+			} else if (status === 'stream') {
+				console.log('text', text);
+				responseMessage.content += text;
+			} else if (status === 'complete') {
+				console.log('complete: ', result);
+				responseMessage.done = true;
+				responseMessage.content = result.at(-1).generated_text.at(-1).content;
+				history.messages[responseMessageId] = responseMessage;
+				worker.terminate();
+			} else if (status === 'error') {
+				console.error('Onnx Error: ', error);
+				responseMessage.error = { content: error };
+				history.messages[responseMessageId] = responseMessage;
+				responseMessage.done = true;
+				worker.terminate();
+			}
+			messages = messages;
+		};
+
+		worker.onerror = (error) => {
+			console.error('Worker error:', error);
+			worker.terminate();
+		};
+
+		worker.postMessage({
+			messages: msgs,
+			options: { max_new_tokens: 512, do_sample: false, model: model.id, task: model.info?.meta.task }
+		});
 		// const worker = new PipelineWorker();
 
 		// type PipelineWorkerEvent = {
@@ -2117,31 +2153,31 @@ Please rewrite the query for optimal search results. Return only the refined que
 
 		await tick();
 		// Create a text generation pipeline
-		const generator = await pipeline('text-generation', model.id, {
-			...(model.info?.meta?.dtype && { dtype: model.info.meta.dtype })
-		});
+		// const generator = await pipeline('text-generation', model.id, {
+		// 	...(model.info?.meta?.dtype && { dtype: model.info.meta.dtype })
+		// });
 
-		// Create text streamer
-		const streamer = new TextStreamer(generator.tokenizer, {
-			skip_prompt: true,
-			// Optionally, do something with the text (e.g., write to a textbox)
-			callback_function: (text) => {
-				console.log('Onnx Streamer:', text);
-				responseMessage.content += text;
-			}
-		});
+		// // Create text streamer
+		// const streamer = new TextStreamer(generator.tokenizer, {
+		// 	skip_prompt: true,
+		// 	// Optionally, do something with the text (e.g., write to a textbox)
+		// 	callback_function: (text) => {
+		// 		console.log('Onnx Streamer:', text);
+		// 		responseMessage.content += text;
+		// 	}
+		// });
 
-		// Generate a response
-		const result = await generator(msgs, { max_new_tokens: 512, streamer, temperature: 0 });
-		await tick();
+		// // Generate a response
+		// const result = await generator(msgs, { max_new_tokens: 512, streamer, temperature: 0 });
+		// await tick();
 
-		if (Array.isArray(result)) {
-			//@ts-expect-error
-			console.log('Onnx Response (isArray): ', result.at(-1).generated_text.at(-1).content);
-		} else {
-			//@ts-expect-error
-			console.log('Onnx Response:', result.generated_text.at(-1).content);
-		}
+		// if (Array.isArray(result)) {
+		// 	//@ts-expect-error
+		// 	console.log('Onnx Response (isArray): ', result.at(-1).generated_text.at(-1).content);
+		// } else {
+		// 	//@ts-expect-error
+		// 	console.log('Onnx Response:', result.generated_text.at(-1).content);
+		// }
 
 		history.messages[responseMessageId] = responseMessage;
 
@@ -2835,8 +2871,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 			toast.error($i18n.t(`Model {{modelId}} not found`, { modelId }));
 		}
 	};
-
-	const promptTemplateGenerator = (template: string, variables: string[]) => {};
 
 	const titleGenerationTemplate = (template: string, prompt: string, user: SessionUser | null = null) => {
 		const replaceFn = (match: string, start?: string, end?: string, middle?: string) => {
