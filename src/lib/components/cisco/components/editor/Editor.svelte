@@ -4,26 +4,14 @@
 	import { KeywordPlugin } from 'svelte-lexical';
 	import { HorizontalRuleNode } from '$lib/components/cisco/components/editor/toolbar/plugins/hr/HorizontalRuleNode';
 	import { ImageNode } from '$lib/components/cisco/components/editor/toolbar/plugins/image/ImageNode';
-	import { settings } from '$lib/stores';
 	import { CAN_USE_DOM, KeywordNode, validateUrl } from '$lib/utils/editor';
 	import { createWebsocketProvider } from '$lib/utils/editor/collaboration';
 	import { CodeHighlightNode, CodeNode } from '@lexical/code';
 	import { $generateHtmlFromNodes as generateHtmlFromNodes } from '@lexical/html';
 	import { AutoLinkNode, LinkNode } from '@lexical/link';
 	import { ListItemNode, ListNode } from '@lexical/list';
-	import { HeadingNode, QuoteNode, $createHeadingNode as createHeadingNode } from '@lexical/rich-text';
-	import {
-		type CreateEditorArgs,
-		type EditorState,
-		type LexicalEditor,
-		type LexicalNode,
-		ParagraphNode,
-		TextNode,
-		createEditor,
-		$createParagraphNode as createParagraphNode,
-		$createTextNode as createTextNode,
-		$getRoot as getRoot
-	} from 'lexical';
+	import { HeadingNode, QuoteNode } from '@lexical/rich-text';
+	import { type CreateEditorArgs, type LexicalEditor } from 'lexical';
 	import Composer from './Composer.svelte';
 	import ContentEditable from './ContentEditable.svelte';
 	import PlaceHolder from './common/Placeholder.svelte';

@@ -8,7 +8,6 @@
 	export let id = '';
 	export let lang = '';
 	export let code = '';
-	export let text = '';
 
 	let highlightedCode: string | null = null;
 	let executing = false;
@@ -227,13 +226,6 @@ __builtins__.input = input`);
 
 		// Set a new timeout to debounce the code highlighting
 		debounceTimeout = setTimeout(highlightCode, 10);
-
-		console.log('Code:', code);
-		console.log('highlightedCode:', highlightedCode);
-	}
-
-	$: if (text) {
-		console.log('Text:', text);
 	}
 </script>
 

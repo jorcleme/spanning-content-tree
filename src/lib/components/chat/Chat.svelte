@@ -58,6 +58,7 @@
 	} from '$lib/utils';
 	import PipelineWorker from '$lib/workers/pipeline.worker?worker';
 	import { type Chat, TextStreamer, env, pipeline } from '@huggingface/transformers';
+	import type { TextGenerationOutput, TextGenerationSingle } from '@huggingface/transformers';
 	import { jsPDF } from 'jspdf';
 	import { options } from 'marked';
 	import mermaid from 'mermaid';
@@ -2030,7 +2031,15 @@ Please rewrite the query for optimal search results. Return only the refined que
 		];
 		const worker = new PipelineWorker();
 
-		worker.onmessage = (event: MessageEvent) => {
+		type PipelineWorkerEvent = {
+			status: 'progress' | 'stream' | 'complete' | 'error';
+			text?: string;
+			result?: any;
+			error?: string;
+			progress?: (...args: any[]) => void;
+		};
+
+		worker.onmessage = (event: MessageEvent<PipelineWorkerEvent>) => {
 			console.log('event data: ', event.data);
 			const { status, result, error, progress, text } = event.data;
 
@@ -2039,10 +2048,12 @@ Please rewrite the query for optimal search results. Return only the refined que
 			} else if (status === 'stream') {
 				console.log('text', text);
 				responseMessage.content += text;
+				messages = createMessagesList(responseMessageId);
+				history.messages[responseMessageId] = responseMessage;
 			} else if (status === 'complete') {
 				console.log('complete: ', result);
 				responseMessage.done = true;
-				responseMessage.content = result.at(-1).generated_text.at(-1).content;
+				responseMessage.content = result?.at(-1)?.generated_text.at(-1).content;
 				history.messages[responseMessageId] = responseMessage;
 				worker.terminate();
 			} else if (status === 'error') {
@@ -2052,7 +2063,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 				responseMessage.done = true;
 				worker.terminate();
 			}
-			messages = messages;
+			messages = createMessagesList(responseMessageId);
 		};
 
 		worker.onerror = (error) => {
@@ -2066,13 +2077,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 		});
 		// const worker = new PipelineWorker();
 
-		// type PipelineWorkerEvent = {
-		// 	status: 'progress' | 'stream' | 'complete' | 'error';
-		// 	text?: string;
-		// 	result?: string;
-		// 	error?: string;
-		// 	progress?: (...args: any[]) => void;
-		// };
 		// const options = { max_new_tokens: 512, do_sample: false };
 		// const result = await new Promise((resolve, reject) => {
 		// 	worker.onmessage = (event: MessageEvent<PipelineWorkerEvent>) => {

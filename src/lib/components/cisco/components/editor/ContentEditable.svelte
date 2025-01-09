@@ -2,9 +2,7 @@
 	import type { BlockType } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { getEditor } from '$lib/utils/editor';
-	import { $insertGeneratedNodes as insertGeneratedNodes } from '@lexical/clipboard';
 	import { $generateNodesFromDOM as generateNodesFromDOM } from '@lexical/html';
-	import type { HeadingTagType } from '@lexical/rich-text';
 	import {
 		LineBreakNode,
 		$createLineBreakNode as createLineBreakNode,
