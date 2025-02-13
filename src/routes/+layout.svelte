@@ -1,4 +1,8 @@
 <script>
+	import '@harbor/elements/dist/harbor-elements/harbor-elements.css';
+	// Magnetic Design System styles
+	import '@harbor/elements/dist/harbor-elements/styles/themes/magnetic.css';
+	import '@harbor/elements/dist/harbor-elements/styles/tokens/magnetic.css';
 	import { io } from 'socket.io-client';
 	import { spring } from 'svelte/motion';
 

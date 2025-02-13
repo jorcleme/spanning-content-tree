@@ -759,6 +759,10 @@ export const isErrorWithMessage = (error: unknown): error is { message: string }
 
 export const isErrorAsString = (error: unknown): error is string => typeof error === 'string';
 
+export const isErrorWithError = (error: unknown): error is { error: string } => {
+	return typeof error === 'object' && error !== null && 'error' in error;
+};
+
 export const debounce = (func: (...args: any[]) => void, delay = 200) => {
 	let timer: Timer;
 	return (...args: any[]) => {
@@ -870,4 +874,129 @@ export const generateReadingText = (article: Article) => {
 			(revision) => `${revision.revision ?? ''} ${revision.publish_date ?? ''} ${revision.comments ?? ''}`
 		)
 	].join(' ');
+};
+
+export const appendCiscoSources = (sections: Record<string, string>[]): string => {
+	const minStylesheet = 'https://www.cisco.com/etc/designs/cdc/fw/b/responsive/css/eot.min.css';
+	const sansStylesheet = 'https://www.cisco.com/etc/designs/cdc/clientlibs/responsive/css/cisco-sans.min.css';
+	const responsiveStylesheet = 'https://www.cisco.com/etc/designs/cdc/transformation/support-responsive.css';
+
+	const wrapper = `<div id="eot-doc-wrapper">
+					<link rel="stylesheet" href="${minStylesheet}">
+					<link rel="stylesheet" href="${sansStylesheet}">
+					<link rel="stylesheet" href="${responsiveStylesheet}">
+    
+                {{objective}}
+                
+                {{applicable_devices}}
+                
+                {{introduction}}
+                
+                <h2>Create an ASV VLAN</h2>
+                
+                <p>ASV can be enabled only on a static VLAN and the VLAN configured as an ASV VLAN cannot be deleted. </p>
+                
+                <h4>Step 1</h4>
+                
+                <p>Login to the Catalyst switch and navigate to <strong>VLAN Management &gt; VLAN Settings. </strong></p>
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-1.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-1.png"></a>
+                
+                <h4>Step 2</h4>
+                
+                <p>To add a VLAN, click on the <strong>plus</strong> symbol. </p>
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-2.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-2.png"></a>
+                
+                <h4>Step 3</h4>
+                
+                <p>Configure the <em>VLAN ID</em> and <em>VLAN Name</em> and click <strong>Apply</strong>. In this example, the VLAN ID is 5 and the VLAN Name is Auto Surveillance. </p>
+                
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-3.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-3.png"></a>
+                
+                <h2>Configure ASV Settings </h2>
+                
+                <h4>Step 1</h4>
+                <p>To select the VLAN for ASV, navigate to <strong>VLAN Management &gt; Auto-Surveillance VLAN &gt; ASV General Settings</strong>.  </p>
+                
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-4.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-4.png"></a>
+                
+                <h4>Step 2</h4>
+                
+                <p>From the <em>Auto-Surveillance-VLAN ID</em> drop-down menu, select the VLAN ID for ASV. </p>
+                
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-5.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-5.png"></a>
+                
+                <h4>Step 3</h4>
+                
+                <p>Under the <em>Surveillance Traffic Source Table</em>, click the <strong>plus icon</strong>. </p>
+                
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-6.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-6.png"></a>
+                
+                <h4>Step 4</h4>
+                
+                <p>To add the surveillance traffic source, select <em>Source Type</em> as either <em>OUI Prefix</em> or <em>MAC Address</em>. Enter the <em>Source</em> in the field provided. Optionally, you can add a <em>Description</em> and click <strong>Apply</strong>. </p>
+                
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-7.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-7.png"></a>
+                
+                
+                <h4>Step 5</h4>
+                
+                <p>To enable the ASV VLAN on a specific port, navigate to <strong>VLAN Management &gt; Auto-Surveillance VLAN &gt; ASV Interface Settings</strong>.</p>
+                
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-8.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-8.png"></a>
+                
+                <h4>Step 6</h4>
+                
+                <p>Select the interface and click edit. </p><a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-9.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-9.png"></a>
+                
+                <h4>Step 7</h4>
+                
+                <p><strong>Enable</strong> the <em>Auto Surveillance VLAN Membership</em> for the interface and click <strong>Apply</strong>. </p>
+                
+                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-10.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-10.png"></a>
+                
+                <h2>Conclusion</h2>
+                
+                <p>There you go! You have configured ASV on your Catalyst 1200 or 1300 switch. </p>
+                
+                <p>Check out the following pages for more information on the Catalyst 1200 and 1300 switches. </p>
+                
+                <ul>
+                    <li><a href="https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-1200-series-switches/nb-06-cat1200-1300-ser-upgrade-cte-en.html" data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links">Why Upgrade to Cisco Catalyst 1200 or 1300 Series Switches Feature Comparison</a></li>
+                    
+                    <li><a href="https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-1200-series-switches/nb-06-cat1200-1300-ser-aag-cte-en.html" data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links">Cisco Catalyst 1200 and 1300 Series Switches At-a-Glance</a></li>
+                
+                </ul>
+                
+                <p>For other configurations and features, refer to the Catalyst series <a href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/catalyst-1200-1300/AdminGuide/catalyst-1200-admin-guide.html" data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links">Administration Guide</a>. </p>
+            
+            </div>`;
+
+	let title = '';
+	let objective = '';
+	let applicable_devices = '';
+	let introduction = '';
+	let steps = '';
+
+	if (sections && sections.find(({ section }) => section === 'objective')) {
+		objective += `<h2>Objective</h2>
+					  <p>${sections.find(({ section }) => section === 'objective')?.content}</p>`;
+
+		wrapper.replace('{{objective}}', objective);
+	}
+	if (sections && sections.find(({ section }) => section === 'applicable devices')) {
+		applicable_devices += `<h2>Applicable Devices | Software Version</h2>
+							   ${sections.find(({ section }) => section === 'applicable devices')?.content}
+							   `;
+
+		wrapper.replace('{{applicable_devices}}', applicable_devices);
+	}
+
+	if (sections && sections.find(({ section }) => section === 'introduction')) {
+		introduction += `<h3>Introduction</h3>
+						<p>${sections.find(({ section }) => section === 'introduction')?.content}</p>`;
+
+		wrapper.replace('{{introduction}}', introduction);
+	}
+
+	return wrapper;
 };

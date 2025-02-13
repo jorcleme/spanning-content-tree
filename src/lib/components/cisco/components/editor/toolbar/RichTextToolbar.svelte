@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getCommands } from '$lib/utils/editor/plugins/commands';
 	import type { HeadingTagType } from '@lexical/rich-text';
-	import type { LexicalEditor } from 'lexical';
+	import { type LexicalEditor, $getRoot as getRoot, $getSelection as getSelection } from 'lexical';
 	import Divider from '../common/Divider.svelte';
 	import Toolbar from './Toolbar.svelte';
 	import BoldButton from './buttons/BoldButton.svelte';
@@ -9,6 +9,7 @@
 	import InsertLink from './buttons/InsertLink.svelte';
 	import ItalicButton from './buttons/ItalicButton.svelte';
 	import RedoButton from './buttons/RedoButton.svelte';
+	import RegenerateAi from './buttons/RegenerateAI.svelte';
 	import StrikethroughButton from './buttons/StrikethroughButton.svelte';
 	import UnderlineButton from './buttons/UnderlineButton.svelte';
 	import UndoButton from './buttons/UndoButton.svelte';
@@ -74,6 +75,8 @@
 		<StrikethroughButton />
 		<InsertCodeButton />
 		<InsertLink />
+		<Divider />
+		<RegenerateAi {editor} params={{}} />
 		<Divider />
 		<InsertDropdown {onInsertImageClick} {onInsertColumnClick}>
 			<button

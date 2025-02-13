@@ -3,7 +3,7 @@
 	import AddFilesPlaceholder from '$lib/components/AddFilesPlaceholder.svelte';
 
 	export let show = false;
-	let overlayElement = null;
+	let overlayElement: HTMLDivElement | null = null;
 
 	$: if (show && overlayElement) {
 		document.body.appendChild(overlayElement);

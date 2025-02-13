@@ -16,6 +16,11 @@
 		}
 		loaded = true;
 	});
+
+	$: console.log($page.url.pathname);
+	$: console.log($page.route.id);
+
+	$: editorPage = $page.url.pathname.includes('/admin/editor');
 </script>
 
 <svelte:head>
@@ -42,6 +47,12 @@
 					</button>
 				</div>
 				<div class="flex items-center text-xl font-semibold">{$i18n.t('Admin Panel')}</div>
+				{#if editorPage}
+					<div class="flex items-center text-sm font-thin ml-2">&gt;</div>
+					<div class="flex items-center text-sm font-medium ml-2">
+						{$i18n.t('Editor')}
+					</div>
+				{/if}
 			</div>
 		</div>
 

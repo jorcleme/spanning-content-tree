@@ -4,6 +4,7 @@
 	import { config } from '$lib/stores';
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { DropdownMenu } from 'bits-ui';
+	import type { FloatingProps } from 'bits-ui/dist/bits/floating/_types';
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -20,6 +21,8 @@
 
 	export let tools: { [id: string]: any } = {};
 	export let onClose: Function;
+	export let side: FloatingProps['side'] = 'top';
+	export let align: FloatingProps['align'] = 'start';
 
 	$: tools = Object.fromEntries(
 		Object.keys(tools).map((toolId) => [
@@ -48,11 +51,11 @@
 
 	<div slot="content">
 		<DropdownMenu.Content
-			class="w-full max-w-[200px] rounded-xl px-1 py-1  border-gray-300/30 dark:border-gray-700/50 z-50 bg-white dark:bg-gray-850 dark:text-white shadow"
+			class="w-full max-w-[200px] rounded-xl px-1 py-1  border-gray-300/30 dark:border-gray-700/50 z-50 bg-white dark:bg-gray-850 dark:text-white shadow z-[10000]"
 			sideOffset={15}
 			alignOffset={-8}
-			side="top"
-			align="start"
+			{side}
+			{align}
 			transition={flyAndScale}
 		>
 			{#if Object.keys(tools).length > 0}

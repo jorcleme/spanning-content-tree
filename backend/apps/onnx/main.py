@@ -15,6 +15,17 @@ async def get_all_models():
             },
         },
         {
+            "id": "onnx-community/Qwen2.5-1.5B",
+            "name": "onnx-community/Qwen2.5-1.5B",
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "onnx",
+            "info": {
+                "meta": {"task": "text-generation", "dtype": "q4"},
+                "name": "Qwen2.5-1.5B",
+            },
+        },
+        {
             "id": "Xenova/Phi-3-mini-4k-instruct",
             "name": "Xenova/Phi-3-mini-4k-instruct",
             "object": "model",

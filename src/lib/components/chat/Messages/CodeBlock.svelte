@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { copyToClipboard, isErrorAsString, isErrorWithDetail, isErrorWithMessage } from '$lib/utils';
+	import JSWorker from '$lib/workers/js.worker?worker';
 	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
 	import hljs from 'highlight.js';
 	import 'highlight.js/styles/github-dark.min.css';
@@ -150,6 +151,34 @@ __builtins__.input = input`);
 		}
 	};
 
+	const executeJavaScript = (code: string) => {
+		result = null;
+		stdout = null;
+		stderr = null;
+
+		executing = true;
+
+		const jsWorker = new JSWorker();
+
+		jsWorker.postMessage({ code });
+
+		jsWorker.onmessage = (event) => {
+			const { id, ...data } = event.data;
+
+			data['stdout'] && (stdout = data['stdout']);
+			data['stderr'] && (stderr = data['stderr']);
+			data['result'] && (result = data['result']);
+
+			executing = false;
+		};
+
+		jsWorker.onerror = (event) => {
+			console.error('jsWorker.onerror', event);
+			stderr = String(event.message);
+			executing = false;
+		};
+	};
+
 	const executePythonAsWorker = async (code: string) => {
 		result = null;
 		stdout = null;
@@ -243,6 +272,18 @@ __builtins__.input = input`);
 						disabled={executing}
 						on:click={() => {
 							executePython(code);
+						}}>Run</button
+					>
+				{/if}
+			{:else if lang.toLowerCase() === 'javascript' || lang.toLowerCase() === 'js'}
+				{#if executing}
+					<div class="copy-code-button bg-none border-none p-1 cursor-not-allowed">Running</div>
+				{:else}
+					<button
+						class="copy-code-button bg-none border-none p-1"
+						disabled={executing}
+						on:click={() => {
+							executeJavaScript(code);
 						}}>Run</button
 					>
 				{/if}

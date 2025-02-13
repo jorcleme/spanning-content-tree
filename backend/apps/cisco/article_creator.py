@@ -1498,6 +1498,7 @@ async def build_article(question: str, device: str):
             )
     if len(sources) > 0:
         print(f"Sources: {sources}")
+        article["sources"] = sources
 
     if isinstance(state.get("keys").get("article"), list):
         return state.get("keys").get("article")[0].model_dump()

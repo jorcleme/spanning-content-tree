@@ -1,4 +1,4 @@
-import type { Article, ChatListResponse, ModelConfig, TagsByUserResponse, Tool } from '$lib/types';
+import type { Article, ChatListResponse, ModelConfig, ReviewedArticle, TagsByUserResponse, Tool } from '$lib/types';
 import { type Writable, derived, writable } from 'svelte/store';
 import type { AccessLevel, Role } from '$lib/constants';
 import { APP_NAME } from '$lib/constants';
@@ -227,6 +227,7 @@ export const isSupportWidgetOpen = writable(false);
 export const hideSupportWidgetBtn = writable(false);
 export const mostRecentStep = writable(-1);
 export const activeArticle = writable<null | Article>(null);
+export const reviewedArticle = writable<null | ReviewedArticle>(null);
 
 export const activeArticleId = derived([activeArticle], ([$activeArticle]) => {
 	if ($activeArticle) {
@@ -318,7 +319,7 @@ type TitleSettings = {
 	prompt?: string;
 };
 
-type Prompt = {
+export type Prompt = {
 	command: string;
 	user_id: string;
 	title: string;
@@ -422,3 +423,5 @@ export type ChatParams =
 	| {
 			[key: string]: any;
 	  };
+
+export const editSectionId = writable('');

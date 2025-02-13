@@ -74,67 +74,6 @@
 	} else if (message?.annotation?.rating === -1) {
 		reasons = DISLIKE_REASONS;
 	}
-
-	// const dispatch = createEventDispatcher();
-	// let textarea = '';
-
-	// let options = [
-	// 	{
-	// 		id: 'option1',
-	// 		label: 'Exactly what I was looking for',
-	// 		value: 'Exactly what I was looking for',
-	// 		classname: 'DialogFeedbackButtons'
-	// 	},
-	// 	{
-	// 		id: 'option2',
-	// 		label: 'Saved me time',
-	// 		value: 'Saved me time',
-	// 		classname: 'DialogFeedbackButtons'
-	// 	},
-	// 	{
-	// 		id: 'option3',
-	// 		label: 'Helped me solve my own issue',
-	// 		value: 'Helped me solve my own issue',
-	// 		classname: 'DialogFeedbackButtons'
-	// 	}
-	// ];
-
-	// let feedback: string[] = [];
-
-	// let selected = [];
-
-	// function handleFormChange(event: SubmitEvent) {
-	// 	console.log('form change', event);
-	// }
-
-	// $: {
-	// 	console.log('feedback', feedback);
-	// 	console.log('showDialog', showDialog);
-	// }
-
-	// let o: string[] = [];
-
-	// function handleChange(event: Event & { currentTarget: EventTarget & HTMLInputElement }) {
-	// 	console.log(`${event.type}`, event.currentTarget.value);
-	// 	const value = event.currentTarget.value;
-	// 	if (o.findIndex((item) => item === value) === -1) {
-	// 		o = [...o, value];
-	// 	} else {
-	// 		o = o.slice(0, -1).filter((item) => item !== value);
-	// 	}
-	// }
-
-	// function handleDialogClose() {
-	// 	dispatch('close');
-	// 	showDialog = false;
-	// 	dialog.close();
-	// }
-
-	// $: if (showDialog) {
-	// 	dialog.showModal();
-	// } else if (dialog) {
-	// 	dialog.close();
-	// }
 </script>
 
 {#if show}

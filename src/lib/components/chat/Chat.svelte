@@ -14,7 +14,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { chatAction, chatCompleted, generateSearchQuery, generateTitle, getTaskConfig } from '$lib/apis';
-	import { createNewArticle } from '$lib/apis/articles';
+	import { createNewArticle, getArticleById } from '$lib/apis/articles';
 	import { createNewChat, getChatById, getChatList, getTagsById, updateChatById } from '$lib/apis/chats';
 	import { createNewDoc, getDocs } from '$lib/apis/documents';
 	import { uploadFile } from '$lib/apis/files';
@@ -32,6 +32,7 @@
 		WEBUI_NAME,
 		tags as _tags,
 		activeArticle,
+		activeArticleId,
 		banners,
 		chatId,
 		chats,
@@ -1063,6 +1064,7 @@
 					await tick();
 					toast.info('Chat content detected previously generated article');
 					articleId = chatContent.article;
+					activeArticle.set(await getArticleById(localStorage.token, articleId));
 					chatHasArticle = true;
 				} else {
 					articleId = '';
@@ -2075,45 +2077,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 			messages: msgs,
 			options: { max_new_tokens: 512, do_sample: false, model: model.id, task: model.info?.meta.task }
 		});
-		// const worker = new PipelineWorker();
-
-		// const options = { max_new_tokens: 512, do_sample: false };
-		// const result = await new Promise((resolve, reject) => {
-		// 	worker.onmessage = (event: MessageEvent<PipelineWorkerEvent>) => {
-		// 		const { status, text, result, error, progress } = event.data;
-
-		// 		if (status === 'progress') {
-		// 			console.log('Onnx Progress: ', progress);
-		// 		} else if (status === 'stream') {
-		// 			responseMessage.content += text;
-		// 			console.log('Onnx Stream: ', text);
-		// 		} else if (status === 'complete') {
-		// 			console.log('Complete: ', result);
-		// 			responseMessage.done = true;
-		// 			history.messages[responseMessageId] = responseMessage;
-		// 			resolve(result);
-		// 			worker.terminate();
-		// 		} else if (status === 'error') {
-		// 			console.error('Onnx Error: ', error);
-		// 			responseMessage.error = { content: error };
-		// 			history.messages[responseMessageId] = responseMessage;
-		// 			responseMessage.done = true;
-		// 			reject(error);
-		// 			worker.terminate();
-		// 		}
-		// 	};
-
-		// 	worker.onerror = (error) => {
-		// 		console.error('Worker error:', error);
-		// 		reject(error);
-		// 		worker.terminate();
-		// 	};
-
-		// 	// Send data to the worker
-		// 	worker.postMessage({ messages: msgs, options });
-		// });
-
-		// console.log('Onnx Response:', result);
 
 		// const messagesBody = [
 		// 	params?.system || $settings.system || (responseMessage?.userContext ?? null)
@@ -2156,33 +2119,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 		);
 
 		await tick();
-		// Create a text generation pipeline
-		// const generator = await pipeline('text-generation', model.id, {
-		// 	...(model.info?.meta?.dtype && { dtype: model.info.meta.dtype })
-		// });
-
-		// // Create text streamer
-		// const streamer = new TextStreamer(generator.tokenizer, {
-		// 	skip_prompt: true,
-		// 	// Optionally, do something with the text (e.g., write to a textbox)
-		// 	callback_function: (text) => {
-		// 		console.log('Onnx Streamer:', text);
-		// 		responseMessage.content += text;
-		// 	}
-		// });
-
-		// // Generate a response
-		// const result = await generator(msgs, { max_new_tokens: 512, streamer, temperature: 0 });
-		// await tick();
-
-		// if (Array.isArray(result)) {
-		// 	//@ts-expect-error
-		// 	console.log('Onnx Response (isArray): ', result.at(-1).generated_text.at(-1).content);
-		// } else {
-		// 	//@ts-expect-error
-		// 	console.log('Onnx Response:', result.generated_text.at(-1).content);
-		// }
-
 		history.messages[responseMessageId] = responseMessage;
 
 		responseMessage.done = true;
@@ -2921,7 +2857,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 			const result = await generator(msgs, { max_new_tokens: 512, do_sample: false });
 			if (result) {
 				//@ts-ignore
-				return result.generated_text?.at(-1)?.content ?? 'Your Chat';
+				return result.at(-1).generated_text?.at(-1)?.content ?? `${userPrompt}`.slice(0, 20) + '...';
 			} else {
 				return `${userPrompt}`.slice(0, 20) + '...';
 			}

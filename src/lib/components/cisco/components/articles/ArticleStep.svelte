@@ -35,10 +35,7 @@
 		return html.replace(/^<a /, '<a target="_blank" rel="nofollow" ');
 	};
 
-	const { extensions, ...defaults } = marked.getDefaults() as MarkedOptions & {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		extensions: any;
-	};
+	const { extensions, ...defaults } = marked.getDefaults();
 
 	$: parsedText = marked.parse(step.text, { renderer, ...defaults, gfm: true, breaks: true });
 

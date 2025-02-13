@@ -1,12 +1,14 @@
 <script lang="ts">
+	import type { ChatFile, i18nType } from '$lib/types';
+	import { getContext, tick } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import type { Prompt } from '$lib/stores';
 	import { prompts } from '$lib/stores';
 	import { findWordIndices } from '$lib/utils';
-	import { tick, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
-	export let files;
+	export let files: ChatFile[];
 	export let prompt = '';
 	let selectedCommandIdx = 0;
 	let filteredPromptCommands = [];
@@ -27,7 +29,7 @@
 		selectedCommandIdx = Math.min(selectedCommandIdx + 1, filteredPromptCommands.length - 1);
 	};
 
-	const confirmCommand = async (command) => {
+	const confirmCommand = async (command: Prompt) => {
 		let text = command.content;
 
 		if (command.content.includes('{{CLIPBOARD}}')) {
@@ -67,12 +69,14 @@
 
 		prompt = text;
 
-		const chatInputElement = document.getElementById('chat-textarea');
+		const chatInputElement = document.getElementById('chat-textarea') as HTMLTextAreaElement;
 
 		await tick();
 
-		chatInputElement.style.height = '';
-		chatInputElement.style.height = Math.min(chatInputElement.scrollHeight, 200) + 'px';
+		if (chatInputElement) {
+			chatInputElement.style.height = '';
+			chatInputElement.style.height = `${Math.min(chatInputElement.scrollHeight, 200)}px`;
+		}
 
 		chatInputElement?.focus();
 
@@ -81,7 +85,10 @@
 		const words = findWordIndices(prompt);
 
 		if (words.length > 0) {
-			const word = words.at(0);
+			const word = words.at(0) as { word: string; startIndex: number; endIndex: number };
+			if (chatInputElement) {
+				chatInputElement.setSelectionRange(word?.startIndex, word.endIndex + 1);
+			}
 			chatInputElement.setSelectionRange(word?.startIndex, word.endIndex + 1);
 		}
 	};
@@ -94,9 +101,7 @@
 				<div class=" text-lg font-semibold mt-2">/</div>
 			</div>
 
-			<div
-				class="max-h-60 flex flex-col w-full rounded-r-lg bg-white dark:bg-gray-900 dark:text-gray-100"
-			>
+			<div class="max-h-60 flex flex-col w-full rounded-r-lg bg-white dark:bg-gray-900 dark:text-gray-100">
 				<div class="m-1 overflow-y-auto p-1 rounded-r-lg space-y-0.5 scrollbar-hidden">
 					{#each filteredPromptCommands as command, commandIdx}
 						<button

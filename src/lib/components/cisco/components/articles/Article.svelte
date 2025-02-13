@@ -180,11 +180,6 @@
 		}
 		selectedModels = selectedModels.map((modelId) => ($models.map((m) => m.id).includes(modelId) ? modelId : ''));
 		// (async () => {
-		// 	if ($activeArticle) {
-		// 		await addArticle($activeArticle);
-		// 	}
-		// })();
-		// (async () => {
 		// 	if ($page.url.searchParams.has('id')) {
 		// 		activeArticle.set(await getArticleById(localStorage.token, $page.url.searchParams.get('id')!));
 		// 	} else if ($page.url.searchParams.has('document_id')) {
@@ -454,11 +449,13 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each $activeArticle.revision_history ?? [] as rh, i (i)}
+							{#each $activeArticle.revision_history ?? [] as history, i (i)}
 								<tr>
-									<td class="border-2 border-slate-700 p-2">{rh.revision}</td>
-									<td class="border-2 border-slate-700 p-2">{new Date(rh.publish_date).toLocaleDateString(lang)}</td>
-									<td class="border-2 border-slate-700 p-2">{rh.comments}</td>
+									<td class="border-2 border-slate-700 p-2">{history.revision}</td>
+									<td class="border-2 border-slate-700 p-2"
+										>{new Date(history.publish_date).toLocaleDateString(lang)}</td
+									>
+									<td class="border-2 border-slate-700 p-2">{history.comments}</td>
 								</tr>
 							{/each}
 						</tbody>

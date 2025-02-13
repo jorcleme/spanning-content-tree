@@ -8,18 +8,6 @@
 	import { createEditor, $getRoot as getRoot } from 'lexical';
 	import type { CreateEditorArgs } from 'lexical';
 
-	// export type InitialEditorStateType = null | string | EditorState | ((editor: LexicalEditor) => void);
-	// export type InitialConfigType = Readonly<{
-	// 	editor__DEPRECATED?: LexicalEditor | null;
-	// 	namespace: string;
-	// 	nodes?: ReadonlyArray<Klass<LexicalNode> | LexicalNodeReplacement>;
-	// 	onError: (error: Error, editor: LexicalEditor) => void;
-	// 	editable?: boolean;
-	// 	theme?: EditorThemeClasses;
-	// 	editorState?: InitialEditorStateType;
-	// 	html?: HTMLConfig;
-	// }>;
-
 	export let initialConfig: CreateEditorArgs;
 
 	const { theme, namespace, nodes, onError, editorState: initialEditorState, editable, html } = initialConfig;
@@ -42,16 +30,14 @@
 	onMount(() => {
 		editor.setEditable($isEditable);
 
-		return editor.registerEditableListener((editable2) => {
-			$isEditable = editable2;
+		return editor.registerEditableListener((editable) => {
+			$isEditable = editable;
 		});
 	});
 
 	setHistoryStateContext(createEmptyHistoryState());
 	createSharedEditorContext();
-	export function getEditor() {
-		return editor;
-	}
+	export const getEditor = () => editor;
 </script>
 
 <slot />

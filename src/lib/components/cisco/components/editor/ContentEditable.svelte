@@ -1,15 +1,9 @@
 <script lang="ts">
-	import type { BlockType } from '$lib/types';
-	import { onMount } from 'svelte';
+	import type { BlockType, BlockTypeContext } from '$lib/types';
+	import { getContext, onMount } from 'svelte';
 	import { getEditor } from '$lib/utils/editor';
 	import { $generateNodesFromDOM as generateNodesFromDOM } from '@lexical/html';
-	import {
-		LineBreakNode,
-		$createLineBreakNode as createLineBreakNode,
-		$createRangeSelection as createRangeSelection,
-		$createTextNode as createTextNode,
-		$getRoot as getRoot
-	} from 'lexical';
+	import { $getRoot as getRoot } from 'lexical';
 
 	export let ariaActiveDescendantID: string | undefined = void 0;
 	export let ariaAutoComplete: 'list' | 'none' | 'inline' | 'both' | null = null;
@@ -30,11 +24,15 @@
 	export let tabIndex: number = 0;
 	export let testid: string = 'testid';
 	export let content: string | null = null;
-	export let tag: BlockType = 'h1';
 
 	let isEditable = false;
 	const editor = getEditor();
 	let ref: HTMLDivElement;
+
+	const blockType: BlockTypeContext = getContext('blockType');
+
+	$: isListType = $blockType === 'bullet' || $blockType === 'number' || $blockType === 'check';
+	$: console.log('Current block type:', isListType);
 
 	const getHTML = (tagType: BlockType) => {
 		if (tagType === 'h1') {
@@ -66,31 +64,19 @@
 			editor.setRootElement(ref);
 			if (content) {
 				editor.update(() => {
-					const html = getHTML(tag);
-					console.log('html: ', html);
+					const html = content;
 					const parser = new DOMParser();
 					const dom = parser.parseFromString(html, 'text/html');
 					console.log(dom.body);
-					const children = Array.from(dom.body.children);
-					if (children.length) {
-						for (const child of children) {
-							if ((child.children.length === 0 && child.textContent === '') || child.textContent === null) {
-								child.remove();
-							}
+					for (const child of dom.body.children) {
+						if ((child.children.length === 0 && child.textContent === '') || child.textContent === null) {
+							child.remove();
 						}
 					}
+					console.log(`After removing empty nodes: ${dom.body}`);
 					const nodes = generateNodesFromDOM(editor, dom);
-					getRoot().clear();
-					// insertGeneratedNodes(
-					// 	editor,
-					// 	nodes
-					// 		.map((node, i) => {
-					// 			return i > 0 && !(nodes[i - 1] instanceof LineBreakNode) ? [node, createLineBreakNode()] : node;
-					// 		})
-					// 		.flat(),
-					// 	createRangeSelection()
-					// );
 					const root = getRoot();
+					root.clear();
 					root.append(...nodes);
 				});
 			}

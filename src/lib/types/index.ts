@@ -250,6 +250,7 @@ export interface Article {
 	objective: string;
 	category: string;
 	url: string;
+	best_practices?: string[];
 	applicable_devices: ArticleDevice[];
 	introduction: string;
 	steps: ArticleStep[];
@@ -259,6 +260,28 @@ export interface Article {
 	sources?: Record<string, string>[] | null;
 	created_at: number;
 	updated_at: number;
+}
+
+export interface ReviewedArticle {
+	id: string;
+	title: string;
+	document_id: string;
+	objective: string;
+	category: string;
+	url: string;
+	best_practices?: string[];
+	applicable_devices: string;
+	introduction: string;
+	steps: string[];
+	revision_history: string[];
+	published: boolean;
+	user_id?: string | null;
+	sources?: Record<string, string>[] | null;
+	created_at: number;
+	updated_at: number;
+	date_reviewed?: number;
+	reviewed_by?: string;
+	reviewed_by_id?: string;
 }
 
 export interface Series {

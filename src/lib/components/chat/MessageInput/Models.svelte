@@ -1,29 +1,29 @@
 <script lang="ts">
+	import type { Message, i18nType } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
-
+	import { getContext, tick } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { generatePrompt } from '$lib/apis/ollama';
+	import type { Model, SessionUser } from '$lib/stores';
 	import { models } from '$lib/stores';
 	import { splitStream } from '$lib/utils';
-	import { tick, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
+	import { isErrorWithDetail, isErrorWithError } from '$lib/utils';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
 
 	export let prompt = '';
-	export let user = null;
+	export let user: SessionUser | null = null;
 
 	export let chatInputPlaceholder = '';
-	export let messages = [];
+	export let messages: Message[] = [];
 
 	let selectedIdx = 0;
-	let filteredModels = [];
+	let filteredModels: Model[] = [];
 
 	$: filteredModels = $models
-		.filter((p) =>
-			p.name.toLowerCase().includes(prompt.toLowerCase().split(' ')?.at(0)?.substring(1) ?? '')
-		)
+		.filter((p) => p.name.toLowerCase().includes(prompt.toLowerCase().split(' ')?.at(0)?.substring(1) ?? ''))
 		.sort((a, b) => a.name.localeCompare(b.name));
 
 	$: if (prompt) {
@@ -38,12 +38,12 @@
 		selectedIdx = Math.min(selectedIdx + 1, filteredModels.length - 1);
 	};
 
-	const confirmSelect = async (model) => {
+	const confirmSelect = async (model: Model) => {
 		prompt = '';
 		dispatch('select', model);
 	};
 
-	const confirmSelectCollaborativeChat = async (model) => {
+	const confirmSelectCollaborativeChat = async (model: Model) => {
 		// dispatch('select', model);
 		prompt = '';
 		user = JSON.parse(JSON.stringify(model.name));
@@ -51,7 +51,7 @@
 
 		chatInputPlaceholder = $i18n.t('{{modelName}} is thinking...', { modelName: model.name });
 
-		const chatInputElement = document.getElementById('chat-textarea');
+		const chatInputElement = document.getElementById('chat-textarea') as HTMLTextAreaElement;
 
 		await tick();
 		chatInputElement?.focus();
@@ -63,11 +63,8 @@
 
 		const res = await generatePrompt(localStorage.token, model.name, convoText);
 
-		if (res && res.ok) {
-			const reader = res.body
-				.pipeThrough(new TextDecoderStream())
-				.pipeThrough(splitStream('\n'))
-				.getReader();
+		if (res && res.ok && res.body) {
+			const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(splitStream('\n')).getReader();
 
 			while (true) {
 				const { value, done } = await reader.read();
@@ -105,8 +102,12 @@
 					}
 				} catch (error) {
 					console.log(error);
-					if ('detail' in error) {
+					if (isErrorWithDetail(error)) {
 						toast.error(error.detail);
+					} else if (isErrorWithError(error)) {
+						toast.error(error.error);
+					} else {
+						toast.error(error as string);
 					}
 					break;
 				}
@@ -115,15 +116,15 @@
 			if (res !== null) {
 				const error = await res.json();
 				console.log(error);
-				if ('detail' in error) {
+				if (isErrorWithDetail(error)) {
 					toast.error(error.detail);
-				} else {
+				} else if (isErrorWithError(error)) {
 					toast.error(error.error);
+				} else {
+					toast.error(error as string);
 				}
 			} else {
-				toast.error(
-					$i18n.t('Uh-oh! There was an issue connecting to {{provider}}.', { provider: 'llama' })
-				);
+				toast.error($i18n.t('Uh-oh! There was an issue connecting to {{provider}}.', { provider: 'llama' }));
 			}
 		}
 
@@ -141,9 +142,7 @@
 					<div class=" text-lg font-semibold mt-2">@</div>
 				</div>
 
-				<div
-					class="max-h-60 flex flex-col w-full rounded-r-lg bg-white dark:bg-gray-900 dark:text-gray-100"
-				>
+				<div class="max-h-60 flex flex-col w-full rounded-r-lg bg-white dark:bg-gray-900 dark:text-gray-100">
 					<div class="m-1 overflow-y-auto p-1 rounded-r-lg space-y-0.5 scrollbar-hidden">
 						{#each filteredModels as model, modelIdx}
 							<button

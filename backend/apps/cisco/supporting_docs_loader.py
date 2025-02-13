@@ -34,6 +34,7 @@ from collections.abc import Callable
 import chromadb.utils.embedding_functions as embedding_functions
 import os
 from dotenv import load_dotenv
+from langchain_huggingface import HuggingFaceEmbeddings
 from utils.vector_dimensions import Providers, EmbeddingFunctions, VectorDimensions
 
 try:
@@ -441,7 +442,7 @@ class CiscoSupportingDocumentsLoader(BaseLoader):
             instance = cls(paths=[], schema=schema)
             instance.documents = [
                 (
-                    Document.parse_obj(doc)
+                    Document.model_validate(doc)
                     if "type" in doc and doc["type"] == "Document"
                     else doc
                 )
@@ -702,9 +703,7 @@ def query_collection(query: str):
     from langchain_openai.embeddings import OpenAIEmbeddings
 
     try:
-        openai_collection = CHROMA_CLIENT.get_collection(
-            "catalyst_1300_admin_guide_openai"
-        )
+        openai_collection = CHROMA_CLIENT.get_collection("catalyst_1300_admin_guide")
         openai_embeddings = OpenAIEmbeddings(api_key=os.environ.get("OPENAI_API_KEY"))
         openai_query = openai_embeddings.embed_query(query)
         openai_results = openai_collection.query(openai_query)

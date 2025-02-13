@@ -21,8 +21,8 @@
 </script>
 
 <div class="w-full h-full py-2">
-	<div class="text-center font-bold text-lg text-gray-800 dark:text-gray-50">
-		{$i18n.t('Articles requiring action')}
+	<div class="text-center font-bold text-lg text-gray-800 dark:text-gray-50 pb-4">
+		{$i18n.t('Articles Requiring Action')}
 	</div>
 	<div class="flex flex-wrap gap-4 items-center justify-evenly">
 		{#each articles as article, i (i)}

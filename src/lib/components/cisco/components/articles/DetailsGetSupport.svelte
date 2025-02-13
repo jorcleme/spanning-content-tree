@@ -1709,24 +1709,28 @@
 											class="flex flex-col space-y-3 items-start mt-2"
 											transition:slide={{ axis: 'x', duration: 1000, delay: 300, easing: cubicIn }}
 										>
-											<div class="flex flex-col gap-y-2 divide-slate-300" id="sourcescontentcontainer">
-												<p>
+											<div class="flex flex-col gap-y-2 divide-slate-300">
+												<div>
 													We search our content database for similar text to the question and context. We then use small
 													chunks of the broader text to summarize or pick and choose which chunks are relevant. In the
 													end Generative AI uses the chunks to arrive at the answer. The answer produced is then
 													reviewed for accuracy and relevancy by Cisco experts.
-												</p>
-												<div class="space-y-2">
-													<a
-														target="_blank"
-														href="https://www.cisco.com/site/us/en/solutions/artificial-intelligence/responsible-ai/index.html"
-														class="text-blue-500">Cisco's Responsible AI Framework</a
-													>
-													<a
-														target="_blank"
-														href="https://www.cisco.com/c/en/us/about/legal/privacy-full.html"
-														class="text-blue-500">Privacy Policy</a
-													>
+												</div>
+												<div class="flex flex-col gap-2">
+													<div>
+														Visit <a
+															target="_blank"
+															href="https://www.cisco.com/site/us/en/solutions/artificial-intelligence/responsible-ai/index.html"
+															class="text-blue-500">Cisco's Responsible AI Framework</a
+														>
+													</div>
+													<div>
+														Read <a
+															target="_blank"
+															href="https://www.cisco.com/c/en/us/about/legal/privacy-full.html"
+															class="text-blue-500">Cisco Privacy Policy</a
+														>
+													</div>
 												</div>
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
@@ -1757,7 +1761,7 @@
 																<FileText />
 															</div>
 															<div>
-																<ul class="py-2">
+																<ul class="py-2 m-0">
 																	<li class="ml-2">Type: {source.doc_type}</li>
 																	<li class="ml-2">Chapter: {source.title}</li>
 																	<li class="ml-2">Topic: {source.topic}</li>

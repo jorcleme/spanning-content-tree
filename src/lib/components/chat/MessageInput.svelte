@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ClientFile, i18nType } from '$lib/types';
+	import type { ChatFile, ClientFile, i18nType } from '$lib/types';
 	import { SvelteComponent, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
@@ -41,7 +41,12 @@
 	let chatTextAreaElement: HTMLTextAreaElement;
 	let filesInputElement: HTMLInputElement;
 
-	let promptsElement: SvelteComponent;
+	let promptsElement: SvelteComponent<{
+		files: ChatFile[];
+		prompt?: string | undefined;
+		selectUp?: () => void;
+		selectDown?: () => void;
+	}>;
 	let documentsElement: SvelteComponent;
 	let modelsElement: SvelteComponent;
 

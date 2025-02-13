@@ -171,7 +171,7 @@ class Search(BaseModel):
     query: str = Field(..., description="The original query.")
     subtopics: List[str] = Field(
         ...,
-        description="If the original question contains multiple distinct subtopics or if there are more generic subtopics that would be helpful to know in order to answer the original query.",
+        description="Decompose the query into subtopics to help identify the context of the query.",
     )
 
 

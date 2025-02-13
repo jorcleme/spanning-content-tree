@@ -230,10 +230,10 @@
 
 /* Cisco Specific Styles */
 .cisco * {
-	color: var(--color-blue-90);
+	color: var(--hbr-color-interact, #1D69CC);
 	/* fill: white; */
 	/* stroke: var(--color-blue-80); */
-	font-family: var(--font-family-cisco-sans);
+	font-family: var(--hbr-font-family-sans);
 }
 
 .cisco .app > * {
@@ -243,10 +243,6 @@
 		transparent 10px,
 		#f4f5f6 30px
 	) !important;
-}
-
-.cisco #nav {
-	/* background-color: #fffaf3; */
 }
 
 .cisco .py-2\.5.my-auto.flex.flex-col.justify-between.h-screen,

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { BlockType } from '$lib/types';
-	import { type SvelteComponent, afterUpdate, onMount } from 'svelte';
+	import { type SvelteComponent, afterUpdate, createEventDispatcher, getContext, onMount } from 'svelte';
 	import { KeywordPlugin } from 'svelte-lexical';
 	import { HorizontalRuleNode } from '$lib/components/cisco/components/editor/toolbar/plugins/hr/HorizontalRuleNode';
 	import { ImageNode } from '$lib/components/cisco/components/editor/toolbar/plugins/image/ImageNode';
+	import { editSectionId, reviewedArticle } from '$lib/stores';
 	import { CAN_USE_DOM, KeywordNode, validateUrl } from '$lib/utils/editor';
 	import { createWebsocketProvider } from '$lib/utils/editor/collaboration';
 	import { CodeHighlightNode, CodeNode } from '@lexical/code';
@@ -11,7 +12,8 @@
 	import { AutoLinkNode, LinkNode } from '@lexical/link';
 	import { ListItemNode, ListNode } from '@lexical/list';
 	import { HeadingNode, QuoteNode } from '@lexical/rich-text';
-	import { type CreateEditorArgs, type LexicalEditor } from 'lexical';
+	import type { CreateEditorArgs, LexicalEditor } from 'lexical';
+	import Article from '../articles/Article.svelte';
 	import Composer from './Composer.svelte';
 	import ContentEditable from './ContentEditable.svelte';
 	import PlaceHolder from './common/Placeholder.svelte';
@@ -37,11 +39,13 @@
 
 	export let config: CreateEditorArgs;
 	export let content: string | null = null;
-	export let tag: BlockType = 'h1';
 	export let section: string | null = null;
+	export let articleSections: any[] = [];
 	export let articleTitle: string = '';
 
-	let composer: SvelteComponent;
+	const dispatch = createEventDispatcher();
+
+	let composer: SvelteComponent<any, any, any>;
 	let editorDiv: HTMLDivElement;
 
 	const shouldBootstrap = window.parent != null && window.parent.frames.right === window;
@@ -50,7 +54,7 @@
 
 	const initialConfig: CreateEditorArgs = {
 		...config,
-		namespace: 'Playground',
+		namespace: 'Cisco-Editor',
 		nodes: [
 			HeadingNode,
 			ListNode,
@@ -89,10 +93,7 @@
 			window.removeEventListener('resize', handleResize);
 		};
 	});
-
-	export function getEditor() {
-		return composer.getEditor();
-	}
+	export const getEditor = (): LexicalEditor => composer.getEditor();
 
 	const downloadHtml = (content: string) => {
 		const blob = new Blob([content], { type: 'text/html' });
@@ -107,142 +108,69 @@
 		URL.revokeObjectURL(url);
 	};
 
-	const createArticleHtml = () => {
-		const a = `<div id="eot-doc-wrapper">
-    
-                <h2>Objective</h2><p>The objective of this article is to go over the Auto Surveillance VLAN (ASV) feature in the Catalyst 1200/1300 switches and the steps to configure it.</p>
-                
-                <h2>Applicable Devices | Software Version</h2>
-                
-                <ul>
-                    <li>Catalyst 1200 | 4.0.0.91 (<a href="https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-1200-series-switches/nb-06-cat1200-ser-data-sheet-cte-en.html" data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links">Data Sheet</a>)</li>
-                    <li>Catalyst 1300 | 4.0.0.91 (<a href="https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-1300-series-switches/nb-06-cat1300-ser-data-sheet-cte-en.html" data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links">Data Sheet</a>)</li>
-                </ul>
-                
-                <h3>Introduction</h3>
-                
-                <p>Network communication between surveillance devices such as cameras and monitoring equipment should often be given higher priority and it is important that the various devices that comprise the surveillance infrastructure in the organization are reachable for each other. Normally, the network administrator ensures that all surveillance devices are connected to the same VLAN and to configure this VLAN and the interfaces on it to allow for this high priority traffic.</p>
-                
-                <p>ASV automates aspects of this setup by detecting defined surveillance devices on the network, assigns them to a VLAN, and sets their traffic priority. The surveillance devices are defined by creating a list of OUIs and MAC addresses. Up to 32 sources for surveillance traffic can be defined in any combination of MAC and OUIs.</p>
-                
-                <h2>Create an ASV VLAN</h2>
-                
-                <p>ASV can be enabled only on a static VLAN and the VLAN configured as an ASV VLAN cannot be deleted. </p>
-                
-                <h4>Step 1</h4>
-                
-                <p>Login to the Catalyst switch and navigate to <strong>VLAN Management &gt; VLAN Settings. </strong></p>
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-1.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-1.png"></a>
-                
-                <h4>Step 2</h4>
-                
-                <p>To add a VLAN, click on the <strong>plus</strong> symbol. </p>
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-2.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-2.png"></a>
-                
-                <h4>Step 3</h4>
-                
-                <p>Configure the <em>VLAN ID</em> and <em>VLAN Name</em> and click <strong>Apply</strong>. In this example, the VLAN ID is 5 and the VLAN Name is Auto Surveillance. </p>
-                
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-3.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-3.png"></a>
-                
-                <h2>Configure ASV Settings </h2>
-                
-                <h4>Step 1</h4>
-                <p>To select the VLAN for ASV, navigate to <strong>VLAN Management &gt; Auto-Surveillance VLAN &gt; ASV General Settings</strong>.  </p>
-                
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-4.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-4.png"></a>
-                
-                <h4>Step 2</h4>
-                
-                <p>From the <em>Auto-Surveillance-VLAN ID</em> drop-down menu, select the VLAN ID for ASV. </p>
-                
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-5.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-5.png"></a>
-                
-                <h4>Step 3</h4>
-                
-                <p>Under the <em>Surveillance Traffic Source Table</em>, click the <strong>plus icon</strong>. </p>
-                
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-6.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-6.png"></a>
-                
-                <h4>Step 4</h4>
-                
-                <p>To add the surveillance traffic source, select <em>Source Type</em> as either <em>OUI Prefix</em> or <em>MAC Address</em>. Enter the <em>Source</em> in the field provided. Optionally, you can add a <em>Description</em> and click <strong>Apply</strong>. </p>
-                
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-7.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-7.png"></a>
-                
-                
-                <h4>Step 5</h4>
-                
-                <p>To enable the ASV VLAN on a specific port, navigate to <strong>VLAN Management &gt; Auto-Surveillance VLAN &gt; ASV Interface Settings</strong>.</p>
-                
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-8.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-8.png"></a>
-                
-                <h4>Step 6</h4>
-                
-                <p>Select the interface and click edit. </p><a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-9.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-9.png"></a>
-                
-                <h4>Step 7</h4>
-                
-                <p><strong>Enable</strong> the <em>Auto Surveillance VLAN Membership</em> for the interface and click <strong>Apply</strong>. </p>
-                
-                <a href="https://www.cisco.com/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-10.png" class="show-image-alone" title="Related image, diagram or screenshot." data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links"><img src="/c/dam/en/us/support/docs/smb/switches/Catalyst-switches/images/kmgmt3629-auto-surveillance-vlan-catalyst-1200-1300-switches-image-10.png"></a>
-                
-                <h2>Conclusion</h2>
-                
-                <p>There you go! You have configured ASV on your Catalyst 1200 or 1300 switch. </p>
-                
-                <p>Check out the following pages for more information on the Catalyst 1200 and 1300 switches. </p>
-                
-                <ul>
-                    <li><a href="https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-1200-series-switches/nb-06-cat1200-1300-ser-upgrade-cte-en.html" data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links">Why Upgrade to Cisco Catalyst 1200 or 1300 Series Switches Feature Comparison</a></li>
-                    
-                    <li><a href="https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-1200-series-switches/nb-06-cat1200-1300-ser-aag-cte-en.html" data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links">Cisco Catalyst 1200 and 1300 Series Switches At-a-Glance</a></li>
-                
-                </ul>
-                
-                <p>For other configurations and features, refer to the Catalyst series <a href="https://www.cisco.com/c/en/us/td/docs/switches/lan/csbms/catalyst-1200-1300/AdminGuide/catalyst-1200-admin-guide.html" data-config-metrics-group="dest_pg_body" data-config-metrics-title="dest_pg_body_links">Administration Guide</a>. </p>
-            
-            </div>`;
-	};
-
-	const wrapContent = (content: string) => {
-		return `<div id="eot-doc-wrapper">${content}</div>`;
-	};
-
-	export let savedSections: any[] = [];
-
-	const exportArticle = () => {
+	const saveArticleSection = () => {
 		console.log('Saving article...');
-		let editor: LexicalEditor = composer.getEditor();
+		const editor: LexicalEditor = composer.getEditor();
 		let htmlContent = '';
-		let editorState = editor.getEditorState();
-		console.log('editorState:', editorState);
 		editor.update(() => {
 			htmlContent = generateHtmlFromNodes(editor);
 		});
 		console.log(editor._config.namespace);
-		console.log(editor._config.theme);
-		console.log(JSON.stringify(editor.toJSON()));
 
 		console.log('htmlContent:', htmlContent);
 		const parser = new DOMParser();
 		const dom = parser.parseFromString(htmlContent, 'text/html');
 		const elements = dom.body.getElementsByTagName('*');
+		const textContent = dom.body.textContent?.trim() || '';
 		for (const element of elements) {
-			const classes = element.classList;
-			console.log('classes:', classes);
-			element.removeAttribute('data-lexical-text');
-			element.removeAttribute('dir');
+			element.getAttributeNames().forEach((attr) => {
+				if (attr.startsWith('data-lexical-')) {
+					element.removeAttribute(attr);
+				}
+			});
 		}
+
 		let scrubbedHtml = dom.body.innerHTML;
+		let section = {};
 		console.log('scrubbedHtml:', scrubbedHtml);
-		const sectionIndex = savedSections.findIndex((s) => s.section === section);
-		if (sectionIndex > -1) {
-			savedSections[sectionIndex].content = scrubbedHtml;
-		} else {
-			savedSections.push({ section: section, content: scrubbedHtml });
+		if (articleSections.findIndex((s) => s.id === $editSectionId) > -1) {
+			if ($editSectionId === 'applicable_devices') {
+				const devices = dom.body.getElementsByTagName('li');
+				const articleDevices = [];
+				for (const device of devices) {
+					const articleDevice: Record<string, string | null> = {};
+					let text = device.textContent?.trim() || '';
+					const datasheet_link =
+						device.querySelector('a[href*="https://www.cisco.com/c/en/us/products"]')?.getAttribute('href') || null;
+					const software_link =
+						device.querySelector('a[href*="https://software.cisco.com/download"]')?.getAttribute('href') || null;
+
+					let [device_name, ...rest] = text.split('|').map((str) => str.trim());
+					const nameRegex = /(.*?)(?=\s*\(Data\s*Sheet\))/gi;
+					device_name =
+						nameRegex.exec(device_name)?.[0] || device_name.replace(/\s*\(DataSheet\)/gi, '') || device_name;
+					const software = /\d+\.\d+\.\d+\.\d+/g.exec(rest.join(' '))?.[0] || null;
+					articleDevice.device = device_name;
+					articleDevice.software = software;
+					articleDevice.datasheet_link = datasheet_link;
+					articleDevice.software_link = software_link;
+					articleDevices.push(articleDevice);
+				}
+				console.log('articleDevices:', articleDevices);
+			}
+
+			articleSections = articleSections.map((s) => {
+				if (s.id === $editSectionId) {
+					section = { ...s, content: scrubbedHtml, html: scrubbedHtml };
+					return section;
+				} else {
+					return s;
+				}
+			});
 		}
-		console.log('savedSections:', savedSections);
+
+		console.log('updated articleSections:', articleSections);
+		dispatch('save', { section });
 	};
 </script>
 
@@ -254,7 +182,6 @@
 				<div class="editor flex-auto relative resize-y outline-none" bind:this={editorDiv}>
 					<ContentEditable
 						{content}
-						{tag}
 						className="content-editable border-0 block relative outline-none p-4 min-h-[150px] select-text whitespace-pre-wrap break-words"
 					/>
 					<PlaceHolder>{placeholder}</PlaceHolder>
@@ -289,5 +216,5 @@
 </Composer>
 <button
 	class="py-2.5 px-4 bg-[#007bff] text-white font-bold rounded-md cursor-pointer hover:bg-[#0056b3]"
-	on:click={exportArticle}>Save Formatting</button
+	on:click={saveArticleSection}>Save</button
 >

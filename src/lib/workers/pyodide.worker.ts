@@ -1,4 +1,4 @@
-import { loadPyodide, type PyodideInterface } from 'pyodide';
+import { type PyodideInterface, loadPyodide } from 'pyodide';
 
 declare global {
 	interface Window {
@@ -62,7 +62,7 @@ self.onmessage = async (event) => {
 	try {
 		self.result = await self.pyodide.runPythonAsync(code);
 	} catch (error) {
-		self.stderr = error.toString();
+		self.stderr = (error as unknown as Error).toString();
 	}
 	self.postMessage({ id, result: self.result, stdout: self.stdout, stderr: self.stderr });
 };
