@@ -1,5 +1,6 @@
 import type { Nullable } from '$lib/types';
 import type { RAGConfigForm } from '$lib/types';
+
 import { RAG_API_BASE_URL } from '$lib/constants';
 
 type DocumentsResponse = {
@@ -533,7 +534,7 @@ export const resetUploadDir = async (token: string) => {
 	return res;
 };
 
-export const resetVectorDB = async (token: string) => {
+export const resetVectorDB = async (token: string): Promise<{ status: string; message: string }> => {
 	let error = null;
 
 	const res = await fetch(`${RAG_API_BASE_URL}/reset/db`, {

@@ -4,45 +4,27 @@
 		"default_locale": "",
 		"prompt_suggestions": [
 			{
-				"title": [
-					"Help me configure",
-					"a Cisco router"
-				],
+				"title": ["Help me configure", "a Cisco router"],
 				"content": "Help me configure a Cisco router: provide a step-by-step guide to set up basic network settings."
 			},
 			{
-				"title": [
-					"Give me ideas",
-					"for optimizing network performance"
-				],
+				"title": ["Give me ideas", "for optimizing network performance"],
 				"content": "What are 5 best practices for optimizing network performance in a small business environment?"
 			},
 			{
-				"title": [
-					"Tell me a fun fact",
-					"about Cisco's history"
-				],
+				"title": ["Tell me a fun fact", "about Cisco's history"],
 				"content": "Tell me a random fun fact about Cisco's history."
 			},
 			{
-				"title": [
-					"Show me a configuration example",
-					"for a Cisco switch"
-				],
+				"title": ["Show me a configuration example", "for a Cisco switch"],
 				"content": "Show me a configuration example for setting up VLANs on a Cisco switch."
 			},
 			{
-				"title": [
-					"Explain VPN setup",
-					"for remote workers"
-				],
+				"title": ["Explain VPN setup", "for remote workers"],
 				"content": "Explain how to set up a VPN on a Cisco router for remote workers."
 			},
 			{
-				"title": [
-					"Overcome network issues",
-					"give me troubleshooting tips"
-				],
+				"title": ["Overcome network issues", "give me troubleshooting tips"],
 				"content": "Could you start by asking me about the specific network issues I'm facing and then give me some troubleshooting tips?"
 			}
 		],
@@ -58,9 +40,7 @@
 	},
 	"model_filter": {
 		"enable": false,
-		"list": [
-			""
-		]
+		"list": [""]
 	},
 	"rag": {
 		"embedding_engine": "",
@@ -75,9 +55,7 @@
 		"top_k": 5,
 		"relevance_threshold": 0.0,
 		"enable_hybrid_search": false,
-		"youtube_loader_language": [
-			"en"
-		],
+		"youtube_loader_language": ["en"],
 		"enable_web_loader_ssl_verification": null
 	},
 	"webhook_url": "",
@@ -86,5 +64,11 @@
 			"show": true
 		},
 		"jwt_expiry": "-1"
+	},
+	"ollama": {
+		"base_urls": ["http://localhost:11434"]
+	},
+	"openai": {
+		"api_base_urls": ["https://api.openai.com/v1"]
 	}
 }

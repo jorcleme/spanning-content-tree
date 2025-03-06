@@ -1,15 +1,19 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
+
 	import { createAPIKey, getAPIKey, updateUserProfile } from '$lib/apis/auths';
 	import { getGravatarUrl } from '$lib/apis/utils';
 	import { user } from '$lib/stores';
 	import { canvasPixelTest, generateInitialsImage } from '$lib/utils';
 	import { copyToClipboard } from '$lib/utils';
+
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Plus from '$lib/components/icons/Plus.svelte';
+
 	import UpdatePassword from './Account/UpdatePassword.svelte';
 
 	const i18n: i18nType = getContext('i18n');
@@ -377,7 +381,7 @@
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
 		<button
-			class="  px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
+			class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
 			on:click={async () => {
 				const res = await submitHandler();
 

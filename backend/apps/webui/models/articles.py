@@ -46,8 +46,10 @@ class ArticleCategory(str, PyEnum):
 ARTICLE_ON_SERIES = Table(
     "article_on_series",
     Base.metadata,
-    Column("article", ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True),
-    Column("series", ForeignKey("series.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "article_id", ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column("series_id", ForeignKey("series.id", ondelete="CASCADE"), primary_key=True),
 )
 
 ####################
@@ -138,6 +140,8 @@ class ArticleResponse(BaseModel):
     sources: List[dict]
     created_at: int
     updated_at: int
+    
+    model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
 class InsertNewArticleForm(BaseModel):
@@ -429,8 +433,8 @@ class ArticlesTable:
         with get_db() as db:
             articles = (
                 db.query(Article)
-                .join(ARTICLE_ON_SERIES, ARTICLE_ON_SERIES.c.article == Article.id)
-                .filter(ARTICLE_ON_SERIES.c.series == series_id)
+                .join(ARTICLE_ON_SERIES, ARTICLE_ON_SERIES.c.article_id == Article.id)
+                .filter(ARTICLE_ON_SERIES.c.series_id == series_id)
                 .all()
             )
             a = []
@@ -507,12 +511,12 @@ class ArticlesTable:
         with get_db() as db:
             # Execute the raw SQL query
             result = db.execute(
-                text("SELECT article, series FROM article_on_series")
+                text("SELECT article_id, series_id FROM article_on_series")
             ).fetchall()
 
             # Format the results as a list of dictionaries using tuple indices
             article_series_relations = [
-                {"article": row[0], "series": row[1]} for row in result
+                {"article_id": row[0], "series_id": row[1]} for row in result
             ]
 
             return article_series_relations

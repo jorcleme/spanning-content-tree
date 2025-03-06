@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
+
 	import {
 		getCommunitySharingEnabledStatus,
 		getWebhookUrl,
@@ -18,6 +20,8 @@
 		updateDefaultUserRole,
 		updateJWTExpiresDuration
 	} from '$lib/apis/auths';
+	import '@harbor/elements/button';
+
 	import Switch from '$lib/components/common/Switch.svelte';
 
 	const i18n: i18nType = getContext('i18n');
@@ -26,6 +30,11 @@
 
 	let adminConfig: { [key: string]: any } | null = null;
 	let webhookUrl = '';
+
+	const onSubmitHandler = () => {
+		updateHandler();
+		saveHandler();
+	};
 
 	const updateHandler = async () => {
 		webhookUrl = await updateWebhookUrl(localStorage.token, webhookUrl);
@@ -145,7 +154,10 @@
 	</div>
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
+		<button
+			class="px-4 py-2 bg-blue-800 text-gray-100 hover:bg-blue-900 dark:bg-blue-100 dark:text-gray-900 dark:hover:bg-blue-50 transition rounded-lg"
+			type="submit"
+		>
 			{$i18n.t('Save')}
 		</button>
 	</div>

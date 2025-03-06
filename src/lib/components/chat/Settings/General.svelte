@@ -1,10 +1,13 @@
 <script lang="ts">
 	import type { AdvancedModelParams, i18nType } from '$lib/types';
+
 	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
+
 	import { getLanguages } from '$lib/i18n';
 	import type { ChatParams } from '$lib/stores';
 	import { models, settings, theme, user } from '$lib/stores';
+
 	import AdvancedParams from './Advanced/AdvancedParams.svelte';
 
 	const dispatch = createEventDispatcher();
@@ -14,7 +17,7 @@
 	export let saveSettings: Function;
 
 	// General
-	let themes = ['dark', 'light', 'rose-pine dark', 'rose-pine-dawn light', 'oled-dark', 'cisco'];
+	let themes = ['dark', 'light', 'oled-dark', 'cisco', 'hbr-mode-dark'];
 	let selectedTheme = 'system';
 
 	let languages: Array<{ code: string; title: string }> = [];
@@ -94,7 +97,7 @@
 			themeToApply = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 		}
 
-		if (themeToApply === 'dark' && !_theme.includes('oled')) {
+		if (themeToApply === 'dark' && !_theme.includes('hbr-mode-dark') && !_theme.includes('oled-dark')) {
 			document.documentElement.style.setProperty('--color-gray-800', '#333');
 			document.documentElement.style.setProperty('--color-gray-850', '#262626');
 			document.documentElement.style.setProperty('--color-gray-900', '#171717');
@@ -113,19 +116,14 @@
 			document.documentElement.classList.add(e);
 		});
 
-		console.log(_theme);
+		if (_theme === 'hbr-mode-dark') {
+			document.documentElement.classList.add('dark');
+		}
 	};
 
 	const themeChangeHandler = (_theme: string) => {
 		theme.set(_theme);
 		localStorage.setItem('theme', _theme);
-		if (_theme.includes('oled')) {
-			document.documentElement.style.setProperty('--color-gray-800', '#101010');
-			document.documentElement.style.setProperty('--color-gray-850', '#050505');
-			document.documentElement.style.setProperty('--color-gray-900', '#000000');
-			document.documentElement.style.setProperty('--color-gray-950', '#000000');
-			document.documentElement.classList.add('dark');
-		}
 		applyTheme(_theme);
 	};
 
@@ -178,10 +176,10 @@
 					>
 						<option value="system">⚙️ {$i18n.t('System')}</option>
 						<option value="dark">🌑 {$i18n.t('Dark')}</option>
-						<option value="oled-dark">🌃 {$i18n.t('OLED Dark')}</option>
 						<option value="light">☀️ {$i18n.t('Light')}</option>
-						<option value="her">🌷 Her</option>
+						<option value="oled-dark">🖤 {$i18n.t('OLED Dark')}</option>
 						<option value="cisco">📱 {$i18n.t('Cisco')}</option>
+						<option value="hbr-mode-dark">💣 {$i18n.t('Cisco Dark')}</option>
 					</select>
 				</div>
 			</div>
@@ -319,7 +317,7 @@
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
 		<button
-			class="  px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
+			class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
 			on:click={() => onClick()}
 		>
 			{$i18n.t('Save')}

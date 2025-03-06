@@ -1,9 +1,12 @@
 <script lang="ts">
 	import type { ArticleStep } from '$lib/types';
+
 	import { onMount } from 'svelte';
 	import { quintIn } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
+
 	import { type MarkedOptions, marked } from 'marked';
+
 	import { Info } from 'lucide-svelte';
 
 	export let step: ArticleStep;
@@ -105,6 +108,7 @@
 
 <div role="contentinfo" class="container py-4 has-[p]:m-0">
 	<h4 class="font-bold my-2">Step {step.step_number}</h4>
+
 	{@html parsedText}
 	{#if step.src}
 		<div class="placeholder">
@@ -149,13 +153,13 @@
 	{/if}
 	{#if step.note}
 		<div
-			class="cdt-note bg-[#0d274d] p-4 text-[#fff] rounded-[5px] shadow-lg border-l-[5px] border-[#64bbe3] max-w-[1100px] text-pretty my-6 mx-4"
+			class="cdt-note bg-[#0d274d] p-4 text-[#fff] rounded-[5px] shadow-lg border-l-[5px] border-sky-100 max-w-[1100px] text-pretty my-6 mx-4"
 			in:fly={{ y: -15, duration: 750, delay: 550 }}
 		>
-			<div class="p-4 flex items-center space-x-3">
+			<div class="p-1 flex items-center space-x-3">
 				<div class="flex flex-row items-center flex-none">
 					<Info class="mr-2" size="1.5em" color="#64bbe3" />
-					<span class="text-[#64bbe3]">Note: </span>
+					<span class="text-sky-100">Note: </span>
 				</div>
 				<div class="text-white text-pretty text-left">{@html step.note}</div>
 			</div>
@@ -172,7 +176,7 @@
 	:global(#eot-doc-wrapper .kbd-cdt) {
 		display: block;
 		height: auto;
-		background-color: #dfdfdf;
+		background-color: #e1e4e8;
 		color: #0d274d;
 		border-radius: 12px;
 		padding: 1.5em;
@@ -187,7 +191,7 @@
 	}
 
 	:global(#eot-doc-wrapper .kbd-cdt:hover) {
-		background-color: #c2c2c2;
+		background-color: #d0d4d9;
 		cursor: copy;
 	}
 
@@ -201,7 +205,7 @@
 	:global(#eot-doc-wrapper .KBDCDTCOPY::after) {
 		display: grid;
 		place-items: center;
-		color: #ffa000;
+		color: #cc8604;
 		content: ' Copied! ' !important;
 	}
 </style>

@@ -1494,7 +1494,11 @@ def scan_docs_dir(user=Depends(get_admin_user)):
 
 @app.get("/reset/db")
 def reset_vector_db(user=Depends(get_admin_user)):
-    CHROMA_CLIENT.reset()
+    reset = CHROMA_CLIENT.reset()
+    message = "Database successfully reset"
+    if not reset:
+        message = "Error resetting database"
+    return {"status": reset, "message": message}
 
 
 @app.get("/reset/uploads")

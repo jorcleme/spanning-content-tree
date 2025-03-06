@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { slide } from 'svelte/transition';
+
 	import { page } from '$app/stores';
 	import {
 		WEBUI_NAME,
@@ -16,6 +18,7 @@
 		showSidebar,
 		user
 	} from '$lib/stores';
+
 	import ModelSelector from '../chat/ModelSelector.svelte';
 	import ShareChatModal from '../chat/ShareChatModal.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
@@ -41,7 +44,10 @@
 </script>
 
 <ShareChatModal bind:show={showShareChatModal} chatId={$chatId} />
-<nav id="nav" class=" sticky py-2.5 top-0 flex flex-row justify-center z-10">
+<nav
+	id="nav"
+	class=" sticky py-2.5 top-0 flex flex-row justify-center z-10 bg-gray-50 border-b border-gray-200 text-gray-850 dark:bg-gray-900 dark:text-gray-50 dark:border-gray-700"
+>
 	<div class=" flex max-w-full w-full mx-auto px-5 pt-0.5 md:px-[1rem]">
 		<div class="flex items-center w-full max-w-full">
 			<div
@@ -86,7 +92,7 @@
 							class="hidden md:flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
 							id="chat-context-menu-button"
 						>
-							<div class=" m-auto self-center">
+							<div class="m-auto self-center">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									fill="none"
@@ -134,7 +140,7 @@
 							initNewChat();
 						}}
 					>
-						<div class=" m-auto self-center">
+						<div class="m-auto self-center">
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 								<path
 									d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z"

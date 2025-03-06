@@ -1,11 +1,15 @@
 <script lang="ts">
 	import type { IsLinkContext, i18nType } from '$lib/types';
+
 	import { getContext, onMount } from 'svelte';
+
 	import { getActiveEditor, getIsEditable, sanitizeUrl } from '$lib/utils/editor';
 	import { TOGGLE_LINK_COMMAND } from '@lexical/link';
 	import { IS_APPLE } from '@lexical/utils';
 	import { COMMAND_PRIORITY_NORMAL, KEY_MODIFIER_COMMAND } from 'lexical';
+
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+
 	import { Link } from 'lucide-svelte';
 
 	const activEeditor = getActiveEditor();
@@ -41,9 +45,9 @@
 	<button
 		disabled={!$isEditable}
 		on:click={insertLink}
-		class="flex items-center justify-center p-2.5 rounded-md text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 border-none border-lg cursor-pointer align-middle shrink-0 {$isLink
-			? 'bg-neutral-100 dark:bg-neutral-800'
-			: 'bg-neutral-50'}"
+		class="flex items-center justify-center p-2.5 rounded-md text-gray-500 dark:text-gray-200 dark:bg-gray-850 hover:bg-gray-100 dark:hover:bg-gray-800 border-none bg-gray-50 cursor-pointer align-middle shrink-0 {$isLink
+			? 'bg-gray-100 dark:bg-gray-800'
+			: ''}"
 		aria-label="Insert link"
 		type="button"
 	>

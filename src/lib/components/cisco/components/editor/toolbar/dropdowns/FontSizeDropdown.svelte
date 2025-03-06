@@ -1,10 +1,14 @@
 <script lang="ts">
 	import type { FontSizeContext, i18nType } from '$lib/types';
+
 	import { getContext } from 'svelte';
+
 	import { getEditor, getIsEditable } from '$lib/utils/editor';
 	import { $patchStyleText as patchStyleText } from '@lexical/selection';
 	import { $getSelection as getSelection, $isRangeSelection as isRangeSelection } from 'lexical';
+
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+
 	import DropdownItem from './DropdownItem.svelte';
 	import EditorDropdown from './EditorDropdown.svelte';
 
@@ -75,9 +79,9 @@
 	>
 		{#each FONT_SIZE_OPTIONS as [option, text]}
 			<DropdownItem
-				class="mx-2 p-2 text-gray-700 dark:text-gray-50 cursor-pointer leading-5 flex content-center shrink-0 justify-between bg-neutral-50 dark:bg-gray-800 hover:bg-neutral-100 border-none rounded-md max-w-[250px] min-w-100px w-[calc(100%-16px)] {$value ===
+				class="mx-2 p-2 text-gray-700 dark:text-gray-50 cursor-pointer leading-5 flex content-center shrink-0 justify-between bg-neutral-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border-none rounded-md max-w-[250px] min-w-100px w-[calc(100%-16px)] {$value ===
 				option
-					? 'bg-neutral-100 dark:bg-gray-900'
+					? 'bg-gray-100 dark:bg-gray-700'
 					: ''}"
 				on:click={() => handleClick(option)}
 			>

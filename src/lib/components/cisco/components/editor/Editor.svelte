@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { BlockType } from '$lib/types';
+
 	import { type SvelteComponent, afterUpdate, createEventDispatcher, getContext, onMount } from 'svelte';
 	import { KeywordPlugin } from 'svelte-lexical';
+
 	import { HorizontalRuleNode } from '$lib/components/cisco/components/editor/toolbar/plugins/hr/HorizontalRuleNode';
 	import { ImageNode } from '$lib/components/cisco/components/editor/toolbar/plugins/image/ImageNode';
 	import { editSectionId, reviewedArticle } from '$lib/stores';
@@ -13,6 +15,7 @@
 	import { ListItemNode, ListNode } from '@lexical/list';
 	import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 	import type { CreateEditorArgs, LexicalEditor } from 'lexical';
+
 	import Article from '../articles/Article.svelte';
 	import Composer from './Composer.svelte';
 	import ContentEditable from './ContentEditable.svelte';
@@ -34,6 +37,7 @@
 	import ImagePlugin from './toolbar/plugins/image/ImagePlugin.svelte';
 	import FloatingLinkCapturePlugin from './toolbar/plugins/link/FloatingLinkCapturePlugin.svelte';
 	import Link from './toolbar/plugins/link/Link.svelte';
+
 	import { LayoutContainerNode } from './toolbar/plugins/columns/LayoutContainerNode';
 	import { LayoutItemNode } from './toolbar/plugins/columns/LayoutItemNode';
 
@@ -177,7 +181,7 @@
 <Composer {initialConfig} bind:this={composer}>
 	<div class="editor-shell my-5 mx-auto rounded-md max-w-[1100px] relative font-normal leading-6">
 		<RichTextToolbar />
-		<div class="editor-container relative block rounded-br-md rounded-bl-md bg-neutral-100 w-full">
+		<div class="editor-container relative block rounded-br-md rounded-bl-md bg-gray-100 dark:bg-gray-950 w-full">
 			<div class="editor-scroller min-h-[150px] flex relative overflow-auto resize-y w-full">
 				<div class="editor flex-auto relative resize-y outline-none" bind:this={editorDiv}>
 					<ContentEditable
@@ -215,6 +219,6 @@
 	</div>
 </Composer>
 <button
-	class="py-2.5 px-4 bg-[#007bff] text-white font-bold rounded-md cursor-pointer hover:bg-[#0056b3]"
+	class="py-2.5 px-4 bg-blue-500 text-white font-bold rounded-md cursor-pointer hover:bg-blue-400 shadow-md"
 	on:click={saveArticleSection}>Save</button
 >

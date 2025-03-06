@@ -2,6 +2,7 @@
 	import { getCommands } from '$lib/utils/editor/plugins/commands';
 	import type { HeadingTagType } from '@lexical/rich-text';
 	import { type LexicalEditor, $getRoot as getRoot, $getSelection as getSelection } from 'lexical';
+
 	import Divider from '../common/Divider.svelte';
 	import Toolbar from './Toolbar.svelte';
 	import BoldButton from './buttons/BoldButton.svelte';
@@ -65,8 +66,9 @@
 	{/if}
 	{#if blockType === 'code'}
 		<CodeLanguageDropdown />
+		<Divider />
 	{:else}
-		<FontFamilyDropdown />
+		<Divider />
 		<FontSizeDropdown />
 		<Divider />
 		<BoldButton />
@@ -80,12 +82,12 @@
 		<Divider />
 		<InsertDropdown {onInsertImageClick} {onInsertColumnClick}>
 			<button
-				class="flex items-center mr-1 justify-between bg-neutral-50 rounded-md p-2.5 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 border-none cursor-pointer align-middle shrink-0"
+				class="flex items-center mr-1 justify-between bg-gray-50 rounded-md p-2.5 text-gray-500 dark:text-gray-50 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-850 border-none cursor-pointer align-middle shrink-0"
 				on:click={() => (show = true)}
 			>
-				<span><Plus class="w-4 h-4 text-neutral-500 mr-2" /></span>
+				<span><Plus class="w-4 h-4 text-gray-500 mr-2" /></span>
 				<span>Insert</span>
-				<span><ChevronDown class="w-4 h-4 text-neutral-500 ml-2" /></span>
+				<span><ChevronDown class="w-4 h-4 text-gray-500 ml-2" /></span>
 			</button>
 		</InsertDropdown>
 		<Divider />

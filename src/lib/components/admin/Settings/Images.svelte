@@ -1,25 +1,27 @@
 <script lang="ts">
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
-	import { createEventDispatcher, onMount, getContext } from 'svelte';
-	import { config, user } from '$lib/stores';
+	import { getBackendConfig } from '$lib/apis';
 	import {
-		getImageGenerationModels,
 		getDefaultImageGenerationModel,
-		updateDefaultImageGenerationModel,
-		getImageSize,
 		getImageGenerationConfig,
-		updateImageGenerationConfig,
 		getImageGenerationEngineUrls,
+		getImageGenerationModels,
+		getImageSize,
+		getImageSteps,
+		getOpenAIConfig,
+		updateDefaultImageGenerationModel,
+		updateImageGenerationConfig,
 		updateImageGenerationEngineUrls,
 		updateImageSize,
-		getImageSteps,
 		updateImageSteps,
-		getOpenAIConfig,
 		updateOpenAIConfig
 	} from '$lib/apis/images';
-	import { getBackendConfig } from '$lib/apis';
+	import { config, user } from '$lib/stores';
+
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
+
 	const dispatch = createEventDispatcher();
 
 	const i18n = getContext('i18n');
@@ -93,9 +95,7 @@
 					toast.success($i18n.t('Server connection verified'));
 				}
 			} else {
-				({ AUTOMATIC1111_BASE_URL, AUTOMATIC1111_API_AUTH } = await getImageGenerationEngineUrls(
-					localStorage.token
-				));
+				({ AUTOMATIC1111_BASE_URL, AUTOMATIC1111_API_AUTH } = await getImageGenerationEngineUrls(localStorage.token));
 			}
 		}
 	};
@@ -252,12 +252,7 @@
 						updateUrlHandler();
 					}}
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="w-4 h-4"
-					>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 						<path
 							fill-rule="evenodd"
 							d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
@@ -312,12 +307,7 @@
 						updateUrlHandler();
 					}}
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="w-4 h-4"
-					>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
 						<path
 							fill-rule="evenodd"
 							d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
@@ -378,8 +368,7 @@
 									<option value="" disabled selected>{$i18n.t('Select a model')}</option>
 								{/if}
 								{#each models ?? [] as model}
-									<option value={model.id} class="bg-gray-100 dark:bg-gray-700">{model.name}</option
-									>
+									<option value={model.id} class="bg-gray-100 dark:bg-gray-700">{model.name}</option>
 								{/each}
 							</select>
 						{/if}
@@ -417,7 +406,7 @@
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
 		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg flex flex-row space-x-1 items-center {loading
+			class="px-4 py-2 bg-blue-800 text-gray-100 hover:bg-blue-900 dark:bg-blue-100 dark:text-gray-900 dark:hover:bg-blue-50 transition rounded-lg flex flex-row space-x-1 items-center {loading
 				? ' cursor-not-allowed'
 				: ''}"
 			type="submit"
@@ -427,11 +416,7 @@
 
 			{#if loading}
 				<div class="ml-2 self-center">
-					<svg
-						class=" w-4 h-4"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-						xmlns="http://www.w3.org/2000/svg"
+					<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
 						><style>
 							.spinner_ajPY {
 								transform-origin: center;

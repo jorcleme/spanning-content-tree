@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { Article, i18nType } from '$lib/types';
+
 	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { slide } from 'svelte/transition';
+
 	import { addNewArticle } from '$lib/apis/articles';
 	import { getSeriesByName } from '$lib/apis/series';
 	import { updateUserSavedArticles } from '$lib/apis/users';
@@ -25,10 +27,12 @@
 	import type { MarkedOptions } from 'marked';
 	import { marked } from 'marked';
 	import readingTime from 'reading-time/lib/reading-time';
+
 	import Controls from '$lib/components/chat/Controls/Controls.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
+
 	import ArticleStep from './ArticleStep.svelte';
 	import DetailsGetSupport from './DetailsGetSupport.svelte';
 	import { SaveIcon } from 'lucide-svelte';
@@ -304,13 +308,17 @@
 		<div
 			bind:this={articleWrapper}
 			id="eot-doc-wrapper"
-			class="w-full text-gray-800 pb-8 {$showSidebar ? 'my-3' : 'my-8'} p-4"
+			class="w-full bg-gray-50 dark:bg-gray-900 text-gray-850 dark:text-gray-50 pb-8 p-4"
 		>
 			<div class="flex flex-col mx-auto {$showSidebar ? 'w-[calc(100%-16px)]' : 'w-[calc(100%-50px)]'}">
-				<div class="mix-blend-darken rounded-xl">
+				<div class="rounded-xl">
 					<div>
-						<h1 class="text-3xl text-left font-bold text-[#414344] my-4 text-pretty">{$activeArticle.title}</h1>
-						<div class="control-bar py-4 px-8 bg-gray-200 text-gray-800 rounded-md shadow-md">
+						<h1 class="text-3xl text-left font-bold text-gray-850 dark:text-gray-50 my-6 text-pretty">
+							{$activeArticle.title}
+						</h1>
+						<div
+							class="control-bar py-4 px-8 bg-gray-100 text-gray-850 dark:bg-gray-850 dark:text-gray-50 rounded-md shadow-md"
+						>
 							<div class="flex items-center justify-between">
 								<div class="flex flex-col justify-start">
 									<p class="text-md font-bold">{$i18n.t('Document Id')}:</p>
@@ -318,44 +326,54 @@
 								</div>
 								<div class="flex items-center">
 									<button
-										class="flex items-center justify-center self-end py-2 px-4 rounded-md bg-gray-300 hover:bg-gray-50"
+										class="flex items-center justify-center self-end py-2 px-4 rounded-md bg-gray-300 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
 										on:click={async () => {
 											await _updateUserSavedArticles($activeArticle.id);
 										}}
 									>
 										<Tooltip content={$i18n.t('Save to your account')}>
-											<SaveIcon class="w-6 h-6 text-gray-800" />
+											<SaveIcon class="w-5 h-5 text-gray-500" />
 										</Tooltip>
 									</button>
 								</div>
 							</div>
 						</div>
-						<h2 class="text-2xl my-5 font-bold">Objective</h2>
+						<h2 class="text-2xl my-6 font-bold text-blue-950 dark:text-blue-100">Objective</h2>
 						<div data-section="Objective" bind:this={objectiveElement}>
 							<p>{$activeArticle.objective}</p>
 						</div>
 
 						{#if $activeArticle.applicable_devices && $activeArticle.applicable_devices.length > 0}
-							<h2 class="text-2xl my-5 font-bold">Applicable Devices | Software Version</h2>
-							<ul>
+							<h2 class="text-2xl my-6 font-bold text-blue-950 dark:text-blue-100">
+								Applicable Devices | Software Version
+							</h2>
+							<ul class="text-gray-850 dark:text-gray-50">
 								{#each $activeArticle.applicable_devices as device}
 									{#if device.device && device.software && device.datasheet_link && device.software_link}
 										<li>
 											{device.device}
-											<a target="_blank" href={device.datasheet_link}> (Datasheet) </a>
+											<a class="text-blue-950 hover:text-blue-900" target="_blank" href={device.datasheet_link}>
+												(Datasheet)
+											</a>
 											| {device.software}
-											<a target="_blank" href={device.software_link}> (Download Latest) </a>
+											<a class="text-blue-950 hover:text-blue-900" target="_blank" href={device.software_link}>
+												(Download Latest)
+											</a>
 										</li>
 									{:else if device.device && device.software && device.datasheet_link}
 										<li>
 											{device.device}
-											<a target="_blank" href={device.datasheet_link}> (Datasheet) </a>
+											<a class="text-blue-950 hover:text-blue-900" target="_blank" href={device.datasheet_link}>
+												(Datasheet)
+											</a>
 											| {device.software}
 										</li>
 									{:else if device.device && device.software && device.software_link}
 										<li>
 											{device.device} | {device.software}
-											<a target="_blank" href={device.software_link}> (Download Latest) </a>
+											<a class="text-blue-950 hover:text-blue-900" target="_blank" href={device.software_link}>
+												(Download Latest)
+											</a>
 										</li>
 									{:else if device.device && device.software}
 										<li>
@@ -369,7 +387,7 @@
 							</ul>
 						{/if}
 						{#if $activeArticle.introduction}
-							<h2 class="text-2xl my-5 font-bold">Introduction</h2>
+							<h2 class="text-2xl my-6 font-bold text-blue-950 dark:text-blue-50">Introduction</h2>
 							{@html marked.parse($activeArticle.introduction, {
 								...defaults,
 								gfm: true,
@@ -380,7 +398,7 @@
 					</div>
 				</div>
 				<div
-					class="cdt-best-practice text-base bg-[#0d274d] p-2.5 text-[#fff] m-8 rounded-[5px] shadow-[0_0_16px_0_rgba(43, 85, 146, 0.2) border-l-[5px] border-[#6cc04a]"
+					class="cdt-best-practice text-base bg-[#0d274d] p-2.5 text-white m-8 rounded-[5px] shadow-[0_0_16px_0_rgba(43, 85, 146, 0.2) border-l-[5px] border-green-600"
 				>
 					<p>
 						Backup your configuration prior to upgrading the firmware. You can do this by navigating to <b
@@ -410,12 +428,12 @@
 				{#each $activeArticle.steps as step, index}
 					<div class="my-8" bind:this={stepElements[index]}>
 						{#if step.step_number === 1}
-							<h4 class="text-xl font-bold my-4 text-[#132d4e]">{step.section}</h4>
+							<h4 class="text-xl font-bold my-5 text-blue-950 dark:text-blue-100">{step.section}</h4>
 						{/if}
 						<ArticleStep {index} {step} bind:active={isStepActive} />
 
 						<div
-							class="getSupportStep"
+							class="getSupportStep border border-gray-400 transition-all duration-250 ease-in bg-gray-50 text-gray-850 dark:bg-gray-850 dark:text-gray-50 w-full max-w-[1000px] rounded-md hover:bg-gray-100"
 							data-section={step.section}
 							data-step={index}
 							bind:this={getSupportDivs[index]}
@@ -437,12 +455,12 @@
 			</div>
 			{#if $activeArticle.revision_history && $activeArticle.revision_history.length > 0}
 				<div class="m-4">
-					<table class="table-auto border-collapse border-spacing-2 border-2 border-slate-500">
+					<table class="table-auto border-collapse border-spacing-2 border-2 border-gray-600">
 						<caption class="caption-top mb-2 font-bold text-lg">{$i18n.t('Revision History')}</caption>
 						<thead>
 							<tr>
 								{#each [$i18n.t('Revision'), $i18n.t('Publish Date'), $i18n.t('Comments')] as header}
-									<th class="bg-[#0d47a1] text-white font-['CiscoSansLight'] font-bold p-2 border-2 border-slate-700"
+									<th class="bg-blue-950 text-gray-50 font-['CiscoSansLight'] font-bold p-2 border-2 border-slate-700"
 										>{header}</th
 									>
 								{/each}
@@ -451,11 +469,10 @@
 						<tbody>
 							{#each $activeArticle.revision_history ?? [] as history, i (i)}
 								<tr>
-									<td class="border-2 border-slate-700 p-2">{history.revision}</td>
-									<td class="border-2 border-slate-700 p-2"
-										>{new Date(history.publish_date).toLocaleDateString(lang)}</td
+									<td class="border-2 border-gray-600 p-2">{history.revision}</td>
+									<td class="border-2 border-gray-600 p-2">{new Date(history.publish_date).toLocaleDateString(lang)}</td
 									>
-									<td class="border-2 border-slate-700 p-2">{history.comments}</td>
+									<td class="border-2 border-gray-600 p-2">{history.comments}</td>
 								</tr>
 							{/each}
 						</tbody>

@@ -15,6 +15,16 @@
 	}
 }
 
+@layer utilities {
+	.bg-neutral-gradient {
+		background: linear-gradient(to bottom, transparent 0px, transparent 10px, #f4f5f6 30px);
+	}
+
+	.bg-menu {
+		background: #f2e9e1;
+	}
+}
+
 /* @import 'tailwindcss/base'; */
 
 .svelte-select {

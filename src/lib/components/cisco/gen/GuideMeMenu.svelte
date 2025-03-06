@@ -1,8 +1,11 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { getContext } from 'svelte';
+
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { DropdownMenu } from 'bits-ui';
+
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import CommandLine from '$lib/components/icons/CommandLine.svelte';
@@ -37,7 +40,7 @@
 			transition={flyAndScale}
 		>
 			<DropdownMenu.Item
-				class="flex gap-2 items-center px-3 py-2 text-sm  font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800  rounded-md"
+				class="flex gap-2 items-center px-3 py-2 text-sm font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
 				on:click={() => {
 					openConfigAssistant();
 				}}
@@ -47,7 +50,7 @@
 			</DropdownMenu.Item>
 
 			<DropdownMenu.Item
-				class="flex gap-2 items-center px-3 py-2 text-sm  font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
+				class="flex gap-2 items-center px-3 py-2 text-sm font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
 				on:click={() => {
 					handleGeneratePromptClick();
 				}}

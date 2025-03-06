@@ -1,13 +1,17 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
+
 	import { goto } from '$app/navigation';
 	import { USAGE_POOL, activeUserCount, showSettings } from '$lib/stores';
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { DropdownMenu } from 'bits-ui';
+
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
+	import GearSix from '$lib/components/icons/GearSix.svelte';
 
 	const i18n: i18nType = getContext('i18n');
 
@@ -30,14 +34,14 @@
 
 	<slot name="content">
 		<DropdownMenu.Content
-			class="w-full {className} text-sm rounded-xl px-1 py-1.5 border border-gray-300/30 dark:border-gray-700/50 z-50 bg-white dark:bg-gray-850 dark:text-white shadow font-primary"
+			class="w-full {className} text-sm rounded-xl px-1 py-1.5 border border-gray-300/30 dark:border-gray-600/50 z-50 bg-white dark:bg-gray-800 dark:text-white shadow font-primary"
 			sideOffset={8}
 			side="bottom"
 			align="start"
 			transition={(e) => fade(e, { duration: 100 })}
 		>
 			<button
-				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-750 transition"
 				on:click={async () => {
 					showSettings.set(true);
 					show = false;
@@ -64,7 +68,7 @@
 			</button>
 
 			<button
-				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-750 transition"
 				on:click={() => {
 					dispatch('show', 'archived-chat');
 					show = false;
@@ -78,7 +82,7 @@
 
 			{#if role === 'admin'}
 				<button
-					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-750 transition"
 					on:click={() => {
 						goto('/playground');
 						show = false;
@@ -104,7 +108,7 @@
 				</button>
 
 				<button
-					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-750 transition"
 					on:click={() => {
 						goto('/admin');
 						show = false;
@@ -182,10 +186,6 @@
 					</div>
 				</Tooltip>
 			{/if}
-
-			<!-- <DropdownMenu.Item class="flex items-center px-3 py-2 text-sm  font-medium">
-				<div class="flex items-center">Profile</div>
-			</DropdownMenu.Item> -->
 		</DropdownMenu.Content>
 	</slot>
 </DropdownMenu.Root>

@@ -1,12 +1,15 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { createEventDispatcher, getContext, onMount } from 'svelte';
+
 	import { getBackendConfig, getTaskConfig, updateTaskConfig } from '$lib/apis';
 	import { setDefaultPromptSuggestions } from '$lib/apis/configs';
 	import { getBanners, setBanners } from '$lib/apis/configs';
 	import { config, models, user } from '$lib/stores';
 	import { type Banner, type PromptSuggestion, banners as _banners } from '$lib/stores';
 	import { v4 as uuidv4 } from 'uuid';
+
 	import Switch from '$lib/components/common/Switch.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 
@@ -303,7 +306,10 @@
 	</div>
 
 	<div class="flex justify-end text-sm font-medium">
-		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
+		<button
+			class="px-4 py-2 bg-blue-800 text-gray-100 hover:bg-blue-900 dark:bg-blue-100 dark:text-gray-900 dark:hover:bg-blue-50 transition rounded-lg"
+			type="submit"
+		>
 			{$i18n.t('Save')}
 		</button>
 	</div>

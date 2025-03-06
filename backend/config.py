@@ -36,6 +36,28 @@ try:
 except ImportError:
     print("dotenv not installed, skipping...")
 
+####################################
+# Cisco OAuth Configuration
+####################################
+
+CISCO_OAUTH_CONFIG = {
+    "client_id": os.getenv("CISCO_CLIENT_ID"),
+    "client_secret": os.getenv("CISCO_CLIENT_SECRET"),
+    "redirect_uri": os.getenv(
+        "CISCO_REDIRECT_URI", "https://yourapp.com/auths/cisco/callback"
+    ),
+    "auth_url": os.getenv(
+        "CISCO_AUTH_URL", "https://cloudsso.cisco.com/as/authorization.oauth2"
+    ),
+    "token_url": os.getenv(
+        "CISCO_TOKEN_URL", "https://cloudsso.cisco.com/as/token.oauth2"
+    ),
+    "userinfo_url": os.getenv(
+        "CISCO_USERINFO_URL", "https://cloudsso.cisco.com/idp/userinfo.openid"
+    ),
+    "scopes": os.getenv("CISCO_SCOPES", "openid email profile"),
+}
+
 
 ####################################
 # LOGGING
@@ -653,6 +675,7 @@ ENABLE_OPENAI_API = PersistentConfig(
     "openai.enable",
     os.environ.get("ENABLE_OPENAI_API", "True").lower() == "true",
 )
+log.info(f"ENABLE_OPENAI_API = {ENABLE_OPENAI_API}")
 
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")

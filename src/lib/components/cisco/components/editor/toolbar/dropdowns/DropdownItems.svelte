@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+
 	import { setRegisterItemFunc } from '$lib/utils/editor';
 
 	export let onClose: () => void;
@@ -47,7 +48,7 @@
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div
-	class="dropdown block fixed shadow-md rounded-md min-h-[40px] bg-neutral-100 z-20"
+	class="dropdown block fixed shadow-md rounded-md min-h-[40px] bg-gray-50 dark:bg-gray-800 z-20"
 	bind:this={dropDownRef}
 	on:keydown={handleKeyDown}
 >

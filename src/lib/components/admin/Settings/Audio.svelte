@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { getAudioConfig, updateAudioConfig } from '$lib/apis/audio';
-	import { user, settings, config } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext } from 'svelte';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import Switch from '$lib/components/common/Switch.svelte';
+
 	import { getBackendConfig } from '$lib/apis';
+	import { getAudioConfig, updateAudioConfig } from '$lib/apis/audio';
+	import { config, settings, user } from '$lib/stores';
+
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
+	import Switch from '$lib/components/common/Switch.svelte';
+
 	const dispatch = createEventDispatcher();
 
 	const i18n = getContext('i18n');
@@ -284,7 +287,7 @@
 	</div>
 	<div class="flex justify-end text-sm font-medium">
 		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
+			class="px-4 py-2 bg-blue-800 text-gray-100 hover:bg-blue-900 dark:bg-blue-100 dark:text-gray-900 dark:hover:bg-blue-50 transition rounded-lg"
 			type="submit"
 		>
 			{$i18n.t('Save')}

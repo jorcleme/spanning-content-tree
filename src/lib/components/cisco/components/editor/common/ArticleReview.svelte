@@ -378,9 +378,7 @@
 	$: published = $activeArticle?.published ?? false;
 </script>
 
-<div
-	class="h-screen max-h-[100dvh] {$showSidebar ? 'md:max-w-[calc(100%-260px)]' : ''} w-full max-w-full flex flex-col"
->
+<div class="h-screen max-h-[100dvh] w-full max-w-full flex flex-col">
 	{#if $settings?.backgroundImageUrl ?? null}
 		<div
 			class="absolute {$showSidebar
@@ -395,27 +393,21 @@
 	{/if}
 
 	{#if $reviewedArticle && $activeArticle}
-		<div id="editor-eot-doc-wrapper" class="w-full text-gray-800 pb-8 {$showSidebar ? 'my-3' : ''} p-4">
-			<div class="flex flex-col mx-auto {$showSidebar ? 'w-[calc(100%-16px)]' : 'w-[calc(100%-50px)]'}">
+		<div id="editor-eot-doc-wrapper" class="w-full dark:bg-gray-900 text-gray-850 dark:text-gray-50 pb-8 p-4">
+			<div class="flex flex-col mx-auto {$showSidebar ? 'w-[calc(100%-16px)]' : 'w-[calc(100%-50px)]'} text-prose">
 				<div class="flex flex justify-between items-center">
 					<div class="hbr-css__layout-row-sm">
-						<hbr-tag
-							variant="label"
-							size="medium"
-							pill
-							value
-							class="hydrated"
-							style="--bg-color: {published
-								? 'var(--hbr-color-success-bg, #E0F5D5)'
-								: 'var(--hbr-color-warning-bg, #FAEFB9)'}; --border-color: {published
-								? 'var(--hbr-color-success-bg, #E0F5D5)'
-								: 'var(--hbr-color-warning-bg, #FAEFB9)'}"
-							>{published ? $i18n.t('Published') : $i18n.t('Draft')}</hbr-tag
+						<div
+							class="px-2.5 py-1 text-xs font-medium {published
+								? 'bg-green-500 hover:bg-green-400'
+								: 'bg-yellow-600 hover:bg-yellow-500'} transition rounded-full"
 						>
+							{published ? 'Published' : 'Draft'}
+						</div>
 					</div>
 					<SectionSelector sections={articleSections} on:edit={onEdit} />
 				</div>
-				<div class="mix-blend-darken rounded-xl">
+				<div class="rounded-xl">
 					{#if $editSectionId === 'title' && articleSections.find((s) => s.id === 'title')}
 						<div id="title-editor" class="mb-8 p-2 bg-white shadow rounded max-w-[1100px] overflow-y-auto">
 							<h1 class="text-xl font-semibold mb-4">{formatTitle(activeSectionTitle)}</h1>
@@ -435,13 +427,15 @@
 						</div>
 					{:else}
 						<div bind:this={titleElement} id="title" class="w-full relative cursor-pointer" role="contentinfo">
-							<h1 class="text-3xl text-left font-bold text-[#414344] my-4 text-pretty">
+							<h1 class="text-3xl text-left font-bold my-4 text-pretty">
 								{@html marked.parse($reviewedArticle.title, { ...defaults, gfm: true, renderer })}
 							</h1>
 						</div>
 					{/if}
 
-					<div class="control-bar py-4 px-8 bg-gray-200 text-gray-800 rounded-md shadow-md">
+					<div
+						class="control-bar p-4 bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-50 rounded-md shadow-md"
+					>
 						<div class="flex items-center">
 							<div class="flex flex-col justify-start">
 								<p class="text-md font-bold">{$i18n.t('Document Id')}:</p>
@@ -450,8 +444,11 @@
 						</div>
 					</div>
 					{#if $editSectionId === 'objective' && articleSections.find((s) => s.id === 'objective')}
-						<div id="objective-editor" class="my-8 p-2 bg-white shadow rounded max-w-[1100px]">
-							<h2 class="text-xl font-semibold mb-4">{activeSectionTitle}</h2>
+						<div
+							id="objective-editor"
+							class="my-8 p-2 bg-white dark:bg-gray-800 text-gray-850 dark:text-gray-50 shadow rounded max-w-[1100px]"
+						>
+							<h2 class="text-xl font-semibold mb-4 text-gray-850 dark:text-gray-50">{activeSectionTitle}</h2>
 							<Editor
 								config={{
 									namespace: `cisco-admin-editor-objective`,
@@ -467,7 +464,7 @@
 							/>
 						</div>
 					{:else}
-						<h2 class="text-2xl my-5 font-bold">Objective</h2>
+						<h2 class="text-2xl my-5 font-bold text-blue-950 dark:text-blue-100">Objective</h2>
 						<div id="objective" data-section="Objective" bind:this={objectiveElement}>
 							{@html marked.parse($reviewedArticle.objective, { ...defaults, gfm: true, renderer })}
 						</div>
@@ -492,7 +489,9 @@
 						</div>
 					{:else if $reviewedArticle.applicable_devices}
 						<div id="applicable-devices">
-							<h2 class="text-2xl my-5 font-bold">Applicable Devices | Software Version</h2>
+							<h2 class="text-2xl my-5 font-bold text-blue-950 dark:text-blue-100">
+								Applicable Devices | Software Version
+							</h2>
 							{@html parseStepText($reviewedArticle.applicable_devices)}
 						</div>
 					{/if}
@@ -515,7 +514,7 @@
 						</div>
 					{:else if $reviewedArticle.introduction}
 						<div id="introduction">
-							<h2 class="text-2xl my-5 font-bold">Introduction</h2>
+							<h2 class="text-2xl my-5 font-bold text-blue-950 dark:text-blue-100">Introduction</h2>
 							{@html marked.parse($reviewedArticle.introduction, {
 								...defaults,
 								gfm: true,
@@ -537,7 +536,7 @@
 				<div class="w-full">
 					{#each $activeArticle.steps as step, index (index)}
 						{#if step.step_number === 1}
-							<h4 class="text-xl font-bold my-4 text-[#132d4e]">{step.section}</h4>
+							<h4 class="text-xl font-bold my-4 text-blue-950 dark:text-blue-100">{step.section}</h4>
 						{/if}
 						{#if index === parseInt($editSectionId) && articleSections.find((s) => parseInt(s.id) === parseInt($editSectionId))}
 							<div class="my-8" in:receive={{ key: index }} out:send={{ key: index }}>
@@ -562,7 +561,7 @@
 							<div class="my-8" bind:this={stepElements[index]}>
 								<ArticleStep {index} {step} bind:active={isStepActive} />
 								<div
-									class="getSupportStep"
+									class="getSupportStep p-4 border border-gray-400 transition-all duration-250 ease-in bg-gray-50 text-gray-850 dark:bg-gray-850 dark:text-gray-50 max-w-[1100px] rounded-md"
 									data-section={step.section}
 									data-step={index}
 									bind:this={getSupportDivs[index]}
@@ -586,12 +585,12 @@
 			</div>
 			{#if $activeArticle.revision_history && $activeArticle.revision_history.length > 0}
 				<div class="m-4">
-					<table class="table-auto border-collapse border-spacing-2 border-2 border-slate-300">
+					<table class="table-auto border-collapse border-spacing-2 border-2 border-gray-600">
 						<caption class="caption-top mb-2 font-bold text-lg">{$i18n.t('Revision History')}</caption>
 						<thead>
 							<tr>
 								{#each [$i18n.t('Revision'), $i18n.t('Publish Date'), $i18n.t('Comments')] as header}
-									<th class="bg-[#0d47a1] text-white font-['CiscoSansLight'] font-bold p-2 border-2 border-slate-300"
+									<th class="bg-blue-950 text-gray-50 font-['CiscoSansLight'] font-bold p-2 border-2 border-slate-700"
 										>{header}</th
 									>
 								{/each}
@@ -600,11 +599,10 @@
 						<tbody>
 							{#each $activeArticle.revision_history ?? [] as history, i (i)}
 								<tr>
-									<td class="border-2 border-slate-300 p-2">{history.revision}</td>
-									<td class="border-2 border-slate-300 p-2"
-										>{new Date(history.publish_date).toLocaleDateString(lang)}</td
+									<td class="border-2 border-gray-600 p-2">{history.revision}</td>
+									<td class="border-2 border-gray-600 p-2">{new Date(history.publish_date).toLocaleDateString(lang)}</td
 									>
-									<td class="border-2 border-slate-300 p-2">{history.comments}</td>
+									<td class="border-2 border-gray-600 p-2">{history.comments}</td>
 								</tr>
 							{/each}
 						</tbody>

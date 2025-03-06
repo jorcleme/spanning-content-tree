@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { ChatFile, ClientFile, i18nType } from '$lib/types';
+
 	import { SvelteComponent, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
+
 	import { goto } from '$app/navigation';
 	import { transcribeAudio } from '$lib/apis/audio';
 	import { uploadFile } from '$lib/apis/files';
@@ -9,7 +11,10 @@
 	import { SUPPORTED_FILE_EXTENSIONS, SUPPORTED_FILE_TYPE, WEBUI_API_BASE_URL } from '$lib/constants';
 	import { type Model, user as _user, config, mobile, models, settings, showCallOverlay, tools } from '$lib/stores';
 	import { blobToFile, findWordIndices, isErrorAsString, isErrorWithDetail } from '$lib/utils';
+	import '@harbor/elements/input';
+
 	import XMark from '$lib/components/icons/XMark.svelte';
+
 	import GuideMeMenu from '../cisco/gen/GuideMeMenu.svelte';
 	import FileItem from '../common/FileItem.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
@@ -736,7 +741,7 @@
 									<div class="h-full flex items-center justify-center">
 										<Tooltip content={$i18n.t('View Article')}>
 											<button
-												class="text-sm bg-[#1990fa] text-white hover:bg-[#47a6fb] dark:bg-gray-850 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-2 mx-1 outline-none focus:outline-none"
+												class="text-sm bg-blue-850 text-white hover:bg-blue-800 dark:bg-gray-850 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-2 mx-1 outline-none focus:outline-none"
 												type="button"
 												on:click={async () => {
 													showConfirmationToast();
@@ -753,11 +758,12 @@
 										<EllipsisHorizontal className="size-5" />
 									</button>
 								</GuideMeMenu>
+
 								<textarea
 									on:input={handleTextareaInput}
 									id="chat-textarea"
 									bind:this={chatTextAreaElement}
-									class="scrollbar-hidden bg-gray-50 dark:bg-gray-850 dark:text-gray-100 outline-none w-full py-3 px-1 rounded-xl resize-none h-[48px]"
+									class="scrollbar-hidden overflow-hidden bg-gray-50 dark:bg-gray-850 dark:text-gray-100 outline-none w-full py-3 px-1 rounded-xl resize-none h-[48px]"
 									placeholder={chatInputPlaceholder !== '' ? chatInputPlaceholder : $i18n.t('Send a Message')}
 									bind:value={prompt}
 									on:keypress={(e) => {
@@ -818,7 +824,7 @@
 										<Tooltip content={$i18n.t('Record voice')}>
 											<button
 												id="voice-input-button"
-												class=" text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-850 transition rounded-full p-1.5 mr-0.5 self-center"
+												class="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-850 transition rounded-full p-1.5 mr-0.5 self-center"
 												type="button"
 												on:click={async () => {
 													try {
@@ -864,7 +870,7 @@
 									<div class=" flex items-center mb-1">
 										<Tooltip content={$i18n.t('Call')}>
 											<button
-												class=" text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-850 transition rounded-full p-2 self-center"
+												class="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-850 transition rounded-full p-2 self-center"
 												type="button"
 												on:click={async () => {
 													if (selectedModels.length > 1) {

@@ -28,10 +28,6 @@
 	font-display: swap;
 }
 
-:root {
-	--cisco-blue-500: #3e84e5;
-}
-
 html {
 	word-break: break-word;
 }
@@ -69,13 +65,6 @@ ol > li {
 	margin-top: 0;
 	min-height: 28px;
 }
-
-/* .prose ol > li::before {
-	content: counters(list-number, '.') '.';
-	padding-right: 0.5rem;
-	color: var(--tw-prose-counters);
-	font-weight: 400;
-} */
 
 li p {
 	display: inline;
@@ -173,36 +162,37 @@ input[type='number'] {
 	@apply rounded-lg bg-gray-950 text-xs border border-gray-900 shadow-xl;
 }
 
-.cisco * {
+.cisco *,
+.hbr-dark-mode * {
 	font-family: var(--hbr-font-family-sans, 'CiscoSans', sans-serif);
 }
 
-.cisco .app > * {
-	background-color: #faf4ed !important;
+/* .cisco .app > * {
+	background-color: #f7f7f7 !important;
 }
 
 .cisco #nav {
 	background-color: #fffaf3;
-}
+} */
 
-.cisco .py-2\.5.my-auto.flex.flex-col.justify-between.h-screen {
+/* .cisco .py-2\.5.my-auto.flex.flex-col.justify-between.h-screen {
 	background: #f2e9e1;
 }
 
 .cisco .bg-white.dark\:bg-gray-800 {
 	background: #f2e9e1;
-}
+} */
 
 /* .cisco .w-4.h-4 {
 	fill: #3e84e5;
 } */
 
 .cisco #chat-textarea {
-	background: #f7f7f7;
+	/* background: #f7f7f7; */
 	margin: 0.3rem;
 	padding: 0.5rem;
 }
-
+/* 
 .cisco .bg-gradient-to-t.from-white.dark\:from-gray-800.from-40\%.pb-2 {
 	background: #f2e9e1 !important;
 	padding-top: 0.6rem;
@@ -304,7 +294,7 @@ input[type='number'] {
 .cisco .svelte-11kvm4p {
 	--primary: #56949f !important;
 	--secondary: #fffaf3 !important;
-}
+} */
 
 .detailsGetSupport > .assistant ol > li,
 .detailsGetSupport > .assistant ul > li {

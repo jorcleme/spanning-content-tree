@@ -1,5 +1,6 @@
 import type { Article, Message, MessageHistory } from '$lib/types';
 import type { Chat } from '$lib/types';
+
 import { WEBUI_BASE_URL } from '$lib/constants';
 import sha256 from 'js-sha256';
 import { v4 as uuidv4 } from 'uuid';
@@ -186,7 +187,7 @@ export const generateInitialsImage = (name: string) => {
 		return '/user.png';
 	}
 
-	ctx.fillStyle = '#1990fa';
+	ctx.fillStyle = '#0D5CBD';
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 	ctx.fillStyle = '#FFFFFF';

@@ -1,4 +1,5 @@
 import logging
+import requests
 
 from fastapi import Request, UploadFile, File
 from fastapi import Depends, HTTPException, status
@@ -37,7 +38,9 @@ from config import (
     WEBUI_AUTH,
     WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
     WEBUI_AUTH_TRUSTED_NAME_HEADER,
+    CISCO_OAUTH_CONFIG,
 )
+
 
 router = APIRouter()
 
@@ -63,6 +66,86 @@ async def get_session_user(
     )
 
     return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "role": user.role,
+        "profile_image_url": user.profile_image_url,
+    }
+
+
+############################
+# Cisco SSO Callback
+############################
+
+
+@router.get("/cisco/callback", response_model=SigninResponse)
+async def cisco_sso_callback(request: Request, response: Response):
+    code = request.query_params.get("code")
+    if not code:
+        raise HTTPException(
+            status_code=400,
+            detail=ERROR_MESSAGES.DEFAULT("Authorization code not found"),
+        )
+
+    token_response = requests.post(
+        CISCO_OAUTH_CONFIG["token_url"],
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": CISCO_OAUTH_CONFIG["client_id"],
+            "client_secret": CISCO_OAUTH_CONFIG["client_secret"],
+            "redirect_uri": CISCO_OAUTH_CONFIG["redirect_uri"],
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    ).json()
+
+    if "access_token" not in token_response:
+        raise HTTPException(
+            status_code=400,
+            detail=ERROR_MESSAGES.DEFAULT("Access token not found"),
+        )
+
+    access_token = token_response["access_token"]
+
+    user_info = requests.get(
+        CISCO_OAUTH_CONFIG["userinfo_url"],
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).json()
+
+    email = user_info.get("email")
+    sso_id = user_info.get("sub")  # Cisco's unique user identifier
+
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail=ERROR_MESSAGES.DEFAULT("Failed to retrieve email from Cisco SSO"),
+        )
+
+    user = Users.get_user_by_email(email)
+
+    if not user:
+        user_name = user_info.get("given_name") + " " + user_info.get("family_name")
+        access_level = "0"
+        if not user_name:
+            user_name = user_info.get("name")
+        if user_info.get("access_level"):
+            access_level = user_info.get("access_level")
+        user = Users.insert_new_user(
+            id=str(uuid.uuid4()),
+            name=user_name,
+            email=email,
+            role="admin" if access_level == "4" else "user",
+            oauth_sub=sso_id,
+        )
+
+    token = create_token(data={"id": user.id})
+
+    response.set_cookie(key="token", value=token, httponly=True)
+
+    return {
+        "token": token,
+        "token_type": "Bearer",
         "id": user.id,
         "email": user.email,
         "name": user.name,

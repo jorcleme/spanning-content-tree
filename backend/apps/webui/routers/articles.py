@@ -343,6 +343,7 @@ async def generate_new_article(
             user_id=user.id,
             sources=article.get("sources", None),
         )
+        print(f'Article {created_article}')
         return ArticleResponse(
             **{
                 **created_article.model_dump(),

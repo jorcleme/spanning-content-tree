@@ -1,8 +1,13 @@
 <script>
-	import '@harbor/elements/dist/harbor-elements/harbor-elements.css';
+	// Styles
+	import '@harbor/elements/styles.css';
 	// Magnetic Design System styles
 	import '@harbor/elements/dist/harbor-elements/styles/themes/magnetic.css';
 	import '@harbor/elements/dist/harbor-elements/styles/tokens/magnetic.css';
+	import '@harbor/elements/styles/themes/magnetic.dark.css';
+	import '@harbor/elements/styles/tokens/magnetic.dark.css';
+	// for brand colors (blue 🟦 instead of green)
+	import '@harbor/elements/styles/themes/magnetic-brand-alt.css';
 	import { io } from 'socket.io-client';
 	import { spring } from 'svelte/motion';
 
@@ -42,6 +47,10 @@
 	// @ts-ignore
 	onMount(async () => {
 		theme.set(localStorage.theme);
+
+		if ($theme === 'hbr-mode-dark') {
+			document.documentElement.classList.add('cisco', 'dark');
+		}
 
 		mobile.set(window.innerWidth < BREAKPOINT);
 		const onResize = () => {

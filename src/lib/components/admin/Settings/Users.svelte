@@ -189,7 +189,7 @@
 	</div>
 
 	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg" type="submit">
+		<button class="px-4 py-2 bg-blue-800 text-gray-100 hover:bg-blue-900 dark:bg-blue-100 dark:text-gray-900 dark:hover:bg-blue-50 transition rounded-lg" type="submit">
 			{$i18n.t('Save')}
 		</button>
 	</div>

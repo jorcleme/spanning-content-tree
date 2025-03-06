@@ -1,5 +1,6 @@
 import type { Message, Nullable } from '$lib/types';
 import type { GlobalModelConfig } from '$lib/types';
+
 import { WEBUI_BASE_URL } from '$lib/constants';
 import type { Model } from '$lib/stores';
 
@@ -31,7 +32,7 @@ export const getModels = async (token: string = ''): Promise<Model[]> => {
 	let models = res?.data ?? [];
 
 	models = models
-		.filter((models) => models)
+		.filter((model) => (model.owned_by === 'onnx' && model.info?.meta?.task === 'text-generation') || model)
 		// Sort the models
 		.sort((a, b) => {
 			// Check if models have position property

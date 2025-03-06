@@ -1,28 +1,31 @@
 <script lang="ts">
+	import type { i18nType } from '$lib/types';
+
+	import { getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
+
 	import { getDocs } from '$lib/apis/documents';
 	import { deleteAllFiles, deleteFileById } from '$lib/apis/files';
 	import {
-		getQuerySettings,
-		scanDocs,
-		updateQuerySettings,
-		resetVectorDB,
 		getEmbeddingConfig,
-		updateEmbeddingConfig,
-		getRerankingConfig,
-		updateRerankingConfig,
-		resetUploadDir,
+		getQuerySettings,
 		getRAGConfig,
-		updateRAGConfig
+		getRerankingConfig,
+		resetUploadDir,
+		resetVectorDB,
+		scanDocs,
+		updateEmbeddingConfig,
+		updateQuerySettings,
+		updateRAGConfig,
+		updateRerankingConfig
 	} from '$lib/apis/rag';
+	import { documents, models } from '$lib/stores';
+
 	import ResetUploadDirConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 	import ResetVectorDBConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
-
-	import { documents, models } from '$lib/stores';
-	import { onMount, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n: i18nType = getContext('i18n');
 
 	export let saveHandler: Function;
 
@@ -62,35 +65,23 @@
 		scanDirLoading = false;
 
 		if (res) {
-			await documents.set(await getDocs(localStorage.token));
+			documents.set(await getDocs(localStorage.token));
 			toast.success($i18n.t('Scan complete!'));
 		}
 	};
 
 	const embeddingModelUpdateHandler = async () => {
 		if (embeddingEngine === '' && embeddingModel.split('/').length - 1 > 1) {
-			toast.error(
-				$i18n.t(
-					'Model filesystem path detected. Model shortname is required for update, cannot continue.'
-				)
-			);
+			toast.error($i18n.t('Model filesystem path detected. Model shortname is required for update, cannot continue.'));
 			return;
 		}
 		if (embeddingEngine === 'ollama' && embeddingModel === '') {
-			toast.error(
-				$i18n.t(
-					'Model filesystem path detected. Model shortname is required for update, cannot continue.'
-				)
-			);
+			toast.error($i18n.t('Model filesystem path detected. Model shortname is required for update, cannot continue.'));
 			return;
 		}
 
 		if (embeddingEngine === 'openai' && embeddingModel === '') {
-			toast.error(
-				$i18n.t(
-					'Model filesystem path detected. Model shortname is required for update, cannot continue.'
-				)
-			);
+			toast.error($i18n.t('Model filesystem path detected. Model shortname is required for update, cannot continue.'));
 			return;
 		}
 
@@ -124,7 +115,7 @@
 		if (res) {
 			console.log('embeddingModelUpdateHandler:', res);
 			if (res.status === true) {
-				toast.success($i18n.t('Embedding model set to "{{embedding_model}}"', res), {
+				toast.success($i18n.t('Embedding model set to "{{embedding_model}}"', res) as string, {
 					duration: 1000 * 10
 				});
 			}
@@ -148,11 +139,11 @@
 			console.log('rerankingModelUpdateHandler:', res);
 			if (res.status === true) {
 				if (rerankingModel === '') {
-					toast.success($i18n.t('Reranking model disabled', res), {
+					toast.success($i18n.t('Reranking model disabled', res) as string, {
 						duration: 1000 * 10
 					});
 				} else {
-					toast.success($i18n.t('Reranking model set to "{{reranking_model}}"', res), {
+					toast.success($i18n.t('Reranking model set to "{{reranking_model}}"', res) as string, {
 						duration: 1000 * 10
 					});
 				}
@@ -232,6 +223,16 @@
 			showTikaServerUrl = contentExtractionEngine === 'tika';
 		}
 	});
+
+	const onSelectChange = (e: Event & { currentTarget: EventTarget & HTMLSelectElement }) => {
+		if (e.currentTarget.value === 'ollama') {
+			embeddingModel = '';
+		} else if (e.currentTarget.value === 'openai') {
+			embeddingModel = 'text-embedding-3-small';
+		} else if (e.currentTarget.value === '') {
+			embeddingModel = 'sentence-transformers/all-MiniLM-L6-v2';
+		}
+	};
 </script>
 
 <ResetUploadDirConfirmDialog
@@ -250,8 +251,8 @@
 
 <ResetVectorDBConfirmDialog
 	bind:show={showResetConfirm}
-	on:confirm={() => {
-		const res = resetVectorDB(localStorage.token).catch((error) => {
+	on:confirm={async () => {
+		const res = await resetVectorDB(localStorage.token).catch((error) => {
 			toast.error(error);
 			return null;
 		});
@@ -293,12 +294,7 @@
 
 					{#if scanDirLoading}
 						<div class="ml-3 self-center">
-							<svg
-								class=" w-3 h-3"
-								viewBox="0 0 24 24"
-								fill="currentColor"
-								xmlns="http://www.w3.org/2000/svg"
-							>
+							<svg class=" w-3 h-3" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
 								<style>
 									.spinner_ajPY {
 										transform-origin: center;
@@ -311,10 +307,7 @@
 										}
 									}
 								</style>
-								<path
-									d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"
-									opacity=".25"
-								/>
+								<path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25" />
 								<path
 									d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z"
 									class="spinner_ajPY"
@@ -332,15 +325,7 @@
 						class="dark:bg-gray-900 w-fit pr-8 rounded px-2 p-1 text-xs bg-transparent outline-none text-right"
 						bind:value={embeddingEngine}
 						placeholder="Select an embedding model engine"
-						on:change={(e) => {
-							if (e.target.value === 'ollama') {
-								embeddingModel = '';
-							} else if (e.target.value === 'openai') {
-								embeddingModel = 'text-embedding-3-small';
-							} else if (e.target.value === '') {
-								embeddingModel = 'sentence-transformers/all-MiniLM-L6-v2';
-							}
-						}}
+						on:change={onSelectChange}
 					>
 						<option value="">{$i18n.t('Default (SentenceTransformers)')}</option>
 						<option value="ollama">{$i18n.t('Ollama')}</option>
@@ -451,12 +436,7 @@
 						>
 							{#if updateEmbeddingModelLoading}
 								<div class="self-center">
-									<svg
-										class=" w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="currentColor"
-										xmlns="http://www.w3.org/2000/svg"
-									>
+									<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
 										<style>
 											.spinner_ajPY {
 												transform-origin: center;
@@ -480,12 +460,7 @@
 									</svg>
 								</div>
 							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 16 16"
-									fill="currentColor"
-									class="w-4 h-4"
-								>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 									<path
 										d="M8.75 2.75a.75.75 0 0 0-1.5 0v5.69L5.03 6.22a.75.75 0 0 0-1.06 1.06l3.5 3.5a.75.75 0 0 0 1.06 0l3.5-3.5a.75.75 0 0 0-1.06-1.06L8.75 8.44V2.75Z"
 									/>
@@ -500,9 +475,7 @@
 			{/if}
 
 			<div class="mt-2 mb-1 text-xs text-gray-400 dark:text-gray-500">
-				{$i18n.t(
-					'Warning: If you update or change your embedding model, you will need to re-import all documents.'
-				)}
+				{$i18n.t('Warning: If you update or change your embedding model, you will need to re-import all documents.')}
 			</div>
 
 			{#if querySettings.hybrid === true}
@@ -528,12 +501,7 @@
 						>
 							{#if updateRerankingModelLoading}
 								<div class="self-center">
-									<svg
-										class=" w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="currentColor"
-										xmlns="http://www.w3.org/2000/svg"
-									>
+									<svg class=" w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
 										<style>
 											.spinner_ajPY {
 												transform-origin: center;
@@ -557,12 +525,7 @@
 									</svg>
 								</div>
 							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 16 16"
-									fill="currentColor"
-									class="w-4 h-4"
-								>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 									<path
 										d="M8.75 2.75a.75.75 0 0 0-1.5 0v5.69L5.03 6.22a.75.75 0 0 0-1.06 1.06l3.5 3.5a.75.75 0 0 0 1.06 0l3.5-3.5a.75.75 0 0 0-1.06-1.06L8.75 8.44V2.75Z"
 									/>
@@ -589,7 +552,7 @@
 						class="dark:bg-gray-900 w-fit pr-8 rounded px-2 p-1 text-xs bg-transparent outline-none text-right"
 						bind:value={contentExtractionEngine}
 						on:change={(e) => {
-							showTikaServerUrl = e.target.value === 'tika';
+							showTikaServerUrl = e.currentTarget.value === 'tika';
 						}}
 					>
 						<option value="">{$i18n.t('Default')} </option>
@@ -737,12 +700,7 @@
 				type="button"
 			>
 				<div class=" self-center mr-3">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-						class="size-4"
-					>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4">
 						<path
 							fill-rule="evenodd"
 							d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z"
@@ -764,12 +722,7 @@
 				type="button"
 			>
 				<div class=" self-center mr-3">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 16 16"
-						fill="currentColor"
-						class="w-4 h-4"
-					>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
 						<path
 							fill-rule="evenodd"
 							d="M3.5 2A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 12.5 4H9.621a1.5 1.5 0 0 1-1.06-.44L7.439 2.44A1.5 1.5 0 0 0 6.38 2H3.5Zm6.75 7.75a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0 0 1.5h4.5Z"
@@ -783,7 +736,7 @@
 	</div>
 	<div class="flex justify-end pt-3 text-sm font-medium">
 		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
+			class="px-4 py-2 bg-blue-800 text-gray-100 hover:bg-blue-900 dark:bg-blue-100 dark:text-gray-900 dark:hover:bg-blue-50 transition rounded-lg"
 			type="submit"
 		>
 			{$i18n.t('Save')}

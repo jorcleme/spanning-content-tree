@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+
 	import { getEditor } from '$lib/utils/editor';
 	import { $canShowPlaceholderCurry as canShowPlaceholderCurry } from '@lexical/text';
 	import { mergeRegister } from '@lexical/utils';
@@ -29,7 +30,7 @@
 
 {#if canShowPlaceHolder}
 	<div
-		class="{className} text-base text-gray-100 overflow-hidden absolute text-ellipsis top-2 left-2.5 right-7 lg:left-2"
+		class="{className} text-base text-gray-300 overflow-hidden absolute text-ellipsis top-2 left-2.5 right-7 lg:left-2"
 	>
 		<slot />
 	</div>

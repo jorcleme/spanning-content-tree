@@ -987,7 +987,7 @@ async def get_all_models():
         ]
 
     models = pipe_models + openai_models + ollama_models + onnx_models
-
+    log.debug(f"MODELS = {models}")
     global_action_ids = [
         function.id for function in Functions.get_global_action_functions()
     ]

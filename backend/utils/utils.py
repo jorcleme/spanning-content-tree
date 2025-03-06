@@ -1,4 +1,9 @@
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials,
+    OAuth2PasswordBearer,
+    OAuth2PasswordRequestForm,
+)
 from fastapi import HTTPException, status, Depends, Request
 from sqlalchemy.orm import Session
 
@@ -37,6 +42,13 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
+
+
+def create_access_token(data: dict, expires_delta: int = 3600):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(seconds=expires_delta)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SESSION_SECRET, algorithm=ALGORITHM)
 
 
 def create_token(data: dict, expires_delta: Union[timedelta, None] = None) -> str:

@@ -78,11 +78,13 @@ def upgrade() -> None:
     if "article_on_series" not in existing_tables:
         op.create_table(
             "article_on_series",
-            sa.Column("article", sa.String(), nullable=False),
-            sa.Column("series", sa.String(), nullable=False),
-            sa.ForeignKeyConstraint(["article"], ["articles.id"], ondelete="CASCADE"),
-            sa.ForeignKeyConstraint(["series"], ["series.id"], ondelete="CASCADE"),
-            sa.PrimaryKeyConstraint("article", "series"),
+            sa.Column("article_id", sa.String(), nullable=False),
+            sa.Column("series_id", sa.String(), nullable=False),
+            sa.ForeignKeyConstraint(
+                ["article_id"], ["articles.id"], ondelete="CASCADE"
+            ),
+            sa.ForeignKeyConstraint(["series_id"], ["series.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("article_id", "series_id"),
         )
     # ### end Alembic commands ###
 

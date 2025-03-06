@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { ChatListResponse, i18nType } from '$lib/types';
+
 	import { getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
+
 	import { goto } from '$app/navigation';
 	import {
 		archiveChatById,
@@ -26,8 +28,11 @@
 		tags,
 		user
 	} from '$lib/stores';
+
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+
 	import Tooltip from '../common/Tooltip.svelte';
+	import MenuLines from '../icons/MenuLines.svelte';
 	import ArchivedChatsModal from './Sidebar/ArchivedChatsModal.svelte';
 	import ChatItem from './Sidebar/ChatItem.svelte';
 	import UserMenu from './Sidebar/UserMenu.svelte';
@@ -226,14 +231,8 @@
 	id="sidebar"
 	class="h-screen max-h-[100dvh] min-h-screen select-none {$showSidebar
 		? 'md:relative w-[260px]'
-		: '-translate-x-[260px] w-[0px]'} bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-200 text-sm transition fixed z-50 top-0 left-0 rounded-r-2xl
+		: '-translate-x-[260px] w-[0px]'} bg-white text-gray-800 dark:bg-gray-850 dark:text-gray-200 text-sm transition fixed z-50 top-0 left-0 rounded-r-lg shadow-lg
         "
-	style="	background-color: linear-gradient(
-		to bottom,
-		transparent 0px,
-		transparent 10px,
-		#f4f5f6 30px
-	) !important;"
 	data-state={$showSidebar}
 >
 	<div
@@ -377,12 +376,12 @@
 			</a>
 
 			<button
-				class=" cursor-pointer px-2 py-2 flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition"
+				class="cursor-pointer px-2 py-2 flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition"
 				on:click={() => {
 					showSidebar.set(!$showSidebar);
 				}}
 			>
-				<div class=" m-auto self-center">
+				<div class="m-auto self-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"

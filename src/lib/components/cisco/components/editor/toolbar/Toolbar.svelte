@@ -1,8 +1,12 @@
 <script lang="ts">
 	import type { BlockTypeContext } from '$lib/types';
+
 	import { writable } from 'svelte/store';
+
 	import { setContext } from 'svelte';
+
 	import { getEditor } from '$lib/utils/editor';
+
 	import StateStoreRichTextUpdator from './ToolbarState.svelte';
 
 	const editor = getEditor();
@@ -31,7 +35,7 @@
 
 <StateStoreRichTextUpdator />
 <div
-	class="toolbar flex items-center border-b border-gray-300 dark:border-gray-700/50 mb-1 bg-neutral-50 dark:bg-neutral-800 p-2 rounded-t-lg sticky top-0 z-10 align-middle overflow-x-scroll overflow-y-hidden h-[36px]"
+	class="toolbar flex items-center border-b border-gray-300 dark:border-gray-700/50 mb-1 bg-gray-50 dark:bg-gray-850 dark:text-gray-50 p-2 rounded-t-lg sticky top-0 z-10 align-middle overflow-x-scroll overflow-y-hidden h-[36px]"
 >
 	<slot {editor} activeEditor={$activeEditor} blockType={$blockType} />
 </div>

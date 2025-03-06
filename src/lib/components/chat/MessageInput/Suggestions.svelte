@@ -1,7 +1,10 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { getContext, onMount } from 'svelte';
+
 	import type { PromptSuggestion } from '$lib/stores';
+
 	import Bolt from '$lib/components/icons/Bolt.svelte';
 
 	const i18n: i18nType = getContext('i18n');
@@ -48,20 +51,20 @@
 		{#each prompts as prompt, promptIdx}
 			<div class="snap-center shrink-0">
 				<button
-					class="flex flex-col flex-1 shrink-0 w-64 justify-between h-36 p-5 px-6 bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 rounded-3xl transition group"
+					class="flex flex-col flex-1 shrink-0 w-64 justify-between h-36 p-5 px-6 bg-white hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 rounded-3xl transition group"
 					on:click={async () => {
 						await submitPrompt(prompt.content);
 					}}
 				>
 					<div class="flex flex-col text-left">
 						{#if prompt.title && prompt.title[0] !== ''}
-							<div class="  font-medium dark:text-gray-300 dark:group-hover:text-gray-200 transition">
+							<div class="font-medium dark:text-gray-300 dark:group-hover:text-gray-200 transition">
 								{prompt.title[0]}
 							</div>
 							<div class="text-sm text-gray-600 font-normal line-clamp-2">{prompt.title[1]}</div>
 						{:else}
 							<div
-								class="  text-sm font-medium dark:text-gray-300 dark:group-hover:text-gray-100 transition line-clamp-2"
+								class="text-sm font-medium dark:text-gray-300 dark:group-hover:text-gray-100 transition line-clamp-2"
 							>
 								{prompt.content}
 							</div>

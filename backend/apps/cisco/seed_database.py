@@ -19,16 +19,7 @@ Notes:
     3. As of now, anybody can use the API endpoint to upload Series/Articles. This will be restricted in the future. e.g., depends(is_admin_user)
 
 Usage:
-    1. To run both functions sequentially (insert_series and insert_articles_for_series):
-        $ python seed_database.py
-
-    2. To run a specific function (e.g., insert_series):
-        $ python seed_database.py --f insert_series
-
-    3. To run a specific function (e.g., insert_articles_for_series):
-        $ python seed_database.py --f insert_articles_for_series
-
-    4. To run the script as a module:
+    1. To run the script as a module (from the backend directory):
         $ python -m apps.cisco.seed_database
 
 Functions:
@@ -48,7 +39,40 @@ import requests
 import argparse
 import logging
 import sys
+import asyncio
 import urllib.parse
+from typing import TypedDict, List, Any, Dict, Optional
+
+
+class SeriesSchema(TypedDict, total=False):
+    id: str
+    name: str
+    admin_guide_urls: List[str]
+    datasheet_urls: List[str]
+    cli_guide_urls: List[str]
+    software_url: str
+    created_at: int
+    updated_at: int
+
+
+class ArticlesSchema(TypedDict, total=False):
+    id: str
+    title: str
+    document_id: str
+    objective: str
+    category: str
+    url: str
+    applicable_devices: List[Dict[str, Any]]
+    introduction: Optional[str]
+    steps: List[Dict[str, Any]]
+    revision_history: Optional[List[Dict[str, Any]]]
+    published: bool
+    user_id: Optional[str]
+    sources: Optional[List[str]]
+    created_at: int
+    updated_at: int
+    series_ids: List[str]
+
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -56,11 +80,10 @@ logger = logging.getLogger(__name__)
 WEBUI_API_URL = "http://localhost:8080/api/v1"
 ARTICLES_API_URL = f"{WEBUI_API_URL}/articles"
 SERIES_API_URL = f"{WEBUI_API_URL}/series"
-
 JSON_DIR = f"{BASE_DIR}/json"
 
 
-def insert_series():
+async def insert_series():
     series_data = json.loads(open(f"{JSON_DIR}/series.json", encoding="utf-8").read())
 
     for series in series_data:
@@ -113,12 +136,12 @@ def insert_series():
             logger.error(f"Error posting series: {e}")
 
 
-def get_all_series():
+async def get_all_series():
     try:
         res = requests.get(f"{SERIES_API_URL}")
         print(f"Request to fetch all series returned status: {res.status_code}")
         res.raise_for_status()  # Raise an exception for bad responses
-        series = res.json()
+        series: List[SeriesSchema] = res.json()
         print(f"Series JSON Response: {json.dumps(series, indent=2)}")
         return series
     except requests.exceptions.RequestException as e:
@@ -128,11 +151,14 @@ def get_all_series():
 
 # If you want to manually insert articles, you can use the following function
 # Note: The `insert_series` function should be run before this function
-def insert_articles_for_series():
-    series = get_all_series()
+async def insert_articles_for_series():
+    series = await get_all_series()
     if not series or (isinstance(series, list) and len(series) == 0):
-        logger.error("No series found. Please run insert_series first.")
-        return
+        logger.error(
+            "The database contains no series (Product Families). Running insert_series()..."
+        )
+        await insert_series()
+        series = await get_all_series()
 
     series_map: dict[str, str] = {s["name"]: s["id"] for s in series}
     articles_data = json.loads(
@@ -142,7 +168,9 @@ def insert_articles_for_series():
     for article in articles_data:
         series_name = article.get("series", None)
         if not series_name:
-            logger.info("Series name is missing in article, skipping.")
+            logger.info(
+                "Series name is missing in article. An article must be associated with a series or many series. Skipping...."
+            )
             continue
         series_id = series_map.get(series_name, None)
         if series_id:
@@ -196,83 +224,8 @@ def insert_articles_for_series():
                 print(f"Error processing article: {e}")
                 continue
 
-    # series_map = {}
 
-    # for article in articles_data:
-    #     series_id = None
-    #     series_name = article.get("series", None)
-    #     if not series_name:
-    #         logger.info("Series name is missing in article, skipping.")
-    #         continue
-    #     series_map[series_name] = None
-
-    #     try:
-    #         res = requests.get(
-    #             f"{SERIES_API_URL}/name/{urllib.parse.quote(series_name, safe='/:?=&')}"
-    #         )
-    #         print(f"Request to fetch series returned status: {res.status_code}")
-    #         res.raise_for_status()  # Raise an exception for bad responses
-    #         series = res.json()
-    #         logger.info(f"Series JSON Response: {json.dumps(series, indent=2)}")
-    #         series_id: str = series.get("id")
-    #         series_map[series_name] = series_id
-
-    #     except requests.exceptions.RequestException as e:
-    #         print(f"Error fetching series data: {e}")
-    #         continue
-
-    #     if series_map.get(series_name, None):
-    #         try:
-    #             article_schema = {
-    #                 "series_id": series_id,
-    #                 "title": article.get("title"),
-    #                 "document_id": article.get("document_id"),
-    #                 "url": article.get("url"),
-    #                 "category": article.get("category"),
-    #                 "objective": article.get("objective"),
-    #                 "introduction": article.get("introduction"),
-    #                 "applicable_devices": article.get("applicable_devices", []),
-    #                 "steps": article.get("steps", []),
-    #                 "revision_history": article.get("revision_history", []),
-    #             }
-    #             article_schema["steps"] = list(
-    #                 map(
-    #                     lambda x: {
-    #                         **x,
-    #                         "qna_pairs": [
-    #                             {
-    #                                 "id": "static_1",
-    #                                 "question": "I don't understand this step",
-    #                                 "answer": None,
-    #                             },
-    #                             {
-    #                                 "id": "static_2",
-    #                                 "question": "I need help troubleshooting",
-    #                                 "answer": None,
-    #                             },
-    #                             {
-    #                                 "id": "static_3",
-    #                                 "question": "Show best practices",
-    #                                 "answer": None,
-    #                             },
-    #                         ],
-    #                     },
-    #                     article_schema["steps"],
-    #                 )
-    #             )
-
-    #             res = requests.post(f"{ARTICLES_API_URL}/add", json=article_schema)
-    #             print(f"Article POST returned status: {res.status_code}")
-    #             res.raise_for_status()  # Raise an exception for bad responses
-    #             article = res.json()
-    #             print(f"Article JSON Response: {json.dumps(article, indent=2)}")
-
-    #         except Exception as e:
-    #             print(f"Error processing article: {e}")
-    #             continue
-
-
-def add_article(article: dict):
+async def add_article(article: dict):
     try:
         res = requests.post(f"{ARTICLES_API_URL}/add", json=article)
         logger.info(f"Article POST returned status: {res.status_code}")
@@ -285,9 +238,9 @@ def add_article(article: dict):
         return False
 
 
-def seed():
-    insert_series()
-    insert_articles_for_series()
+async def seed():
+    await insert_series()
+    await insert_articles_for_series()
 
 
 if __name__ == "__main__":
@@ -310,4 +263,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     func = functions.get(args.f, seed)
-    func()
+    asyncio.run(func())

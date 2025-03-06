@@ -91,6 +91,28 @@ class AddUserForm(SignupForm):
     role: Optional[str] = "pending"
 
 
+class CiscoSSOAuthCodeResponse(BaseModel):
+    access_token: str  # Used to fetch user identity details.
+    id_token: str  # Encodes user information.
+    token_type: str = "Bearer"
+    expires_in: int  # Token validity (usually 3599 seconds).
+    refresh_token: Optional[str]  # Used to refresh the access token.
+
+
+class CiscoSSOUserIdentity(BaseModel):
+    access_level: (
+        str  # 0 = guest cco account, 1 = customer, 2 = partner, 4 = Cisco Employee
+    )
+    sub: str
+    company: str
+    memberof: list
+    given_name: str
+    family_name: str
+    email: str
+    name: Optional[str]  # Full name of the user
+    title: Optional[str]  # Job title of the user
+
+
 class AuthsTable:
 
     def insert_new_auth(

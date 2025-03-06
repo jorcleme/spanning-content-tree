@@ -1,21 +1,25 @@
 <script lang="ts">
 	import type { Article, Message } from '$lib/types';
 	import type { i18nType } from '$lib/types';
+
 	import { getContext, onMount } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { flip } from 'svelte/animate';
 	import { quintOut } from 'svelte/easing';
 	import { crossfade } from 'svelte/transition';
+
 	import { getArticlesBySeriesId } from '$lib/apis/articles';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import { models, settings } from '$lib/stores';
 	import dayjs from 'dayjs';
+
 	import Card from '$lib/components/cisco/components/common/Card.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+
 	import Name from './Name.svelte';
 	import ProfileImage from './ProfileImage.svelte';
 	import { InfoIcon } from 'lucide-svelte';
@@ -128,7 +132,7 @@
 									{$i18n.t('Current Articles for {{seriesName}}', { seriesName })}
 								</h2>
 								<input
-									class="self-center rounded-md border border-gray-300 dark:border-gray-700 px-2 py-1 w-full sm:max-w-sm mx-auto"
+									class="self-center rounded-md border border-gray-300 dark:border-gray-50 px-2 py-1 w-full sm:max-w-sm mx-auto bg-gray-50 dark:bg-gray-850 dark:text-gray-100"
 									type="text"
 									placeholder={$i18n.t('Search Articles')}
 									bind:value={searchQuery}
@@ -170,7 +174,7 @@
 								>
 								<div class="grid grid-cols-4 items-center">
 									<button
-										class="btn col-start-2 col-span-2 self-center px-4 py-2 bg-[#1990fa] text-white rounded-md shadow-md hover:bg-[#1e88e5]"
+										class="btn col-start-2 col-span-2 self-center px-4 py-2 bg-blue-850 text-white rounded-md shadow-md hover:bg-blue-800"
 										on:click={() => dispatch('generate')}>Generate New Article</button
 									>
 									<div class="col-start-4 col-span-1 justify-self-end flex space-x-1 mr-1">
@@ -255,7 +259,7 @@
 			</div>
 			<div class="flex self-center">
 				<button
-					class="btn flex items-center justify-center px-4 py-2 bg-[#1990fa] text-white rounded-md shadow-md"
+					class="btn flex items-center justify-center px-4 py-2 bg-blue-850 hover:bg-blue-800 text-white rounded-md shadow-md"
 					on:click={() => {
 						showInfo = false;
 						toast.success('We will notify you once the article is available.');

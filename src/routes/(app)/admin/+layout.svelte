@@ -1,9 +1,12 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { getContext, onMount } from 'svelte';
+
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { WEBUI_NAME, showSidebar, user } from '$lib/stores';
+
 	import MenuLines from '$lib/components/icons/MenuLines.svelte';
 
 	const i18n: i18nType = getContext('i18n');
@@ -84,7 +87,7 @@
 
 		<hr class=" my-2 dark:border-gray-850" />
 
-		<div class=" py-1 px-5 flex-1 max-h-full overflow-y-auto">
+		<div class="py-1 px-5 flex-1 max-h-full overflow-y-auto">
 			<slot />
 		</div>
 	</div>

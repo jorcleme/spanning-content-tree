@@ -1,10 +1,12 @@
 <script lang="ts">
 	import type { Article, ArticleStep, i18nType } from '$lib/types';
+
 	import { afterUpdate, createEventDispatcher, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { flip } from 'svelte/animate';
 	import { cubicIn, cubicInOut, cubicOut, quintInOut } from 'svelte/easing';
 	import { crossfade, fade, fly, slide } from 'svelte/transition';
+
 	import { updateArticleStep } from '$lib/apis/articles';
 	import { synthesizeOpenAISpeech } from '$lib/apis/audio';
 	import { generateChatCompletion, generateOllamaChatCompletion } from '$lib/apis/ollama';
@@ -48,12 +50,14 @@
 	import type { Instance } from 'tippy.js';
 	import tippy from 'tippy.js';
 	import { v4 as uuidv4 } from 'uuid';
+
 	import CodeBlock from '$lib/components/chat/Messages/CodeBlock.svelte';
 	import Name from '$lib/components/chat/Messages/Name.svelte';
 	import ProfileImage from '$lib/components/chat/Messages/ProfileImage.svelte';
 	import Skeleton from '$lib/components/chat/Messages/Skeleton.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+
 	import Feedback from './Feedback.svelte';
 	import { FileCode, FileText, SquareCode, ThumbsDown, ThumbsUp } from 'lucide-svelte';
 
@@ -1241,7 +1245,7 @@
 		}
 	};
 
-	const [send, recieve] = crossfade({
+	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
 		fallback(node, params) {
 			const style = getComputedStyle(node);
@@ -1289,19 +1293,22 @@
 	on:toggle={startGenerateDynamicQuestions}
 	bind:open
 	transition:slide={{ duration: 1000, easing: quintInOut }}
-	class="detailsGetSupport p-4 border border-gray-400 transition-all duration-250 ease-in rounded-tr-none rounded-tl-none rounded-br-lg rounded-bl-lg bg-gray-100 max-w-[1100px] shadow-md hover:shadow-lg"
+	class="detailsGetSupport bg-gray-50 p-4 text-gray-850 dark:bg-gray-850 dark:text-gray-50 max-w-[1100px] cursor-pointer"
 >
 	<summary tabindex="-1" class="flex items-center gap-2 cursor-pointer">
-		<span id="stepNumberBreadcrumb" class="bg-blue-500 text-white w-8 h-8 flex items-center justify-center rounded-full"
-			>?</span
+		<p
+			id="stepNumberBreadcrumb"
+			class="bg-blue-600 text-white w-8 h-8 min-w-8 min-h-8 shrink-0 rounded-full flex items-center justify-center"
 		>
+			?
+		</p>
 		<h3 class="inline text-base font-bold">
-			Get Support &gt; <p class="text-gray-500 inline">{currentStepStr}</p>
+			Get Support &gt; <p class="text-gray-500 dark:text-gray-400 inline">{currentStepStr}</p>
 		</h3></summary
 	>
 
 	<div
-		class="messageWell max-h-[50vh] min-h-[30vh] overflow-auto p-4 bg-white rounded-t-lg text-base pt-8"
+		class="messageWell border border-gray-300 max-h-[50vh] min-h-[30vh] overflow-auto p-4 bg-white dark:bg-gray-850 rounded-t-md text-base pt-8"
 		id="messages-well"
 	>
 		<h1 class="text-2xl mt-4 text-center">Need Answers?</h1>
@@ -1316,7 +1323,7 @@
 					/>
 					<div
 						id="message-{message.id}"
-						class="message-{message.id} question {message.role} rounded-lg p-4 ml-2 w-fit mb-1 dark:prose-invert whitespace-pre-line"
+						class="message-{message.id} question {message.role} bg-blue-100 text-blue-950 rounded-lg p-4 ml-2 w-fit mb-1 dark:prose-invert whitespace-pre-line"
 						dir={$settings.chatDirection}
 					>
 						<h4>{message.content}</h4>
@@ -1382,7 +1389,7 @@
 						<div
 							bind:this={latest}
 							id="message-{message.id}"
-							class="message-{message.id} {message.role} dark:prose-invert bg-slate-100 rounded-lg p-4 text-gray-700 ml-2 w-fit mb-1 space-y-1 whitespace-pre-line flex flex-col"
+							class="message-{message.id} {message.role} dark:prose-invert bg-gray-100 dark:bg-gray-900 dark:text-gray-50 rounded-lg p-4 text-gray-850 ml-2 w-fit mb-1 space-y-1 whitespace-pre-line flex flex-col"
 						>
 							{#if message.content === '' && !message.error}
 								<Skeleton />
@@ -1684,21 +1691,17 @@
 								</div>
 								{#if message.sources && message.sources.length > 0}
 									<details
-										class="sources bg-slate-100 rounded-lg p-4 mt-4 cursor-pointer"
+										class="sources bg-gray-100 text-gray-850 rounded-lg p-4 mt-8 hover:cursor-pointer"
 										on:toggle={(e) => {
 											let icon = document.querySelector('.square-code-icon');
-											if (e.currentTarget.open) {
-												icon?.classList.add('rotate');
-											} else {
-												icon?.classList.remove('rotate');
-											}
+											icon?.classList.toggle('rotate-90');
 										}}
 									>
 										<summary
 											id="source-summary"
-											class="flex flex-row items-center justify-start space-x-3 transition-transform"
+											class="flex flex-row items-center justify-start space-x-2 transition-transform"
 										>
-											<h4 class="font-bold">Sources</h4>
+											<h4 class="font-bold font-['CiscoSansLight'] text-underline">Sources</h4>
 											<SquareCode
 												class="square-code-icon w-6 h-6 transition-transform"
 												stroke="currentColor"
@@ -1709,7 +1712,7 @@
 											class="flex flex-col space-y-3 items-start mt-2"
 											transition:slide={{ axis: 'x', duration: 1000, delay: 300, easing: cubicIn }}
 										>
-											<div class="flex flex-col gap-y-2 divide-slate-300">
+											<div class="flex flex-col gap-y-2 divide-gray-300">
 												<div>
 													We search our content database for similar text to the question and context. We then use small
 													chunks of the broader text to summarize or pick and choose which chunks are relevant. In the
@@ -1809,7 +1812,7 @@
 									class="flex flex-col justify-center items-end mt-2 gap-2"
 									in:fade={{ duration: 1000, easing: cubicIn }}
 								>
-									<h4 class="my-2">Helpful?</h4>
+									<h4 class="py-2">Helpful?</h4>
 									<div class="flex flex-row items-center space-x-3">
 										<button
 											on:click={async () => {
@@ -1824,7 +1827,7 @@
 													document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
 												}, 0);
 											}}
-											class="flex items-center rounded-md py-2 px-3 text-center bg-blue-500"
+											class="flex items-center rounded-md py-1.5 px-2 text-center bg-blue-950 text-white hover:bg-blue-800"
 										>
 											<ThumbsUp style="color:white;" />
 										</button>
@@ -1841,7 +1844,7 @@
 													document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
 												}, 0);
 											}}
-											class="flex items-center rounded-md py-2 px-3 text-center bg-blue-500 text-white"
+											class="flex items-center rounded-md py-1.5 px-2 text-center bg-blue-950 text-white hover:bg-blue-800"
 										>
 											<ThumbsDown />
 										</button>
@@ -1852,7 +1855,7 @@
 								<div class="relative flex justify-end w-full">
 									<div class="absolute bottom-0 right-0 flex items-center mb-1.5">
 										<button
-											class="bg-white hover:bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-1.5"
+											class="bg-gray-50 hover:bg-gray-100 text-gray-850 dark:bg-gray-800 dark:text-gray-50 dark:hover:bg-gray-800 transition rounded-full p-1.5"
 											on:click={() => {
 												stopResponse();
 											}}
@@ -1884,7 +1887,7 @@
 		{/each}
 		{#if isLoading}
 			<div
-				style="text-align: center; margin-top: 2.5em;"
+				class="flex items-center justify-center mt-4"
 				in:fly={{ y: 25, duration: 1000 }}
 				out:fly={{ y: -25, duration: 1000 }}
 			>
@@ -1892,19 +1895,19 @@
 			</div>
 		{/if}
 	</div>
-	<div class="genericSupportButtons s-5e5kg2sOboz_">
-		<details class="custom-details p-4" id="detailsFaqlike" style="border:#d2d2d2 1px solid; margin:0;" open>
+	<div class="rounded-b-md genericSupportButtons">
+		<details class="rounded-b-md custom-details p-4 bg-white dark:bg-gray-800" id="detailsFaqlike" open>
 			<summary class="s-5e5kg2sOboz_" />
-			<div class="buttonWell">
+			<div class="buttonWell flex justify-evenly items-center flex-wrap gap-4">
 				{#key questions}
 					{#each questions as btn, i (i)}
 						<button
-							in:recieve={{ key: i, delay: i * 100 }}
+							in:receive={{ key: i, delay: i * 100 }}
 							out:send={{ key: i, delay: i * 100 }}
 							animate:flip={{ duration: 200 }}
 							on:click={async () => await generateLLMAnswer(i, btn.id, btn.text)}
 							disabled={btn.clicked}
-							class="button text-base py-2 px-4 rounded-md hover:cursor-pointer qna-button-{i}"
+							class="button bg-blue-50 text-blue-950 text-sm border border-blue-950 hover:bg-blue-100 text-base py-2 px-4 rounded-md hover:cursor-pointer transition qna-button-{i}"
 							class:clicked={btn.clicked}
 							id={btn.id}
 							tabindex="0"
@@ -1919,7 +1922,7 @@
 </details>
 
 <style>
-	details:not(.detailsGetSupport):not(.custom-details):not(.sources) {
+	/* details:not(.detailsGetSupport):not(.custom-details):not(.sources) {
 		color: #333;
 		padding: 1em;
 		border: #d2d2d2 1px solid;
@@ -1932,7 +1935,7 @@
 		background-color: var(--menu-background-gray);
 		max-width: 1100px;
 		cursor: pointer;
-	}
+	} */
 
 	/* Rotate animation for the SquareCode icon */
 	.rotate {
@@ -1940,36 +1943,16 @@
 		transition: transform 0.5s ease;
 	}
 
-	.custom-details {
+	/* .custom-details {
 		border: 1px solid #d2d2d2;
 		border-radius: 5px;
 		transition: all 0.25s ease-in;
 		background: white;
 		width: 100%;
-	}
+	} */
 
 	details[open] > summary {
 		margin-bottom: 1em;
-	}
-
-	.detailsGetSupport {
-		border-radius: 16px;
-		/* background-color: white;
-		background-image: radial-gradient(
-				75.83% 78.18% at 51.72% 100%,
-				rgba(56, 96, 190, 0.03) 0%,
-				rgba(100, 187, 227, 0.03) 65.24%,
-				rgba(223, 223, 223, 0) 100%
-			),
-			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0) 0deg, rgba(56, 96, 190, 0.02) 360deg); */
-		/* margin-left: 10px; */
-		transition: all 0.3s ease-in-out;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 4px 8px rgba(0, 0, 0, 0.07),
-			0 8px 16px rgba(0, 0, 0, 0.07), 0 16px 32px rgba(0, 0, 0, 0.07), 0 32px 64px rgba(0, 0, 0, 0.07);
-	}
-
-	.detailsGetSupport:hover {
-		box-shadow: 0px 4px 20px rgb(0 0 0 / 15%);
 	}
 
 	details summary::marker {
@@ -1983,13 +1966,12 @@
 
 	.messageWell h1 {
 		font-family: 'CiscoSansTT', sans-serif;
-		font-size: var(--font-size-md);
 		color: #333;
 		max-width: 1500px;
 		line-height: 2.8em;
 		font-weight: 700;
 		margin: 0em 0 0 0;
-		background: -webkit-linear-gradient(left, #1d69cc, #2196f3);
+		background: -webkit-linear-gradient(left, #1d69cc, #82c7ff);
 		background-clip: text;
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
@@ -2021,7 +2003,7 @@
 		gap: 1em;
 	}
 
-	.button {
+	/* .button {
 		display: inline;
 		text-align: center;
 		text-decoration: none;
@@ -2033,7 +2015,7 @@
 		transform-origin: center center;
 		will-change: transform;
 		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-	}
+	} */
 
 	.button:hover {
 		background-color: rgba(155, 215, 255, 0.5);
@@ -2047,8 +2029,8 @@
 		border: 1px solid rgb(136, 136, 136);
 	}
 
-	.question.user {
+	/* .question.user {
 		background: rgba(155, 215, 255, 0.5);
 		color: #2b5592 !important;
-	}
+	} */
 </style>

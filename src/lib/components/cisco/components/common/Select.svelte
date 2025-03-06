@@ -3,9 +3,11 @@
 	import { createFloatingActions } from 'svelte-floating-ui';
 	import type { ComputeConfig } from 'svelte-floating-ui';
 	import { flip, offset, shift } from 'svelte-floating-ui/dom';
+
 	import { getSeriesByName } from '$lib/apis/series';
 	import { filterSelect, getSelectItems } from '$lib/utils/index';
 	import type { Placement } from '@floating-ui/core/dist/floating-ui.core';
+
 	import ChevronIcon from './ChevronIcon.svelte';
 	import ClearIcon from './ClearIcon.svelte';
 	import LoadingIcon from './LoadingIcon.svelte';
@@ -685,7 +687,7 @@
 <svelte:window on:click={handleClickOutside} on:keydown={handleKeyDown} />
 
 <div
-	class="svelte-select min-w-80"
+	class="svelte-select min-w-80 bg-gray-50 text-gray-850 dark:bg-gray-850 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-md hover:border-gray-400 dark:hover:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400"
 	class:multi={multiple}
 	class:disabled
 	class:focused
@@ -701,7 +703,7 @@
 		<div
 			use:floatingContent
 			bind:this={list}
-			class="svelte-select-list"
+			class="svelte-select-list bg-gray-50 text-gray-850 dark:bg-gray-850 dark:text-gray-100"
 			class:prefloat
 			on:scroll={handleListScroll}
 			on:pointerup|preventDefault|stopPropagation
@@ -807,6 +809,7 @@
 			placeholder={placeholderText}
 			style={inputStyles}
 			{disabled}
+			class="bg-gray-50 dark:bg-gray-850 dark:text-gray-100"
 		/>
 	</div>
 
@@ -845,13 +848,12 @@
 	{/if}
 </div>
 <button
-	class="btn self-center m-4 px-4 py-2 bg-[#1990fa] text-white rounded-md"
+	class="btn self-center m-4 px-4 py-2 bg-blue-850 text-gray-50 dark:bg-gray-850 dark:hover:bg-gray-800 rounded-md"
 	on:click={async () => await handleConfirm()}>Confirm</button
 >
 
 <style>
 	.svelte-select {
-		/* deprecating camelCase custom props in favour of kebab-case for v5 */
 		--borderRadius: var(--border-radius);
 		--clearSelectColor: var(--clear-select-color);
 		--clearSelectWidth: var(--clear-select-width);
@@ -931,14 +933,6 @@
 		max-height: var(--max-height);
 	}
 
-	* {
-		box-sizing: var(--box-sizing, border-box);
-	}
-
-	.svelte-select:hover {
-		border: var(--border-hover, 1px solid #b2b8bf);
-	}
-
 	.value-container {
 		display: flex;
 		flex: 1 1 0%;
@@ -988,7 +982,7 @@
 	}
 
 	input::placeholder {
-		color: var(--placeholder-color, #78848f);
+		color: var(--placeholder-color, #7e868f);
 		opacity: var(--placeholder-opacity, 1);
 	}
 
@@ -997,13 +991,13 @@
 	}
 
 	.svelte-select.focused {
-		border: var(--border-focused, 1px solid #006fe8);
+		border: var(--border-focused, 1px solid #5191f0);
 		border-radius: var(--border-radius-focused, var(--border-radius, 6px));
 	}
 
 	.disabled {
-		background: var(--disabled-background, #ebedef);
-		border-color: var(--disabled-border-color, #ebedef);
+		background: var(--disabled-background, #f0f1f2);
+		border-color: var(--disabled-border-color, #f0f1f2);
 		color: var(--disabled-color, #c1c6cc);
 	}
 
@@ -1056,7 +1050,7 @@
 	}
 
 	.clear-select:focus {
-		outline: var(--clear-select-focus-outline, 1px solid #006fe8);
+		outline: var(--clear-select-focus-outline, 1px solid #5191f0);
 	}
 
 	.loading {
@@ -1073,7 +1067,7 @@
 		background: var(--chevron-background, transparent);
 		pointer-events: var(--chevron-pointer-events, none);
 		color: var(--chevron-color, var(--icons-color));
-		border: var(--chevron-border, 0 0 0 1px solid #d8dbdf);
+		border: var(--chevron-border, 0 0 0 1px solid #7e868f);
 		flex-shrink: 0;
 	}
 
@@ -1089,8 +1083,8 @@
 	}
 
 	.svelte-select.error {
-		border: var(--error-border, 1px solid #ff2d55);
-		background: var(--error-background, #fff);
+		border: var(--error-border, 1px solid #d93843);
+		background: var(--error-background, #f7f7f7);
 	}
 
 	.a11y-text {
@@ -1141,7 +1135,7 @@
 	}
 
 	.multi-item.active {
-		outline: var(--multi-item-active-outline, 1px solid #006fe8);
+		outline: var(--multi-item-active-outline, 1px solid #5191f0);
 	}
 
 	.svelte-select-list {
@@ -1161,7 +1155,7 @@
 	}
 
 	.list-group-title {
-		color: var(--group-title-color, #8f8f8f);
+		color: var(--group-title-color, #464c54);
 		cursor: default;
 		font-size: var(--group-title-font-size, 16px);
 		font-weight: var(--group-title-font-weight, 600);
@@ -1180,7 +1174,7 @@
 	.empty {
 		text-align: var(--list-empty-text-align, center);
 		padding: var(--list-empty-padding, 20px 0);
-		color: var(--list-empty-color, #78848f);
+		color: var(--list-empty-color, #464c54);
 	}
 
 	.item {
@@ -1206,8 +1200,8 @@
 	}
 
 	.item.active {
-		background: var(--item-is-active-bg, #007aff);
-		color: var(--item-is-active-color, #fff);
+		background: var(--item-is-active-bg, #5191f0);
+		color: var(--item-is-active-color, #f7f7f7);
 	}
 
 	.item.first {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CAN_USE_DOM } from '$lib/utils/editor';
+
 	import DropdownItems from './DropdownItems.svelte';
 	import { ChevronDown, Columns, Type } from 'lucide-svelte';
 
@@ -46,25 +47,25 @@
 	type="button"
 	{disabled}
 	aria-label={buttonAriaLabel || buttonLabel}
-	class="{buttonClassName} flex items-center justify-between text-sm bg-neutral-50 rounded-md p-2 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 border-none cursor-pointer align-middle shrink-0"
+	class="{buttonClassName} flex items-center justify-between text-sm bg-gray-50 rounded-md p-2 text-gray-500 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-850 border-none cursor-pointer align-middle shrink-0"
 	on:click={() => (showDropDown = !showDropDown)}
 	bind:this={buttonRef}
 	{title}
 >
 	{#if buttonIconClassName === 'columns'}
-		<Columns class="w-4 h-4 text-neutral-500" />
+		<Columns class="w-4 h-4 text-gray-500" />
 	{:else}
-		<Type class="w-4 h-4 text-neutral-500" />
+		<Type class="w-4 h-4 text-gray-500" />
 	{/if}
 
 	{#if buttonLabel}
 		<span
-			class="flex align-middle leading-5 text-sm text-neutral 400 text-ellipsis overflow-hidden h-[20px] text-left px-3"
+			class="flex align-middle leading-5 text-sm text-gray-700 dark:text-gray-50 text-ellipsis overflow-hidden h-[20px] text-left px-3"
 			>{buttonLabel}</span
 		>
 	{/if}
 
-	<ChevronDown class="w-4 h-4 text-neutral-500" />
+	<ChevronDown class="w-4 h-4 text-gray-500" />
 </button>
 
 {#if showDropDown}

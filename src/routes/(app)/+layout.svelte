@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { i18nType } from '$lib/types';
+
 	import { getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
+
 	import { goto } from '$app/navigation';
 	import { getModels as _getModels } from '$lib/apis';
 	import { getAllChatTags } from '$lib/apis/chats';
@@ -30,6 +32,7 @@
 	import fileSaver from 'file-saver';
 	import { deleteDB, openDB } from 'idb';
 	import type { IDBPDatabase } from 'idb';
+
 	import ChangelogModal from '$lib/components/ChangelogModal.svelte';
 	import SettingsModal from '$lib/components/chat/SettingsModal.svelte';
 	import AccountPending from '$lib/components/layout/Overlay/AccountPending.svelte';
@@ -90,23 +93,7 @@
 
 			await Promise.all([
 				(async () => {
-					models.set(
-						(await getModels()).filter((model) => {
-							if (model.owned_by === 'onnx') {
-								// Only show text-generation models
-								// TODO: add webGPUInfo.hasWebGPU && to the condition to enable adding onnx models only if user has gpu hardware
-								if (model.info?.meta?.task === 'text-generation') {
-									return true;
-								} else {
-									// Otherwise, its not a text-generation model
-									return false;
-								}
-							} else {
-								// Else get all models
-								return true;
-							}
-						})
-					);
+					models.set(await getModels());
 				})(),
 				(async () => {
 					prompts.set(await getPrompts(localStorage.token));
@@ -229,7 +216,7 @@
 										"Saving chat logs directly to your browser's storage is no longer supported. Please take a moment to download and delete your chat logs by clicking the button below. Don't worry, you can easily re-import your chat logs to the backend through"
 									)}
 									<span class="font-semibold dark:text-white"
-										>{$i18n.t('Settings')} > {$i18n.t('Chats')} > {$i18n.t('Import Chats')}</span
+										>{$i18n.t('Settings')} &gt; {$i18n.t('Chats')} &gt; {$i18n.t('Import Chats')}</span
 									>. {$i18n.t(
 										'This ensures that your valuable conversations are securely saved to your backend database. Thank you!'
 									)}

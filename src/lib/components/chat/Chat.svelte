@@ -8,9 +8,11 @@
 		MessageHistory,
 		i18nType
 	} from '$lib/types';
+
 	import { getContext, onDestroy, onMount, tick } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { toast } from 'svelte-sonner';
+
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { chatAction, chatCompleted, generateSearchQuery, generateTitle, getTaskConfig } from '$lib/apis';
@@ -64,10 +66,12 @@
 	import { options } from 'marked';
 	import mermaid from 'mermaid';
 	import { v4 as uuidv4 } from 'uuid';
+
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
 	import Messages from '$lib/components/chat/Messages.svelte';
 	import PromptTemplateGenerator from '$lib/components/cisco/components/PromptTemplateGenerator.svelte';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
+
 	import Banner from '../common/Banner.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import ChatControls from './ChatControls.svelte';
@@ -647,7 +651,8 @@
 			}
 		});
 		const blob = doc.output('blob');
-		const file = new File([blob], `${transformFileName(article.title)}.pdf`, { type: 'application/pdf' });
+		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+		const file = new File([blob], `${transformFileName(article.title)}_${timestamp}.pdf`, { type: 'application/pdf' });
 		return file;
 	};
 	let inputFiles;
@@ -1785,7 +1790,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 			refinedQuery ?? responseMessage.content.replace('We have refined your query to:', '').trim(),
 			seriesName
 		);
-
+		console.log('Article created:', article);
 		chatHasArticle = true;
 		articleId = article.id;
 		const file = exportArticleToFile(article);
@@ -1836,8 +1841,13 @@ Please rewrite the query for optimal search results. Return only the refined que
 					if (model.info) {
 						model.info.meta.knowledge = [...(model.info.meta.knowledge ?? []), { ...doc, type: 'doc' }];
 					}
+					console.log('model', model);
 					await updateModelById(localStorage.token, model.id, {
-						...model.info
+						id: model.id,
+						name: model.name,
+						params: model.info?.params ?? {},
+						meta: model.info?.meta ?? {},
+						base_model_id: model.info?.base_model_id ?? null
 					});
 					chatFiles = [...chatFiles, fileItem];
 				}
@@ -2016,6 +2026,8 @@ Please rewrite the query for optimal search results. Return only the refined que
 	};
 
 	const sendPromptOnnyx = async (model: Model, userPrompt: string, responseMessageId: string, _chatId: string) => {
+		console.log('_chatId', _chatId);
+		console.log('$chatId', $chatId);
 		let _response: string | null = null;
 
 		const responseMessage = history.messages[responseMessageId];
@@ -2041,7 +2053,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 			progress?: (...args: any[]) => void;
 		};
 
-		worker.onmessage = (event: MessageEvent<PipelineWorkerEvent>) => {
+		worker.onmessage = async (event: MessageEvent<PipelineWorkerEvent>) => {
 			console.log('event data: ', event.data);
 			const { status, result, error, progress, text } = event.data;
 
@@ -2055,7 +2067,67 @@ Please rewrite the query for optimal search results. Return only the refined que
 			} else if (status === 'complete') {
 				console.log('complete: ', result);
 				responseMessage.done = true;
-				responseMessage.content = result?.at(-1)?.generated_text.at(-1).content;
+				responseMessage.content = result?.at(-1)?.generated_text.at(-1).content; // Re-enable the content update
+				_response = responseMessage.content;
+				eventTarget.dispatchEvent(
+					new CustomEvent('chat:start', {
+						detail: {
+							id: responseMessageId
+						}
+					})
+				);
+
+				await tick();
+				history.messages[responseMessageId] = responseMessage;
+
+				responseMessage.done = true;
+				if ($chatId == _chatId) {
+					console.log('Chat ID is the same');
+					if ($settings.saveChatHistory ?? true) {
+						console.log('Saving chat history after onnx response');
+						chat = await updateChatById(localStorage.token, _chatId, {
+							messages: messages,
+							history: history,
+							models: selectedModels,
+							params: params,
+							files: chatFiles
+						});
+						chats.set(await getChatList(localStorage.token));
+					}
+				}
+				messages = createMessagesList(responseMessageId);
+				await chatCompletedHandler(_chatId, model.id, responseMessageId, createMessagesList(responseMessageId));
+
+				stopResponseFlag = false;
+				await tick();
+
+				let lastSentence = extractSentencesForAudio(responseMessage.content)?.at(-1) ?? '';
+				if (lastSentence) {
+					eventTarget.dispatchEvent(
+						new CustomEvent('chat', {
+							detail: { id: responseMessageId, content: lastSentence }
+						})
+					);
+				}
+
+				eventTarget.dispatchEvent(
+					new CustomEvent('chat:finish', {
+						detail: {
+							id: responseMessageId,
+							content: responseMessage.content
+						}
+					})
+				);
+
+				if (autoScroll) {
+					scrollToBottom();
+				}
+
+				if (messages.length == 2 && selectedModels[0] === model.id) {
+					window.history.replaceState(history.state, '', `/c/${_chatId}`);
+					const title = await generateChatTitleOnnx(userPrompt);
+					await setChatTitle(_chatId, title);
+				}
 				history.messages[responseMessageId] = responseMessage;
 				worker.terminate();
 			} else if (status === 'error') {
@@ -2065,7 +2137,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 				responseMessage.done = true;
 				worker.terminate();
 			}
-			messages = createMessagesList(responseMessageId);
 		};
 
 		worker.onerror = (error) => {
@@ -2077,97 +2148,6 @@ Please rewrite the query for optimal search results. Return only the refined que
 			messages: msgs,
 			options: { max_new_tokens: 512, do_sample: false, model: model.id, task: model.info?.meta.task }
 		});
-
-		// const messagesBody = [
-		// 	params?.system || $settings.system || (responseMessage?.userContext ?? null)
-		// 		? ({
-		// 				role: 'system',
-		// 				content: `${promptTemplate(
-		// 					params?.system ?? $settings?.system ?? '',
-		// 					$user?.name,
-		// 					$settings?.userLocation ? await getAndUpdateUserLocation(localStorage.token) : undefined
-		// 				)}${responseMessage?.userContext ?? null ? `\n\nUser Context:\n${responseMessage?.userContext ?? ''}` : ''}`
-		// 		  } as Partial<Message>)
-		// 		: undefined,
-		// 	...messages
-		// ]
-		// 	.filter((message) => message?.content?.trim())
-		// 	.map((message) => {
-		// 		// Prepare the base message object
-		// 		const baseMessage: { role?: string; content?: string } = {
-		// 			role: message?.role,
-		// 			content: message?.content
-		// 		};
-
-		// 		return baseMessage;
-		// 	});
-
-		// let files = JSON.parse(JSON.stringify(chatFiles));
-		// if (model?.info?.meta?.knowledge ?? false) {
-		// 	files.push(...(model.info!.meta.knowledge ?? []));
-		// }
-		// if (responseMessage?.files) {
-		// 	files.push(...responseMessage?.files.filter((item) => ['web_search_results'].includes(item.type as string)));
-		// }
-
-		eventTarget.dispatchEvent(
-			new CustomEvent('chat:start', {
-				detail: {
-					id: responseMessageId
-				}
-			})
-		);
-
-		await tick();
-		history.messages[responseMessageId] = responseMessage;
-
-		responseMessage.done = true;
-		if ($chatId == _chatId) {
-			if ($settings.saveChatHistory ?? true) {
-				chat = await updateChatById(localStorage.token, _chatId, {
-					messages: messages,
-					history: history,
-					models: selectedModels,
-					params: params,
-					files: chatFiles
-				});
-				chats.set(await getChatList(localStorage.token));
-			}
-		}
-		messages = createMessagesList(responseMessageId);
-		await chatCompletedHandler(_chatId, model.id, responseMessageId, createMessagesList(responseMessageId));
-
-		stopResponseFlag = false;
-		await tick();
-
-		let lastSentence = extractSentencesForAudio(responseMessage.content)?.at(-1) ?? '';
-		if (lastSentence) {
-			eventTarget.dispatchEvent(
-				new CustomEvent('chat', {
-					detail: { id: responseMessageId, content: lastSentence }
-				})
-			);
-		}
-
-		eventTarget.dispatchEvent(
-			new CustomEvent('chat:finish', {
-				detail: {
-					id: responseMessageId,
-					content: responseMessage.content
-				}
-			})
-		);
-
-		if (autoScroll) {
-			scrollToBottom();
-		}
-
-		messages = createMessagesList(responseMessageId);
-		if (messages.length == 2 && selectedModels[0] === model.id) {
-			window.history.replaceState(history.state, '', `/c/${_chatId}`);
-			const title = await generateChatTitleOnnx(userPrompt);
-			await setChatTitle(_chatId, title);
-		}
 
 		return _response;
 	};
@@ -3196,7 +3176,7 @@ Please rewrite the query for optimal search results. Return only the refined que
 			</div>
 		{/if}
 
-		<div class="flex flex-col flex-auto z-10">
+		<div class="flex flex-col flex-auto z-10 bg-gray-50 text-gray-850 dark:bg-gray-900 dark:text-gray-50">
 			<div
 				class="pb-2.5 flex flex-col justify-between w-full flex-auto overflow-auto h-0 max-w-full z-10 scrollbar-hidden {showControls
 					? 'lg:pr-[24rem]'
