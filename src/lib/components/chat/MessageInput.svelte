@@ -1,8 +1,12 @@
 <script lang="ts">
 	import type { ChatFile, ClientFile, i18nType } from '$lib/types';
 
+	import { writable } from 'svelte/store';
+
 	import { SvelteComponent, getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { cubicIn } from 'svelte/easing';
+	import { tweened } from 'svelte/motion';
 
 	import { goto } from '$app/navigation';
 	import { transcribeAudio } from '$lib/apis/audio';
@@ -40,6 +44,9 @@
 
 	export let atSelectedModel: Model | undefined;
 	export let selectedModels: string[];
+
+	let y = tweened(0, { duration: 400, easing: cubicIn });
+	let scale = tweened(1, { duration: 400, easing: cubicIn });
 
 	let recording = false;
 
@@ -83,6 +90,24 @@
 			chatTextAreaElement.style.height = `${Math.min(chatTextAreaElement.scrollHeight, 200)}px`;
 		}
 	}
+
+	// Watch for when chatHasArticle becomes true
+	$: if (chatHasArticle) {
+		tick().then(jumpEffect);
+	}
+
+	const jumpEffect = async () => {
+		for (let i = 0; i < 3; i++) {
+			await Promise.all([
+				y.set(-15), // Move up
+				scale.set(1.2) // Scale up
+			]);
+			await Promise.all([
+				y.set(0), // Move down
+				scale.set(1) // Scale back to normal
+			]);
+		}
+	};
 
 	const scrollToBottom = () => {
 		const element = document.getElementById('messages-container');
@@ -741,11 +766,12 @@
 									<div class="h-full flex items-center justify-center">
 										<Tooltip content={$i18n.t('View Article')}>
 											<button
-												class="text-sm bg-blue-850 text-white hover:bg-blue-800 dark:bg-gray-850 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-2 mx-1 outline-none focus:outline-none"
+												class="relative text-sm bg-blue-850 text-white hover:bg-blue-800 dark:bg-gray-850 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-2 mx-1 outline-none focus:outline-none"
 												type="button"
+												style="transform: translateY({$y}px);"
 												on:click={async () => {
 													showConfirmationToast();
-												}}><EyeIcon class="w-4 h-4" /></button
+												}}><EyeIcon class="w-4 h-4" style="transform: scale({$scale});" /></button
 											>
 										</Tooltip>
 									</div>

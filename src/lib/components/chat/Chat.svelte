@@ -1793,67 +1793,68 @@ Please rewrite the query for optimal search results. Return only the refined que
 		console.log('Article created:', article);
 		chatHasArticle = true;
 		articleId = article.id;
-		const file = exportArticleToFile(article);
-		await tick();
-		const uploadedFile = await uploadFile(localStorage.token, file);
-		if (uploadedFile) {
-			const fileItem: ClientFile = {
-				type: 'file',
-				file: uploadedFile,
-				id: uploadedFile.id,
-				url: `${WEBUI_API_BASE_URL}/files/${uploadedFile.id}`,
-				name: file.name,
-				collection_name: '',
-				status: 'uploaded',
-				error: ''
-			};
-			// TODO: Check if tools & functions have files support to skip this step to delegate file processing
-			// Default Upload to VectorDB
-			let document;
-			if (
-				SUPPORTED_FILE_TYPE.includes(file.type) ||
-				SUPPORTED_FILE_EXTENSIONS.includes(file?.name?.split('.').at(-1) ?? '')
-			) {
-				document = await processFileItem(fileItem);
-			} else {
-				toast.error(
-					$i18n.t(`Unknown file type '{{file_type}}'. Proceeding with the file upload anyway.`, {
-						file_type: file['type']
-					})
-				);
-				document = await processFileItem(fileItem);
-			}
+		// We don't want to vectorize generated articles UNTIL they have been reviewed @team
+		// const file = exportArticleToFile(article);
+		// await tick();
+		// const uploadedFile = await uploadFile(localStorage.token, file);
+		// if (uploadedFile) {
+		// 	const fileItem: ClientFile = {
+		// 		type: 'file',
+		// 		file: uploadedFile,
+		// 		id: uploadedFile.id,
+		// 		url: `${WEBUI_API_BASE_URL}/files/${uploadedFile.id}`,
+		// 		name: file.name,
+		// 		collection_name: '',
+		// 		status: 'uploaded',
+		// 		error: ''
+		// 	};
+		// 	// TODO: Check if tools & functions have files support to skip this step to delegate file processing
+		// 	// Default Upload to VectorDB
+		// 	let document;
+		// 	if (
+		// 		SUPPORTED_FILE_TYPE.includes(file.type) ||
+		// 		SUPPORTED_FILE_EXTENSIONS.includes(file?.name?.split('.').at(-1) ?? '')
+		// 	) {
+		// 		document = await processFileItem(fileItem);
+		// 	} else {
+		// 		toast.error(
+		// 			$i18n.t(`Unknown file type '{{file_type}}'. Proceeding with the file upload anyway.`, {
+		// 				file_type: file['type']
+		// 			})
+		// 		);
+		// 		document = await processFileItem(fileItem);
+		// 	}
 
-			if (document) {
-				const doc = await createNewDoc(
-					localStorage.token,
-					document.collection_name,
-					document.filename,
-					transformFileName(document.filename),
-					document.filename
-				).catch((error) => {
-					toast.error(error);
-					return null;
-				});
-				if (doc) {
-					console.log('Doc (Article) created:');
-					console.log('Adding doc to model knowledge base:', doc);
-					if (model.info) {
-						model.info.meta.knowledge = [...(model.info.meta.knowledge ?? []), { ...doc, type: 'doc' }];
-					}
-					console.log('model', model);
-					await updateModelById(localStorage.token, model.id, {
-						id: model.id,
-						name: model.name,
-						params: model.info?.params ?? {},
-						meta: model.info?.meta ?? {},
-						base_model_id: model.info?.base_model_id ?? null
-					});
-					chatFiles = [...chatFiles, fileItem];
-				}
-				documents.set(await getDocs(localStorage.token));
-			}
-		}
+		// 	if (document) {
+		// 		const doc = await createNewDoc(
+		// 			localStorage.token,
+		// 			document.collection_name,
+		// 			document.filename,
+		// 			transformFileName(document.filename),
+		// 			document.filename
+		// 		).catch((error) => {
+		// 			toast.error(error);
+		// 			return null;
+		// 		});
+		// 		if (doc) {
+		// 			console.log('Doc (Article) created:');
+		// 			console.log('Adding doc to model knowledge base:', doc);
+		// 			if (model.info) {
+		// 				model.info.meta.knowledge = [...(model.info.meta.knowledge ?? []), { ...doc, type: 'doc' }];
+		// 			}
+		// 			console.log('model', model);
+		// 			await updateModelById(localStorage.token, model.id, {
+		// 				id: model.id,
+		// 				name: model.name,
+		// 				params: model.info?.params ?? {},
+		// 				meta: model.info?.meta ?? {},
+		// 				base_model_id: model.info?.base_model_id ?? null
+		// 			});
+		// 			chatFiles = [...chatFiles, fileItem];
+		// 		}
+		// 		documents.set(await getDocs(localStorage.token));
+		// 	}
+		// }
 		if ($chatId == _chatId) {
 			if ($settings.saveChatHistory ?? true) {
 				await updateChatById(localStorage.token, _chatId, {

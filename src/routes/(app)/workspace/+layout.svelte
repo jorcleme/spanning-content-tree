@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { onMount, getContext } from 'svelte';
+	import type { i18nType } from '$lib/types';
 
-	import { WEBUI_NAME, showSidebar, functions } from '$lib/stores';
-	import MenuLines from '$lib/components/icons/MenuLines.svelte';
+	import { getContext, onMount } from 'svelte';
+
 	import { page } from '$app/stores';
 	import { getFunctions } from '$lib/apis/functions';
+	import { WEBUI_NAME, functions, showSidebar } from '$lib/stores';
 
-	const i18n = getContext('i18n');
+	import MenuLines from '$lib/components/icons/MenuLines.svelte';
+
+	const i18n: i18nType = getContext('i18n');
 
 	onMount(async () => {
 		// functions.set(await getFunctions(localStorage.token));
@@ -19,11 +22,7 @@
 	</title>
 </svelte:head>
 
-<div
-	class=" flex flex-col w-full min-h-screen max-h-screen {$showSidebar
-		? 'md:max-w-[calc(100%-260px)]'
-		: ''}"
->
+<div class=" flex flex-col w-full min-h-screen max-h-screen {$showSidebar ? 'md:max-w-[calc(100%-260px)]' : ''}">
 	<div class=" px-4 pt-3 mt-0.5 mb-1">
 		<div class=" flex items-center gap-1">
 			<div class="{$showSidebar ? 'md:hidden' : ''} mr-1 self-start flex flex-none items-center">
@@ -45,7 +44,7 @@
 
 	<div class="px-4 my-1">
 		<div
-			class="flex scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium rounded-xl bg-transparent/10 p-1"
+			class="flex scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium rounded-xl bg-transparent/10 dark:bg-gray-800 p-1"
 		>
 			<a
 				class="min-w-fit rounded-lg p-1.5 px-3 {$page.url.pathname.includes('/workspace/models')

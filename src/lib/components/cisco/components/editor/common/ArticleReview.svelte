@@ -409,7 +409,10 @@
 				</div>
 				<div class="rounded-xl">
 					{#if $editSectionId === 'title' && articleSections.find((s) => s.id === 'title')}
-						<div id="title-editor" class="mb-8 p-2 bg-white shadow rounded max-w-[1100px] overflow-y-auto">
+						<div
+							id="title-editor"
+							class="my-8 p-2 bg-white dark:bg-gray-800 text-gray-850 dark:text-gray-50 shadow rounded max-w-[1100px]"
+						>
 							<h1 class="text-xl font-semibold mb-4">{formatTitle(activeSectionTitle)}</h1>
 							<Editor
 								config={{
@@ -471,7 +474,10 @@
 					{/if}
 
 					{#if $editSectionId === 'applicable_devices' && articleSections.find((s) => s.id === 'applicable_devices')}
-						<div id="applicable-devices-editor" class="my-8 p-2 bg-white shadow rounded max-w-[1100px]">
+						<div
+							id="applicable-devices-editor"
+							class="my-8 p-2 bg-white dark:bg-gray-800 text-gray-850 dark:text-gray-50 shadow rounded max-w-[1100px]"
+						>
 							<h2 class="text-xl font-semibold mb-4">{activeSectionTitle}</h2>
 							<Editor
 								config={{
@@ -496,7 +502,10 @@
 						</div>
 					{/if}
 					{#if $editSectionId === 'introduction' && articleSections.find((s) => s.id === 'introduction')}
-						<div id="introduction-editor" class="my-8 p-2 bg-white shadow rounded max-w-[1100px]">
+						<div
+							id="introduction-editor"
+							class="my-8 p-2 bg-white dark:bg-gray-800 text-gray-850 dark:text-gray-50 shadow rounded max-w-[1100px]"
+						>
 							<h2 class="text-xl font-semibold mb-4">{activeSectionTitle}</h2>
 							<Editor
 								config={{
@@ -540,7 +549,10 @@
 						{/if}
 						{#if index === parseInt($editSectionId) && articleSections.find((s) => parseInt(s.id) === parseInt($editSectionId))}
 							<div class="my-8" in:receive={{ key: index }} out:send={{ key: index }}>
-								<div id="step-editor-{$editSectionId}" class="my-8 p-2 bg-white shadow rounded max-w-[1100px]">
+								<div
+									id="step-editor-{$editSectionId}"
+									class="my-8 p-2 bg-white dark:bg-gray-800 text-gray-850 dark:text-gray-50 shadow rounded max-w-[1100px]"
+								>
 									<h2 class="text-xl font-semibold mb-4">{activeSectionTitle}</h2>
 									<Editor
 										config={{
@@ -650,7 +662,7 @@
 		height: 0;
 	}
 
-	:global(#editor-eot-doc-wrapper ul > li::before) {
+	:global(#editor-eot-doc-wrapper ul:not(.rounded-counter) > li::before) {
 		content: '●';
 		color: #9b9b9b;
 		font-weight: 100;
@@ -661,7 +673,7 @@
 		padding-right: 0.5rem;
 	}
 
-	:global(#editor-eot-doc-wrapper ul > li) {
+	:global(#editor-eot-doc-wrapper ul:not(.rounded-counter) > li) {
 		margin: 6px;
 	}
 

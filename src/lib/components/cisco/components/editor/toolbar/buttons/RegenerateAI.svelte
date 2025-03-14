@@ -968,12 +968,12 @@
 	let inputFiles: FileList;
 </script>
 
-<Tooltip content={$i18n.t('Use AI to regenerate the text')}>
+<Tooltip className="flex shrink-0" content={$i18n.t('Use AI to regenerate the text')}>
 	<button
 		on:click={() => onRegenerateTextClick()}
-		class="flex items-center mr-1 justify-between bg-neutral-50 rounded-md p-2.5 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 border-none cursor-pointer align-middle shrink-0"
+		class="flex items-center mr-1 justify-between bg-gray-50 rounded-md p-2.5 text-gray-500 dark:text-gray-50 dark:bg-gray-850 hover:bg-neutral-100 dark:hover:bg-neutral-800 border-none cursor-pointer align-middle shrink-0"
 	>
-		<span><Brain class="w-4 h-4 text-neutral-500 mr-2" /></span>
+		<span><Brain class="w-4 h-4 text-gray-500 mr-2" /></span>
 		<span>Use AI</span>
 	</button>
 </Tooltip>

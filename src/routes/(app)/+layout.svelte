@@ -30,8 +30,7 @@
 		user
 	} from '$lib/stores';
 	import fileSaver from 'file-saver';
-	import { deleteDB, openDB } from 'idb';
-	import type { IDBPDatabase } from 'idb';
+	import { type IDBPDatabase, deleteDB, openDB } from 'idb';
 
 	import ChangelogModal from '$lib/components/ChangelogModal.svelte';
 	import SettingsModal from '$lib/components/chat/SettingsModal.svelte';

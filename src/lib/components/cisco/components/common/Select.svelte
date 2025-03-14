@@ -703,7 +703,7 @@
 		<div
 			use:floatingContent
 			bind:this={list}
-			class="svelte-select-list bg-gray-50 text-gray-850 dark:bg-gray-850 dark:text-gray-100"
+			class="svelte-select-list bg-gray-50 text-gray-850"
 			class:prefloat
 			on:scroll={handleListScroll}
 			on:pointerup|preventDefault|stopPropagation
@@ -926,7 +926,7 @@
 		display: flex;
 		align-items: stretch;
 		padding: var(--padding, var(--internal-padding));
-		background: var(--background, #fff);
+		background: var(--background, #f7f7f7);
 		margin: var(--margin, 0);
 		width: var(--width, 100%);
 		font-size: var(--font-size, 16px);
@@ -950,6 +950,7 @@
 		display: flex;
 		flex-shrink: 0;
 		align-items: center;
+		color: var(--text-gray-700, #464c54);
 	}
 
 	.indicators {
@@ -991,7 +992,7 @@
 	}
 
 	.svelte-select.focused {
-		border: var(--border-focused, 1px solid #5191f0);
+		border: var(--border-focused, 1px solid #0d5cbd);
 		border-radius: var(--border-radius-focused, var(--border-radius, 6px));
 	}
 
@@ -1012,7 +1013,7 @@
 		padding: var(--selected-item-padding, 0 20px 0 0);
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		color: var(--selected-item-color, inherit);
+		color: var(--selected-item-color, #23282e);
 		font-size: var(--font-size, 16px);
 	}
 
@@ -1050,7 +1051,7 @@
 	}
 
 	.clear-select:focus {
-		outline: var(--clear-select-focus-outline, 1px solid #5191f0);
+		outline: var(--clear-select-focus-outline, 1px solid #0d5cbd);
 	}
 
 	.loading {
@@ -1100,9 +1101,9 @@
 	}
 
 	.multi-item {
-		background: var(--multi-item-bg, #ebedef);
+		background: var(--multi-item-bg, #e1e4e8);
 		margin: var(--multi-item-margin, 0);
-		outline: var(--multi-item-outline, 1px solid #ddd);
+		outline: var(--multi-item-outline, 1px solid #d0d4d9);
 		border-radius: var(--multi-item-border-radius, 4px);
 		height: var(--multi-item-height, 25px);
 		line-height: var(--multi-item-height, 25px);
@@ -1117,7 +1118,7 @@
 	}
 
 	.multi-item.disabled:hover {
-		background: var(--multi-item-disabled-hover-bg, #ebedef);
+		background: var(--multi-item-disabled-hover-bg, #e1e4e8);
 		color: var(--multi-item-disabled-hover-color, #c1c6cc);
 	}
 
@@ -1131,11 +1132,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		--clear-icon-color: var(--multi-item-clear-icon-color, #000);
+		--clear-icon-color: var(--multi-item-clear-icon-color, #0f1214);
 	}
 
 	.multi-item.active {
-		outline: var(--multi-item-active-outline, 1px solid #5191f0);
+		outline: var(--multi-item-active-outline, 1px solid #0d5cbd);
 	}
 
 	.svelte-select-list {
@@ -1143,7 +1144,7 @@
 		border-radius: var(--list-border-radius, 4px);
 		max-height: var(--list-max-height, 252px);
 		overflow-y: auto;
-		background: var(--list-background, #fff);
+		background: var(--list-background, #f7f7f7);
 		position: var(--list-position, absolute);
 		z-index: var(--list-z-index, 9999);
 		border: var(--list-border);
@@ -1196,11 +1197,11 @@
 	}
 
 	.item:active {
-		background: var(--item-active-background, #b9daff);
+		background: var(--item-active-background, #bad6ff);
 	}
 
 	.item.active {
-		background: var(--item-is-active-bg, #5191f0);
+		background: var(--item-is-active-bg, #0d5cbd);
 		color: var(--item-is-active-color, #f7f7f7);
 	}
 
@@ -1209,7 +1210,7 @@
 	}
 
 	.item.hover:not(.active) {
-		background: var(--item-hover-bg, #e7f2ff);
+		background: var(--item-hover-bg, #e1e4e8);
 		color: var(--item-hover-color, inherit);
 	}
 

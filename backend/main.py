@@ -964,7 +964,7 @@ async def get_all_models():
     pipe_models = []
     openai_models = []
     ollama_models = []
-    onnx_models = await get_onnx_models()
+    # onnx_models = await get_onnx_models()
 
     pipe_models = await get_pipe_models()
 
@@ -986,7 +986,7 @@ async def get_all_models():
             for model in ollama_models["models"]
         ]
 
-    models = pipe_models + openai_models + ollama_models + onnx_models
+    models = pipe_models + openai_models + ollama_models
     log.debug(f"MODELS = {models}")
     global_action_ids = [
         function.id for function in Functions.get_global_action_functions()

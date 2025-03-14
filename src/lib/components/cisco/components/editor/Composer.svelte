@@ -2,10 +2,12 @@
 
 <script lang="ts">
 	import { writable } from 'svelte/store';
+
 	import { onMount, setContext } from 'svelte';
+
 	import { createSharedEditorContext, initializeEditor, setEditor, setHistoryStateContext } from '$lib/utils/editor';
 	import { createEmptyHistoryState } from '@lexical/history';
-	import { createEditor, $getRoot as getRoot } from 'lexical';
+	import { createEditor } from 'lexical';
 	import type { CreateEditorArgs } from 'lexical';
 
 	export let initialConfig: CreateEditorArgs;

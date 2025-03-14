@@ -1,9 +1,11 @@
 <script lang="ts">
 	import type { Message } from '$lib/types';
 	import type { i18nType } from '$lib/types';
+
 	import { createEventDispatcher } from 'svelte';
 	import { getContext, onMount, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
+
 	import { synthesizeOpenAISpeech } from '$lib/apis/audio';
 	import { imageGenerations } from '$lib/apis/images';
 	import { WEBUI_BASE_URL } from '$lib/constants';
@@ -23,11 +25,13 @@
 	import mermaid from 'mermaid';
 	import type { Instance } from 'tippy.js';
 	import tippy from 'tippy.js';
+
 	import CitationsModal from '$lib/components/chat/Messages/CitationsModal.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Sparkles from '$lib/components/icons/Sparkles.svelte';
+
 	import CodeBlock from './CodeBlock.svelte';
 	import Name from './Name.svelte';
 	import ProfileImage from './ProfileImage.svelte';
@@ -544,7 +548,6 @@
 												id={`${message.id}-${tokenIdx}`}
 												lang={token?.lang ?? ''}
 												code={revertSanitizedResponseContent(token?.text ?? '')}
-												text={token?.text ?? ''}
 											/>
 										{/if}
 									{:else}

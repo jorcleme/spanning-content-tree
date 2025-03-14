@@ -15,17 +15,18 @@
 	import { createOpenAITextStream } from '$lib/apis/streaming';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import type { Model, _CiscoArticleMessage } from '$lib/stores';
-	import { config, settings } from '$lib/stores';
 	import {
 		activeArticle,
 		activeArticleId,
 		activeSupportStep,
 		ciscoArticleMessages,
+		config,
 		globalMessages,
 		models,
 		mountedArticlePreambleDevices,
 		mountedArticlePreambleObjective,
 		mountedArticleSteps,
+		settings,
 		socket,
 		user
 	} from '$lib/stores';
@@ -94,6 +95,13 @@
 	let thumbsUpOpen = false;
 	let thumbsDownOpen = false;
 
+	let sourceList: string[] = [
+		'Search the content database for text similar to the question and context.',
+		'Select and summarize relevant chunks from the broader text',
+		'Use Generative AI to produce an answer from the selected chunks.',
+		'Have Cisco experts review the answer for accuracy and relevancy.'
+	];
+
 	let atSelectedModel: Model | undefined;
 	let selectedModelIds: string[] = [];
 
@@ -142,6 +150,7 @@
 		}
 		return initTokens;
 	};
+
 	let tokenMap: { [id: string]: TokensList } = {};
 	$: messages.forEach((m) => {
 		if (m.role === 'assistant') {
@@ -849,7 +858,7 @@
 					directions = `The devices the user is performing the configuration on: ${$mountedArticlePreambleDevices}\nBelow is the context of all steps leading to the current step. The most recent step is the most important to pay attention to.\n<objective>\n\t${$mountedArticlePreambleObjective}\n</objective>\n\n<article-steps>:\n\t${context}\n</article-steps>\nThe user doesn't understand the latest step, use the context of the previous article steps to explain in simple language how the latest step ties into the objective of the article. Keep your answer simple, easy to understand and limited to answering the question about the most recent step only. Do not direct the user in other steps.`;
 					break;
 				case 1:
-					directions = `You are a one-shot troubleshooting helper. The article objective, devices, steps and context will be labelled within XML-Style tags. Use the context and/or prior article steps to answer the users questions. If you can't find the answer in the context below, just say "Hmm, I'm not sure." Don't try to make up an answer. Use the previous steps as context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\n\n<objective>\n\t${mountedArticlePreambleObjective}\n</objective>\n\n<devices>\n\t${mountedArticlePreambleDevices}\n</devices>\n\n<article-steps>:\n\t${context}\n</article-steps>\n\n<Question>\n\tI need help troubleshooting\n</Question>\n\n<context>\n\t[[context]]\n</context>\n\nBe sure to cite the articles content when responding. Keep your answer simple, easy to understand and limited to answering the question about the most recent step only. Do not direct the user in other steps.`;
+					directions = `You are a one-shot troubleshooting helper. The article objective, devices, steps and context will be labelled within XML-Style tags. Use the context and/or prior article steps to answer the users questions. If you can't find the answer in the context below, just say "Hmm, I'm not sure." Don't try to make up an answer. Use the previous steps as context to inform what steps to take next but most importantly pay attention to the latest step in the configuration.\n\n<objective>\n\t${$mountedArticlePreambleObjective}\n</objective>\n\n<devices>\n\t${$mountedArticlePreambleDevices}\n</devices>\n\n<article-steps>:\n\t${context}\n</article-steps>\n\n<Question>\n\tI need help troubleshooting\n</Question>\n\n<context>\n\t[[context]]\n</context>\n\nBe sure to cite the articles content when responding. Keep your answer simple, easy to understand and limited to answering the question about the most recent step only. Do not direct the user in other steps.`;
 					needsContextFlag = true;
 					break;
 				case 2:
@@ -1293,7 +1302,7 @@
 	on:toggle={startGenerateDynamicQuestions}
 	bind:open
 	transition:slide={{ duration: 1000, easing: quintInOut }}
-	class="detailsGetSupport bg-gray-50 p-4 text-gray-850 dark:bg-gray-850 dark:text-gray-50 max-w-[1100px] cursor-pointer"
+	class="detailsGetSupport bg-gray-50 p-4 text-gray-850 dark:bg-gray-850 dark:text-gray-50 max-w-[1100px] cursor-pointer rounded-md"
 >
 	<summary tabindex="-1" class="flex items-center gap-2 cursor-pointer">
 		<p
@@ -1317,331 +1326,209 @@
 		{#each messages as message, i (message.id)}
 			{#key message.id}
 				{#if message && message.role === 'user' && i !== 1}
-					<ProfileImage
-						src={model?.info?.meta?.profile_image_url ??
-							($i18n.language === 'dg-DG' ? `/doge.png` : `${WEBUI_BASE_URL}/static/favicon.png`)}
-					/>
-					<div
-						id="message-{message.id}"
-						class="message-{message.id} question {message.role} bg-blue-100 text-blue-950 rounded-lg p-4 ml-2 w-fit mb-1 dark:prose-invert whitespace-pre-line"
-						dir={$settings.chatDirection}
-					>
-						<h4>{message.content}</h4>
-					</div>
-				{:else if message.role === 'assistant' && i !== 0}
-					<Name _classes="mt-1">
-						{model?.name ?? message.model}
-
-						{#if message.timestamp}
-							<span class=" self-center group-hover:visible text-gray-400 text-xs font-medium uppercase">
-								{dayjs(message.timestamp * 1000).format($i18n.t('h:mm a'))}
-							</span>
-						{/if}
-					</Name>
-					{#if edit}
-						<div class="w-full bg-gray-50 dark:bg-gray-800 rounded-3xl px-5 py-3 my-2">
-							<textarea
-								id="message-edit-{message.id}"
-								bind:this={editTextAreaElement}
-								class=" bg-transparent outline-none w-full resize-none"
-								bind:value={editedContent}
-								on:input={(e) => {
-									e.currentTarget.style.height = '';
-									e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-								}}
-								on:keydown={(e) => {
-									if (e.key === 'Escape') {
-										document.getElementById('close-edit-message-button')?.click();
-									}
-
-									const isCmdOrCtrlPressed = e.metaKey || e.ctrlKey;
-									const isEnterPressed = e.key === 'Enter';
-
-									if (isCmdOrCtrlPressed && isEnterPressed) {
-										document.getElementById('save-edit-message-button')?.click();
-									}
-								}}
+					<div class=" flex w-full user-message" id="message-{message.id}" dir={$settings.chatDirection}>
+						{#if !($settings?.chatBubble ?? true)}
+							<ProfileImage
+								src={$user ? ($user.profile_image_url ? $user.profile_image_url : '/user.png') : '/user.png'}
 							/>
-
-							<div class=" mt-2 mb-1 flex justify-end space-x-1.5 text-sm font-medium">
-								<button
-									id="close-edit-message-button"
-									class="px-4 py-2 bg-white hover:bg-gray-100 text-gray-800 transition rounded-3xl"
-									on:click={() => {
-										cancelEditMessage();
-									}}
-								>
-									{$i18n.t('Cancel')}
-								</button>
-
-								<button
-									id="save-edit-message-button"
-									class=" px-4 py-2 bg-gray-900 hover:bg-gray-850 text-gray-100 transition rounded-3xl"
-									on:click={() => {
-										editMessageConfirmHandler(message.id);
-									}}
-								>
-									{$i18n.t('Save')}
-								</button>
-							</div>
-						</div>
-					{:else}
-						<div
-							bind:this={latest}
-							id="message-{message.id}"
-							class="message-{message.id} {message.role} dark:prose-invert bg-gray-100 dark:bg-gray-900 dark:text-gray-50 rounded-lg p-4 text-gray-850 ml-2 w-fit mb-1 space-y-1 whitespace-pre-line flex flex-col"
-						>
-							{#if message.content === '' && !message.error}
-								<Skeleton />
-							{:else if message.content && message.error !== true}
-								<!-- always show message contents even if there's an error -->
-								<!-- unless message.error === true which is legacy error handling, where the error message is stored in message.content -->
-								{#each tokenMap[message.id] as token, tokenIdx}
-									{#if token.type === 'code'}
-										{#if token.lang === 'mermaid'}
-											<pre class="mermaid">{revertSanitizedResponseContent(token.text)}</pre>
+						{/if}
+						<div class="w-full overflow-hidden pl-1">
+							{#if !($settings?.chatBubble ?? true)}
+								<div>
+									<Name>
+										{#if $settings.showUsername}
+											<span class=" text-gray-500 text-sm font-medium">{$user?.name ?? ''}</span>
 										{:else}
-											<CodeBlock
-												id={`${message.id}-${tokenIdx}`}
-												lang={token?.lang ?? ''}
-												code={revertSanitizedResponseContent(token?.text ?? '')}
-											/>
+											{$i18n.t('You')}
 										{/if}
-									{:else}
-										{@html marked.parse(token.raw, {
-											...defaults,
-											gfm: true,
-											breaks: true,
-											renderer
-										})}
-									{/if}
-								{/each}
-							{/if}
-							{#if message.error}
-								<div
-									class="flex mt-2 mb-4 space-x-2 border px-4 py-3 border-red-800 bg-red-800/30 font-medium rounded-lg"
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="w-5 h-5 self-center"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-										/>
-									</svg>
 
-									<div class=" self-center">
-										{message?.error?.content ?? message.content}
-									</div>
+										{#if message.timestamp}
+											<span class=" invisible group-hover:visible text-gray-400 text-xs font-medium uppercase">
+												{dayjs(message.timestamp * 1000).format($i18n.t('h:mm a'))}
+											</span>
+										{/if}
+									</Name>
 								</div>
 							{/if}
 
-							{#if message.done}
-								{@const isLastMessage = messages.length - 1 === i}
-								<div class="w-full ml-2">
-									<div class=" flex justify-start overflow-x-auto buttons text-gray-600 dark:text-gray-500">
-										{#if !readOnly}
-											<Tooltip content={$i18n.t('Edit')} placement="bottom">
-												<button
-													class="{isLastMessage
-														? 'visible'
-														: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
-													on:click={async () => {
-														await editMessageHandler(message.content);
-													}}
-												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke-width="2.3"
-														stroke="currentColor"
-														class="w-4 h-4"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"
-														/>
-													</svg>
-												</button>
-											</Tooltip>
-										{/if}
+							<div
+								class="prose chat-{message.role} w-full max-w-full flex flex-col justify-end dark:prose-invert prose-headings:my-0 prose-p:my-0 prose-p:-mb-4 prose-pre:my-0 prose-table:my-0 prose-blockquote:my-0 prose-img:my-0 prose-ul:-my-4 prose-ol:-my-4 prose-li:-my-3 prose-ul:-mb-6 prose-ol:-mb-6 prose-li:-mb-4 whitespace-pre-line"
+							>
+								<div class="flex {$settings?.chatBubble ?? true ? 'justify-end' : ''} mb-2">
+									<div
+										class="rounded-3xl {$settings?.chatBubble ?? true
+											? `max-w-[90%] px-5 py-2  bg-blue-50 dark:bg-blue-950`
+											: ''}"
+									>
+										<pre id="user-message-{message.id}">{message.content}</pre>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				{:else if message.role === 'assistant' && i !== 0}
+					<div
+						class=" flex w-full assistant-message-{message.id}"
+						id="message-{message.id}"
+						dir={$settings.chatDirection}
+					>
+						<ProfileImage
+							src={model?.info?.meta?.profile_image_url ??
+								($i18n.language === 'dg-DG' ? `/doge.png` : `${WEBUI_BASE_URL}/static/favicon.png`)}
+						/>
+						<div class="w-full overflow-hidden pl-1">
+							<Name _classes="mt-1">
+								{model?.name ?? message.model}
 
-										<Tooltip content={$i18n.t('Copy')} placement="bottom">
-											<button
-												class="{isLastMessage
-													? 'visible'
-													: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition copy-response-button"
-												on:click={() => {
-													copyToClipboardWithToast(message.content);
-												}}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke-width="2.3"
-													stroke="currentColor"
-													class="w-4 h-4"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
-													/>
-												</svg>
-											</button>
-										</Tooltip>
+								{#if message.timestamp}
+									<span class="self-center group-hover:visible text-gray-400 text-xs font-medium uppercase">
+										{dayjs(message.timestamp * 1000).format($i18n.t('h:mm a'))}
+									</span>
+								{/if}
+							</Name>
+							{#if edit && $user?.role === 'admin'}
+								<div class="w-full bg-gray-50 dark:bg-gray-800 rounded-3xl px-5 py-3 my-2">
+									<textarea
+										id="message-edit-{message.id}"
+										bind:this={editTextAreaElement}
+										class=" bg-transparent outline-none w-full resize-none"
+										bind:value={editedContent}
+										on:input={(e) => {
+											e.currentTarget.style.height = '';
+											e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+										}}
+										on:keydown={(e) => {
+											if (e.key === 'Escape') {
+												document.getElementById('close-edit-message-button')?.click();
+											}
 
-										<Tooltip content={$i18n.t('Read Aloud')} placement="bottom">
-											<button
-												id="speak-button-{message.id}"
-												class="{isLastMessage
-													? 'visible'
-													: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
-												on:click={() => {
-													if (!loadingSpeech) {
-														toggleSpeakMessage(message.content);
-													}
-												}}
-											>
-												{#if loadingSpeech}
-													<svg
-														class=" w-4 h-4"
-														fill="currentColor"
-														viewBox="0 0 24 24"
-														xmlns="http://www.w3.org/2000/svg"
-														><style>
-															.spinner_S1WN {
-																animation: spinner_MGfb 0.8s linear infinite;
-																animation-delay: -0.8s;
-															}
-															.spinner_Km9P {
-																animation-delay: -0.65s;
-															}
-															.spinner_JApP {
-																animation-delay: -0.5s;
-															}
-															@keyframes spinner_MGfb {
-																93.75%,
-																100% {
-																	opacity: 0.2;
-																}
-															}
-														</style><circle class="spinner_S1WN" cx="4" cy="12" r="3" /><circle
-															class="spinner_S1WN spinner_Km9P"
-															cx="12"
-															cy="12"
-															r="3"
-														/><circle class="spinner_S1WN spinner_JApP" cx="20" cy="12" r="3" /></svg
-													>
-												{:else if speaking}
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke-width="2.3"
-														stroke="currentColor"
-														class="w-4 h-4"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"
-														/>
-													</svg>
+											const isCmdOrCtrlPressed = e.metaKey || e.ctrlKey;
+											const isEnterPressed = e.key === 'Enter';
+
+											if (isCmdOrCtrlPressed && isEnterPressed) {
+												document.getElementById('save-edit-message-button')?.click();
+											}
+										}}
+									/>
+
+									<div class="mt-2 mb-1 flex justify-end space-x-1.5 text-sm font-medium">
+										<button
+											id="close-edit-message-button"
+											class="px-4 py-2 bg-white hover:bg-gray-100 text-gray-800 transition rounded-3xl"
+											on:click={() => {
+												cancelEditMessage();
+											}}
+										>
+											{$i18n.t('Cancel')}
+										</button>
+
+										<button
+											id="save-edit-message-button"
+											class=" px-4 py-2 bg-gray-900 hover:bg-gray-850 text-gray-100 transition rounded-3xl"
+											on:click={() => {
+												editMessageConfirmHandler(message.id);
+											}}
+										>
+											{$i18n.t('Save')}
+										</button>
+									</div>
+								</div>
+							{:else}
+								<div
+									bind:this={latest}
+									id="message-{message.id}"
+									class="message-{message.id} {message.role} dark:prose-invert bg-gray-100 dark:bg-gray-900 dark:text-gray-50 rounded-lg p-4 text-gray-850 ml-2 w-fit mb-1 space-y-1 whitespace-pre-line flex flex-col"
+								>
+									{#if message.content === '' && !message.error}
+										<Skeleton />
+									{:else if message.content && message.error !== true}
+										<!-- always show message contents even if there's an error -->
+										<!-- unless message.error === true which is legacy error handling, where the error message is stored in message.content -->
+										{#each tokenMap[message.id] as token, tokenIdx}
+											{#if token.type === 'code'}
+												{#if token.lang === 'mermaid'}
+													<pre class="mermaid">{revertSanitizedResponseContent(token.text)}</pre>
 												{:else}
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke-width="2.3"
-														stroke="currentColor"
-														class="w-4 h-4"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
-														/>
-													</svg>
+													<CodeBlock
+														id={`${message.id}-${tokenIdx}`}
+														lang={token?.lang ?? ''}
+														code={revertSanitizedResponseContent(token?.text ?? '')}
+													/>
 												{/if}
-											</button>
-										</Tooltip>
-
-										{#key message.info}
-											{#if message.info}
-												<Tooltip content={$i18n.t('Generation Info')} placement="bottom">
-													<button
-														class=" {isLastMessage
-															? 'visible'
-															: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition whitespace-pre-wrap"
-														on:click={() => {
-															console.log(message);
-														}}
-														id="info-{message.id}"
-													>
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															fill="none"
-															viewBox="0 0 24 24"
-															stroke-width="2.3"
-															stroke="currentColor"
-															class="w-4 h-4"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
-															/>
-														</svg>
-													</button>
-												</Tooltip>
+											{:else}
+												{@html marked.parse(token.raw, {
+													...defaults,
+													gfm: true,
+													breaks: true,
+													renderer
+												})}
 											{/if}
-										{/key}
-										{#if isLastMessage}
-											<Tooltip content={$i18n.t('Continue Response')} placement="bottom">
-												<button
-													type="button"
-													class="{isLastMessage
-														? 'visible'
-														: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition regenerate-response-button"
-													on:click={() => {
-														continueGeneration(message.id);
-													}}
-												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														viewBox="0 0 24 24"
-														fill="none"
-														class="w-4 h-4"
-														stroke="currentColor"
-													>
-														<path
-															fill-rule="evenodd"
-															d="M15.97 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H7.5a.75.75 0 0 1 0-1.5h11.69l-3.22-3.22a.75.75 0 0 1 0-1.06Zm-7.94 9a.75.75 0 0 1 0 1.06l-3.22 3.22H16.5a.75.75 0 0 1 0 1.5H4.81l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 0Z"
-															clip-rule="evenodd"
-														/>
-													</svg>
-												</button>
-											</Tooltip>
-											{#if !readOnly}
-												<Tooltip content={$i18n.t('Regenerate')} placement="bottom">
+										{/each}
+									{/if}
+									{#if message.error}
+										<div
+											class="flex mt-2 mb-4 space-x-2 border px-4 py-3 border-red-800 bg-red-800/30 font-medium rounded-lg"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="1.5"
+												stroke="currentColor"
+												class="w-5 h-5 self-center"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+												/>
+											</svg>
+
+											<div class=" self-center">
+												{message?.error?.content ?? message.content}
+											</div>
+										</div>
+									{/if}
+
+									{#if message.done}
+										{@const isLastMessage = messages.length - 1 === i}
+										<div class="w-full ml-2">
+											<div class=" flex justify-start overflow-x-auto buttons text-gray-600 dark:text-gray-500">
+												{#if !readOnly && ($user?.role === 'admin' || false)}
+													<Tooltip content={$i18n.t('Edit')} placement="bottom">
+														<button
+															class="{isLastMessage
+																? 'visible'
+																: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
+															on:click={async () => {
+																await editMessageHandler(message.content);
+															}}
+														>
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke-width="2.3"
+																stroke="currentColor"
+																class="w-4 h-4"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"
+																/>
+															</svg>
+														</button>
+													</Tooltip>
+												{/if}
+
+												<Tooltip content={$i18n.t('Copy')} placement="bottom">
 													<button
-														type="button"
 														class="{isLastMessage
 															? 'visible'
-															: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition regenerate-response-button"
-														on:click={async () => {
-															show = false;
-															await regenerateResponse(message);
+															: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition copy-response-button"
+														on:click={() => {
+															copyToClipboardWithToast(message.content);
 														}}
 													>
 														<svg
@@ -1655,14 +1542,175 @@
 															<path
 																stroke-linecap="round"
 																stroke-linejoin="round"
-																d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+																d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
 															/>
 														</svg>
 													</button>
 												</Tooltip>
-											{/if}
 
-											<!-- {#each model?.actions ?? [] as action}
+												<Tooltip content={$i18n.t('Read Aloud')} placement="bottom">
+													<button
+														id="speak-button-{message.id}"
+														class="{isLastMessage
+															? 'visible'
+															: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
+														on:click={() => {
+															if (!loadingSpeech) {
+																toggleSpeakMessage(message.content);
+															}
+														}}
+													>
+														{#if loadingSpeech}
+															<svg
+																class=" w-4 h-4"
+																fill="currentColor"
+																viewBox="0 0 24 24"
+																xmlns="http://www.w3.org/2000/svg"
+																><style>
+																	.spinner_S1WN {
+																		animation: spinner_MGfb 0.8s linear infinite;
+																		animation-delay: -0.8s;
+																	}
+																	.spinner_Km9P {
+																		animation-delay: -0.65s;
+																	}
+																	.spinner_JApP {
+																		animation-delay: -0.5s;
+																	}
+																	@keyframes spinner_MGfb {
+																		93.75%,
+																		100% {
+																			opacity: 0.2;
+																		}
+																	}
+																</style><circle class="spinner_S1WN" cx="4" cy="12" r="3" /><circle
+																	class="spinner_S1WN spinner_Km9P"
+																	cx="12"
+																	cy="12"
+																	r="3"
+																/><circle class="spinner_S1WN spinner_JApP" cx="20" cy="12" r="3" /></svg
+															>
+														{:else if speaking}
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke-width="2.3"
+																stroke="currentColor"
+																class="w-4 h-4"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"
+																/>
+															</svg>
+														{:else}
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke-width="2.3"
+																stroke="currentColor"
+																class="w-4 h-4"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
+																/>
+															</svg>
+														{/if}
+													</button>
+												</Tooltip>
+
+												{#key message.info}
+													{#if message.info}
+														<Tooltip content={$i18n.t('Generation Info')} placement="bottom">
+															<button
+																class=" {isLastMessage
+																	? 'visible'
+																	: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition whitespace-pre-wrap"
+																on:click={() => {
+																	console.log(message);
+																}}
+																id="info-{message.id}"
+															>
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	fill="none"
+																	viewBox="0 0 24 24"
+																	stroke-width="2.3"
+																	stroke="currentColor"
+																	class="w-4 h-4"
+																>
+																	<path
+																		stroke-linecap="round"
+																		stroke-linejoin="round"
+																		d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+																	/>
+																</svg>
+															</button>
+														</Tooltip>
+													{/if}
+												{/key}
+												{#if isLastMessage}
+													<Tooltip content={$i18n.t('Continue Response')} placement="bottom">
+														<button
+															type="button"
+															class="{isLastMessage
+																? 'visible'
+																: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition regenerate-response-button"
+															on:click={() => {
+																continueGeneration(message.id);
+															}}
+														>
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																viewBox="0 0 24 24"
+																fill="none"
+																class="w-4 h-4"
+																stroke="currentColor"
+															>
+																<path
+																	fill-rule="evenodd"
+																	d="M15.97 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H7.5a.75.75 0 0 1 0-1.5h11.69l-3.22-3.22a.75.75 0 0 1 0-1.06Zm-7.94 9a.75.75 0 0 1 0 1.06l-3.22 3.22H16.5a.75.75 0 0 1 0 1.5H4.81l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 0Z"
+																	clip-rule="evenodd"
+																/>
+															</svg>
+														</button>
+													</Tooltip>
+													{#if !readOnly}
+														<Tooltip content={$i18n.t('Regenerate')} placement="bottom">
+															<button
+																type="button"
+																class="{isLastMessage
+																	? 'visible'
+																	: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition regenerate-response-button"
+																on:click={async () => {
+																	show = false;
+																	await regenerateResponse(message);
+																}}
+															>
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	fill="none"
+																	viewBox="0 0 24 24"
+																	stroke-width="2.3"
+																	stroke="currentColor"
+																	class="w-4 h-4"
+																>
+																	<path
+																		stroke-linecap="round"
+																		stroke-linejoin="round"
+																		d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+																	/>
+																</svg>
+															</button>
+														</Tooltip>
+													{/if}
+
+													<!-- {#each model?.actions ?? [] as action}
 													<Tooltip content={action.name} placement="bottom">
 														<button
 															type="button"
@@ -1686,202 +1734,213 @@
 														</button>
 													</Tooltip>
 												{/each} -->
-										{/if}
-									</div>
-								</div>
-								{#if message.sources && message.sources.length > 0}
-									<details
-										class="sources bg-gray-100 text-gray-850 rounded-lg p-4 mt-8 hover:cursor-pointer"
-										on:toggle={(e) => {
-											let icon = document.querySelector('.square-code-icon');
-											icon?.classList.toggle('rotate-90');
-										}}
-									>
-										<summary
-											id="source-summary"
-											class="flex flex-row items-center justify-start space-x-2 transition-transform"
-										>
-											<h4 class="font-bold font-['CiscoSansLight'] text-underline">Sources</h4>
-											<SquareCode
-												class="square-code-icon w-6 h-6 transition-transform"
-												stroke="currentColor"
-											/></summary
-										>
-										<h3 class="mb-2">How did we use AI and Cisco experts to provide this answer?</h3>
-										<div
-											class="flex flex-col space-y-3 items-start mt-2"
-											transition:slide={{ axis: 'x', duration: 1000, delay: 300, easing: cubicIn }}
-										>
-											<div class="flex flex-col gap-y-2 divide-gray-300">
-												<div>
-													We search our content database for similar text to the question and context. We then use small
-													chunks of the broader text to summarize or pick and choose which chunks are relevant. In the
-													end Generative AI uses the chunks to arrive at the answer. The answer produced is then
-													reviewed for accuracy and relevancy by Cisco experts.
-												</div>
-												<div class="flex flex-col gap-2">
-													<div>
-														Visit <a
-															target="_blank"
-															href="https://www.cisco.com/site/us/en/solutions/artificial-intelligence/responsible-ai/index.html"
-															class="text-blue-500">Cisco's Responsible AI Framework</a
-														>
-													</div>
-													<div>
-														Read <a
-															target="_blank"
-															href="https://www.cisco.com/c/en/us/about/legal/privacy-full.html"
-															class="text-blue-500">Cisco Privacy Policy</a
-														>
-													</div>
-												</div>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													id="a"
-													style="width: 6em; height: auto; fill: transparent; transform: rotate(90deg);"
-													viewBox="0 0 80 80"
-													class="self-center"
-													stroke="currentColor"
-													><path
-														d="M16.61133,38.93262c-.27466,.25714-.5332,.52881-.7771,.81171-.11157,.12817-.20752,.26715-.3125,.40009-.12402,.15875-.25244,.31415-.36719,.47931-.151,.21576-.28516,.44122-.41943,.66736-.05408,.09192-.11157,.18158-.16284,.27496-.13379,.24207-.25354,.49048-.36768,.74261-.04102,.09052-.08179,.18054-.12036,.27216-.104,.24835-.19873,.49982-.28357,.75641-.0387,.11603-.07263,.23315-.1073,.35052-.06885,.23553-.13501,.47119-.1875,.7124-.03955,.17798-.06665,.35828-.09692,.53839-.03137,.19092-.0686,.37964-.08972,.5733-.04333,.38721-.06921,.77722-.06921,1.1698,0,.32526,.01978,.64679,.04895,.96619,.00916,.10132,.02209,.20129,.03406,.30176,.0271,.22467,.06128,.44714,.10229,.66791,.01904,.10303,.0365,.20636,.05859,.30835,.06384,.29456,.1366,.5863,.22473,.87231,.02234,.07269,.0509,.1424,.07471,.21442,.07385,.22235,.15344,.44214,.24133,.65826,.04419,.10822,.09131,.21442,.13879,.32086,.08362,.18738,.17297,.37158,.26697,.55347,.04834,.09326,.0946,.18732,.14563,.27899,.14526,.26129,.29895,.51752,.46545,.76532,.02832,.04199,.05994,.08118,.08875,.12274,.14734,.21265,.30225,.41962,.46472,.62103,.06042,.07489,.12292,.14764,.1853,.22089,.14478,.16974,.2948,.33453,.45007,.49506,.06409,.06628,.12659,.13361,.19238,.19818,.21448,.21051,.43542,.41479,.66785,.60712,.04321,.03571,.0896,.0672,.1333,.10223,.18884,.15112,.3822,.29681,.58179,.43536,.1123,.07825,.22803,.15137,.34326,.22528,.13232,.08423,.26587,.16602,.40234,.24469,.14136,.08191,.28296,.16223,.42822,.23773,.09985,.05164,.20288,.09833,.30469,.14697,.16113,.07733,.31934,.15961,.48486,.22894-.10986,.55402-.16528,1.11041-.16528,1.66052,0,4.7998,3.90479,8.70459,8.70459,8.70459,.21777,0,.44629-.01398,.68494-.03473,.13367-.0105,.26624-.02362,.39832-.0401l.02319-.00232-.00024-.00122c.13745-.01752,.27344-.03864,.40869-.0625,1.06604,2.44189,3.45508,4.05005,6.16675,4.05005,3.72217,0,6.75-3.02783,6.75-6.75v-7.25h11.43945l-2.71973,2.71973,1.06055,1.06055,4-4c.29297-.29297,.29297-.76758,0-1.06055l-4-4-1.06055,1.06055,2.71973,2.71973h-11.43945v-14.5h21.43945l-2.71973,2.71973,1.06055,1.06055,4-4c.29297-.29297,.29297-.76758,0-1.06055l-4-4-1.06055,1.06055,2.71973,2.71973h-21.43945v-14.5h11.43945l-2.71973,2.71973,1.06055,1.06055,4-4c.29297-.29297,.29297-.76758,0-1.06055l-4-4-1.06055,1.06055,2.71973,2.71973h-11.43945v-7.25c0-3.72217-3.02783-6.75-6.75-6.75-2.9043,0-5.49072,1.89844-6.40137,4.60449-.08472-.01038-.1709-.00806-.2561-.01575l.00073-.00818c-.23291-.021-.46777-.03516-.70703-.03516-4.27344,0-7.75,3.47656-7.75,7.75,0,1.02148,.20508,2.03564,.59814,2.97852-.01062,.00391-.0199,.01001-.03052,.01398-.40881,.1535-.80542,.33105-1.18262,.54169l-.01965,.01202c-.33875,.19031-.66003,.40631-.96887,.63873-.06201,.04657-.125,.09106-.18579,.13916-.29297,.23279-.57092,.48254-.83142,.75043-.06531,.06708-.12512,.138-.18835,.20715-.21143,.23175-.41028,.47406-.59595,.7276-.04968,.06781-.10303,.13214-.15063,.20135-.20947,.30377-.39648,.62305-.56653,.95294-.04407,.08551-.08386,.17236-.12512,.2594-.15015,.31659-.28467,.64136-.39648,.97742-.01245,.03796-.02905,.07391-.04102,.11212-.11694,.36871-.20251,.75018-.26965,1.13824-.01599,.09198-.02942,.18396-.04236,.27686-.05542,.39612-.09399,.79749-.09399,1.20862,0,.36279,.02979,.72089,.07373,1.07587,.0083,.06671,.01526,.13312,.02515,.19958,.05078,.34564,.12085,.6864,.2124,1.021,.01514,.05573,.03369,.11011,.04993,.16547,.09351,.31708,.20276,.62866,.33191,.93256,.01501,.03546,.02686,.07184,.04248,.10706,.1355,.3075,.29395,.60455,.46533,.89532,.02588,.04419,.04382,.0921,.07056,.13586l.00854-.00525c.18225,.29736,.37646,.58844,.59546,.86462-.37329,.2674-.72217,.55884-1.05298,.86597l-.00659-.00708Zm.61816,1.51617c.0592-.06274,.1189-.125,.18018-.18634,.52661-.52484,1.11841-.99615,1.77881-1.39233,.19678-.11768,.32861-.31885,.35791-.54639,.02979-.22705-.04639-.45557-.20605-.61963-.42456-.43622-.78052-.92053-1.07764-1.43463-.10669-.18506-.20544-.3739-.29468-.56696-.03394-.07288-.07031-.14459-.10156-.21857-.11182-.26471-.20947-.53491-.28857-.81091-.01501-.052-.02515-.10541-.03882-.15778-.06226-.23651-.11182-.47626-.14954-.71851-.01196-.0766-.02405-.15308-.03357-.23022-.03613-.29272-.06055-.58759-.06055-.88489,0-.37201,.03711-.73627,.09229-1.09503,.01001-.06494,.01807-.13037,.02979-.1947,.06213-.34161,.14819-.67548,.25732-.99988,.021-.06244,.04517-.12335,.06775-.18506,.12085-.32935,.25793-.65155,.42419-.95746,.00708-.01312,.01599-.02515,.02319-.03815,.16211-.29395,.34961-.57196,.55054-.83978,.04187-.05573,.08179-.11285,.12524-.1673,.20776-.26086,.43408-.50677,.67676-.73694,.04773-.04541,.09717-.08887,.14624-.133,.26343-.23645,.53967-.46008,.83765-.65668l.00732-.00439c.65771-.4328,1.39465-.76343,2.19189-.96576l.00098-.00055c.5686-.14471,1.16052-.22992,1.77344-.22992,2.22119,0,4.28467,1.00195,5.66162,2.74854l1.17773-.92871c-1.66309-2.10986-4.15576-3.31982-6.83936-3.31982-.52698,0-1.04053,.05487-1.54199,.14502-.36853-.81012-.57178-1.68781-.57178-2.57666,0-3.44629,2.80371-6.25,6.25-6.25,.45361,0,.90527,.04834,1.34326,.14453,.40527,.09033,.80469-.16797,.89258-.57178,.52441-2.38623,2.68066-4.11816,5.12793-4.11816,2.89502,0,5.25,2.35498,5.25,5.25v23.25h-6.93311c-3.23145,0-6.14551-1.91748-7.42334-4.88574l-1.37793,.59375c1.51562,3.51855,4.97021,5.79199,8.80127,5.79199h6.93311v23.25c0,2.89502-2.35498,5.25-5.25,5.25-2.03345,0-3.84058-1.15833-4.71094-2.94232,3.33911-1.21808,5.73389-4.41608,5.73389-8.17145h-1.5c0,3.66162-2.7478,6.68738-6.28857,7.13971v-.00055c-.30078,.03857-.60498,.06543-.91602,.06543-3.97266,0-7.20459-3.23193-7.20459-7.20459,0-.39197,.04602-.78845,.11414-1.18555,.8446,.21704,1.72449,.34473,2.63586,.34473,1.43262,0,2.82227-.28076,4.13135-.83398l-.58398-1.38184c-1.12305,.4751-2.31689,.71582-3.54736,.71582-1.05908,0-2.07227-.19092-3.01855-.5246-.5896-.20721-1.14514-.47382-1.66675-.78656-.09058-.05469-.18262-.10736-.27136-.16504-.1156-.07495-.22717-.15479-.33875-.23456-.11243-.08069-.22363-.16296-.33215-.24854-.09436-.07416-.18787-.14917-.27893-.22681-.12842-.10956-.25232-.22394-.37439-.34033-.06775-.06451-.13806-.12689-.20374-.19342-.1814-.18396-.35571-.37463-.52112-.5733-.04529-.05438-.08594-.11243-.12988-.16785-.12085-.15222-.2384-.30713-.34949-.46698-.05908-.08533-.11499-.17285-.17126-.26013-.08899-.13782-.17444-.27814-.25598-.42096-.0542-.09491-.10815-.19-.15894-.28687-.08057-.15363-.15479-.31104-.22668-.46967-.03906-.08618-.08179-.17047-.11829-.258-.0979-.23529-.18591-.47571-.26416-.72046-.02905-.0907-.05164-.1839-.07788-.2757-.04907-.17175-.09521-.3446-.13403-.52032-.02295-.10291-.04285-.20673-.06226-.31067-.03345-.18042-.06104-.36279-.08362-.54675-.01135-.09229-.02454-.1842-.03308-.27722-.02539-.27667-.04248-.55585-.04248-.83905,0-.36975,.02759-.73419,.07031-1.09454,.01221-.10205,.03113-.20227,.04663-.30341,.04053-.26489,.09058-.52692,.15369-.78479,.0249-.10229,.05103-.20416,.07947-.3053,.07715-.27344,.16748-.54181,.26953-.8053,.02686-.06964,.04968-.14093,.07837-.20984,.27722-.66626,.63501-1.29486,1.06384-1.87653,.05383-.07306,.11267-.14307,.16882-.21472,.17297-.22015,.35498-.4339,.54883-.63843Z"
-													/><path
-														d="M35.99121,46.75879v-1.5c-3.71729,0-6.74121,3.02393-6.74121,6.74121h1.5c0-2.89014,2.35107-5.24121,5.24121-5.24121Z"
-													/><path
-														d="M26.75195,42.01074h-1.5c0,2.896-2.35596,5.25195-5.25195,5.25195v1.5c3.72314,0,6.75195-3.02881,6.75195-6.75195Z"
-													/><path
-														d="M38.75098,15.98145h-1.5c0,2.89551-2.35547,5.25098-5.25098,5.25098v1.5c3.72266,0,6.75098-3.02832,6.75098-6.75098Z"
-													/></svg
-												>
-											</div>
-											<hr class="bg-slate-300 w-full" />
-											{#each message.sources as source, i (i)}
-												{#if source.doc_type === 'AdminGuide'}
-													<div
-														class="admin-guide flex flex-col gap-y-2 border-l-4 border-green-500 bg-gray-50 px-2 py-2 rounded-md w-full divide-slate-700"
-													>
-														<div class="flex flex-row items-center gap-2">
-															<div>
-																<FileText />
-															</div>
-															<div>
-																<ul class="py-2 m-0">
-																	<li class="ml-2">Type: {source.doc_type}</li>
-																	<li class="ml-2">Chapter: {source.title}</li>
-																	<li class="ml-2">Topic: {source.topic}</li>
-																</ul>
-															</div>
-														</div>
-														<div>
-															<a
-																class="hover:underline dark:text-gray-200 text-blue-600 p-2"
-																href={source.source}
-																target="_blank">View {source.concept} Admin Guide</a
-															>
-														</div>
-													</div>
-												{:else if source.doc_type === 'CLIGuide'}
-													<div
-														class="cli-guide flex flex-col gap-y-2 border-l-4 border-indigo-500 bg-gray-50 px-2 py-2 rounded-md w-full"
-													>
-														<div class="flex flex-row items-center gap-2">
-															<div>
-																<FileCode />
-															</div>
-															<div>
-																<ul class="py-2">
-																	<li class="ml-2">Type: {source.doc_type}</li>
-																	<li class="ml-2">Chapter: {source.title}</li>
-																	<li class="ml-2">Topic: {source.topic}</li>
-																</ul>
-															</div>
-														</div>
-														<div>
-															<a
-																class="hover:underline dark:text-gray-200 text-blue-600 p-2"
-																href={source.source}
-																target="_blank">View {source.concept} CLI Guide</a
-															>
-														</div>
-													</div>
 												{/if}
-											{/each}
+											</div>
 										</div>
-									</details>
-								{/if}
-								<div
-									class="flex flex-col justify-center items-end mt-2 gap-2"
-									in:fade={{ duration: 1000, easing: cubicIn }}
-								>
-									<h4 class="py-2">Helpful?</h4>
-									<div class="flex flex-row items-center space-x-3">
-										<button
-											on:click={async () => {
-												await rateMessage(message.id, 1);
-												activeSupportStep.set(index + 1);
-												await tick();
-												if (message.associatedQuestion) {
-													currentQuestion = message.associatedQuestion;
-												}
-												show = true;
-												window.setTimeout(() => {
-													document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
-												}, 0);
-											}}
-											class="flex items-center rounded-md py-1.5 px-2 text-center bg-blue-950 text-white hover:bg-blue-800"
+										{#if message.sources && message.sources.length > 0}
+											<details
+												class="sources bg-gray-100 text-gray-850 rounded-lg p-4 mt-8 hover:cursor-pointer"
+												on:toggle={(e) => {
+													let icon = document.querySelector('.square-code-icon');
+													icon?.classList.toggle('rotate-90');
+												}}
+											>
+												<summary
+													id="source-summary"
+													class="flex flex-row items-center justify-start space-x-2 transition-transform"
+												>
+													<h4 class="font-bold font-['CiscoSansLight'] text-underline">Sources</h4>
+													<SquareCode
+														class="square-code-icon w-6 h-6 transition-transform"
+														stroke="currentColor"
+													/></summary
+												>
+												<h3 class="mb-2">How did we use AI and Cisco experts to provide this answer?</h3>
+												<div
+													class="flex flex-col space-y-3 items-start mt-2"
+													transition:slide={{ axis: 'x', duration: 1000, delay: 300, easing: cubicIn }}
+												>
+													<div class="flex flex-col gap-y-2 divide-gray-300">
+														<div>
+															<ul class="rounded-counter">
+																<li>Search the content database for text similar to the question and context.</li>
+																<li>Select and summarize relevant chunks from the broader text.</li>
+																<li>Use Generative AI to produce an answer from the selected chunks.</li>
+																<li>Have Cisco experts review the answer for accuracy and relevancy.</li>
+															</ul>
+														</div>
+														<div class="flex flex-col gap-2">
+															<div>
+																Read <a
+																	target="_blank"
+																	href="https://www.cisco.com/c/en/us/about/legal/privacy-full.html"
+																	class="text-blue-800 hover:text-blue-700">Cisco Privacy Policy</a
+																>
+															</div>
+															<div>
+																For more details, visit <a
+																	target="_blank"
+																	href="https://www.cisco.com/site/us/en/solutions/artificial-intelligence/responsible-ai/index.html"
+																	class="text-blue-800 hover:text-blue-700">Cisco's Responsible AI Framework</a
+																>
+															</div>
+														</div>
+														<div class="flex w-full items-center">
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																id="a"
+																style="width: 6em; height: auto; fill: transparent; transform: rotate(90deg);"
+																viewBox="0 0 80 80"
+																class="self-center"
+																stroke="currentColor"
+																><path
+																	d="M16.61133,38.93262c-.27466,.25714-.5332,.52881-.7771,.81171-.11157,.12817-.20752,.26715-.3125,.40009-.12402,.15875-.25244,.31415-.36719,.47931-.151,.21576-.28516,.44122-.41943,.66736-.05408,.09192-.11157,.18158-.16284,.27496-.13379,.24207-.25354,.49048-.36768,.74261-.04102,.09052-.08179,.18054-.12036,.27216-.104,.24835-.19873,.49982-.28357,.75641-.0387,.11603-.07263,.23315-.1073,.35052-.06885,.23553-.13501,.47119-.1875,.7124-.03955,.17798-.06665,.35828-.09692,.53839-.03137,.19092-.0686,.37964-.08972,.5733-.04333,.38721-.06921,.77722-.06921,1.1698,0,.32526,.01978,.64679,.04895,.96619,.00916,.10132,.02209,.20129,.03406,.30176,.0271,.22467,.06128,.44714,.10229,.66791,.01904,.10303,.0365,.20636,.05859,.30835,.06384,.29456,.1366,.5863,.22473,.87231,.02234,.07269,.0509,.1424,.07471,.21442,.07385,.22235,.15344,.44214,.24133,.65826,.04419,.10822,.09131,.21442,.13879,.32086,.08362,.18738,.17297,.37158,.26697,.55347,.04834,.09326,.0946,.18732,.14563,.27899,.14526,.26129,.29895,.51752,.46545,.76532,.02832,.04199,.05994,.08118,.08875,.12274,.14734,.21265,.30225,.41962,.46472,.62103,.06042,.07489,.12292,.14764,.1853,.22089,.14478,.16974,.2948,.33453,.45007,.49506,.06409,.06628,.12659,.13361,.19238,.19818,.21448,.21051,.43542,.41479,.66785,.60712,.04321,.03571,.0896,.0672,.1333,.10223,.18884,.15112,.3822,.29681,.58179,.43536,.1123,.07825,.22803,.15137,.34326,.22528,.13232,.08423,.26587,.16602,.40234,.24469,.14136,.08191,.28296,.16223,.42822,.23773,.09985,.05164,.20288,.09833,.30469,.14697,.16113,.07733,.31934,.15961,.48486,.22894-.10986,.55402-.16528,1.11041-.16528,1.66052,0,4.7998,3.90479,8.70459,8.70459,8.70459,.21777,0,.44629-.01398,.68494-.03473,.13367-.0105,.26624-.02362,.39832-.0401l.02319-.00232-.00024-.00122c.13745-.01752,.27344-.03864,.40869-.0625,1.06604,2.44189,3.45508,4.05005,6.16675,4.05005,3.72217,0,6.75-3.02783,6.75-6.75v-7.25h11.43945l-2.71973,2.71973,1.06055,1.06055,4-4c.29297-.29297,.29297-.76758,0-1.06055l-4-4-1.06055,1.06055,2.71973,2.71973h-11.43945v-14.5h21.43945l-2.71973,2.71973,1.06055,1.06055,4-4c.29297-.29297,.29297-.76758,0-1.06055l-4-4-1.06055,1.06055,2.71973,2.71973h-21.43945v-14.5h11.43945l-2.71973,2.71973,1.06055,1.06055,4-4c.29297-.29297,.29297-.76758,0-1.06055l-4-4-1.06055,1.06055,2.71973,2.71973h-11.43945v-7.25c0-3.72217-3.02783-6.75-6.75-6.75-2.9043,0-5.49072,1.89844-6.40137,4.60449-.08472-.01038-.1709-.00806-.2561-.01575l.00073-.00818c-.23291-.021-.46777-.03516-.70703-.03516-4.27344,0-7.75,3.47656-7.75,7.75,0,1.02148,.20508,2.03564,.59814,2.97852-.01062,.00391-.0199,.01001-.03052,.01398-.40881,.1535-.80542,.33105-1.18262,.54169l-.01965,.01202c-.33875,.19031-.66003,.40631-.96887,.63873-.06201,.04657-.125,.09106-.18579,.13916-.29297,.23279-.57092,.48254-.83142,.75043-.06531,.06708-.12512,.138-.18835,.20715-.21143,.23175-.41028,.47406-.59595,.7276-.04968,.06781-.10303,.13214-.15063,.20135-.20947,.30377-.39648,.62305-.56653,.95294-.04407,.08551-.08386,.17236-.12512,.2594-.15015,.31659-.28467,.64136-.39648,.97742-.01245,.03796-.02905,.07391-.04102,.11212-.11694,.36871-.20251,.75018-.26965,1.13824-.01599,.09198-.02942,.18396-.04236,.27686-.05542,.39612-.09399,.79749-.09399,1.20862,0,.36279,.02979,.72089,.07373,1.07587,.0083,.06671,.01526,.13312,.02515,.19958,.05078,.34564,.12085,.6864,.2124,1.021,.01514,.05573,.03369,.11011,.04993,.16547,.09351,.31708,.20276,.62866,.33191,.93256,.01501,.03546,.02686,.07184,.04248,.10706,.1355,.3075,.29395,.60455,.46533,.89532,.02588,.04419,.04382,.0921,.07056,.13586l.00854-.00525c.18225,.29736,.37646,.58844,.59546,.86462-.37329,.2674-.72217,.55884-1.05298,.86597l-.00659-.00708Zm.61816,1.51617c.0592-.06274,.1189-.125,.18018-.18634,.52661-.52484,1.11841-.99615,1.77881-1.39233,.19678-.11768,.32861-.31885,.35791-.54639,.02979-.22705-.04639-.45557-.20605-.61963-.42456-.43622-.78052-.92053-1.07764-1.43463-.10669-.18506-.20544-.3739-.29468-.56696-.03394-.07288-.07031-.14459-.10156-.21857-.11182-.26471-.20947-.53491-.28857-.81091-.01501-.052-.02515-.10541-.03882-.15778-.06226-.23651-.11182-.47626-.14954-.71851-.01196-.0766-.02405-.15308-.03357-.23022-.03613-.29272-.06055-.58759-.06055-.88489,0-.37201,.03711-.73627,.09229-1.09503,.01001-.06494,.01807-.13037,.02979-.1947,.06213-.34161,.14819-.67548,.25732-.99988,.021-.06244,.04517-.12335,.06775-.18506,.12085-.32935,.25793-.65155,.42419-.95746,.00708-.01312,.01599-.02515,.02319-.03815,.16211-.29395,.34961-.57196,.55054-.83978,.04187-.05573,.08179-.11285,.12524-.1673,.20776-.26086,.43408-.50677,.67676-.73694,.04773-.04541,.09717-.08887,.14624-.133,.26343-.23645,.53967-.46008,.83765-.65668l.00732-.00439c.65771-.4328,1.39465-.76343,2.19189-.96576l.00098-.00055c.5686-.14471,1.16052-.22992,1.77344-.22992,2.22119,0,4.28467,1.00195,5.66162,2.74854l1.17773-.92871c-1.66309-2.10986-4.15576-3.31982-6.83936-3.31982-.52698,0-1.04053,.05487-1.54199,.14502-.36853-.81012-.57178-1.68781-.57178-2.57666,0-3.44629,2.80371-6.25,6.25-6.25,.45361,0,.90527,.04834,1.34326,.14453,.40527,.09033,.80469-.16797,.89258-.57178,.52441-2.38623,2.68066-4.11816,5.12793-4.11816,2.89502,0,5.25,2.35498,5.25,5.25v23.25h-6.93311c-3.23145,0-6.14551-1.91748-7.42334-4.88574l-1.37793,.59375c1.51562,3.51855,4.97021,5.79199,8.80127,5.79199h6.93311v23.25c0,2.89502-2.35498,5.25-5.25,5.25-2.03345,0-3.84058-1.15833-4.71094-2.94232,3.33911-1.21808,5.73389-4.41608,5.73389-8.17145h-1.5c0,3.66162-2.7478,6.68738-6.28857,7.13971v-.00055c-.30078,.03857-.60498,.06543-.91602,.06543-3.97266,0-7.20459-3.23193-7.20459-7.20459,0-.39197,.04602-.78845,.11414-1.18555,.8446,.21704,1.72449,.34473,2.63586,.34473,1.43262,0,2.82227-.28076,4.13135-.83398l-.58398-1.38184c-1.12305,.4751-2.31689,.71582-3.54736,.71582-1.05908,0-2.07227-.19092-3.01855-.5246-.5896-.20721-1.14514-.47382-1.66675-.78656-.09058-.05469-.18262-.10736-.27136-.16504-.1156-.07495-.22717-.15479-.33875-.23456-.11243-.08069-.22363-.16296-.33215-.24854-.09436-.07416-.18787-.14917-.27893-.22681-.12842-.10956-.25232-.22394-.37439-.34033-.06775-.06451-.13806-.12689-.20374-.19342-.1814-.18396-.35571-.37463-.52112-.5733-.04529-.05438-.08594-.11243-.12988-.16785-.12085-.15222-.2384-.30713-.34949-.46698-.05908-.08533-.11499-.17285-.17126-.26013-.08899-.13782-.17444-.27814-.25598-.42096-.0542-.09491-.10815-.19-.15894-.28687-.08057-.15363-.15479-.31104-.22668-.46967-.03906-.08618-.08179-.17047-.11829-.258-.0979-.23529-.18591-.47571-.26416-.72046-.02905-.0907-.05164-.1839-.07788-.2757-.04907-.17175-.09521-.3446-.13403-.52032-.02295-.10291-.04285-.20673-.06226-.31067-.03345-.18042-.06104-.36279-.08362-.54675-.01135-.09229-.02454-.1842-.03308-.27722-.02539-.27667-.04248-.55585-.04248-.83905,0-.36975,.02759-.73419,.07031-1.09454,.01221-.10205,.03113-.20227,.04663-.30341,.04053-.26489,.09058-.52692,.15369-.78479,.0249-.10229,.05103-.20416,.07947-.3053,.07715-.27344,.16748-.54181,.26953-.8053,.02686-.06964,.04968-.14093,.07837-.20984,.27722-.66626,.63501-1.29486,1.06384-1.87653,.05383-.07306,.11267-.14307,.16882-.21472,.17297-.22015,.35498-.4339,.54883-.63843Z"
+																/><path
+																	d="M35.99121,46.75879v-1.5c-3.71729,0-6.74121,3.02393-6.74121,6.74121h1.5c0-2.89014,2.35107-5.24121,5.24121-5.24121Z"
+																/><path
+																	d="M26.75195,42.01074h-1.5c0,2.896-2.35596,5.25195-5.25195,5.25195v1.5c3.72314,0,6.75195-3.02881,6.75195-6.75195Z"
+																/><path
+																	d="M38.75098,15.98145h-1.5c0,2.89551-2.35547,5.25098-5.25098,5.25098v1.5c3.72266,0,6.75098-3.02832,6.75098-6.75098Z"
+																/></svg
+															>
+														</div>
+													</div>
+													<hr class="bg-gray-300 w-full" />
+													{#each message.sources as source, i (i)}
+														{#if source.doc_type === 'AdminGuide'}
+															<div
+																class="admin-guide flex flex-col gap-y-2 border-l-4 border-green-500 bg-gray-50 px-2 py-2 rounded-md w-full divide-slate-700"
+															>
+																<div class="flex flex-row items-center gap-2">
+																	<div>
+																		<FileText />
+																	</div>
+																	<div>
+																		<ul class="py-2 m-0">
+																			<li class="ml-2">Chapter: {source.title}</li>
+																			<li class="ml-2">Topic: {source.topic}</li>
+																		</ul>
+																	</div>
+																</div>
+																<div>
+																	View
+																	<a
+																		class="hover:underline text-blue-800 hover:text-blue-700 p-2"
+																		href={source.source}
+																		target="_blank">{source.concept}</a
+																	>
+																</div>
+															</div>
+														{:else if source.doc_type === 'CLIGuide'}
+															<div
+																class="cli-guide flex flex-col gap-y-2 border-l-4 border-indigo-500 bg-gray-50 px-2 py-2 rounded-md w-full"
+															>
+																<div class="flex flex-row items-center gap-2">
+																	<div>
+																		<FileCode />
+																	</div>
+																	<div>
+																		<ul class="py-2">
+																			<li class="ml-2">Chapter: {source.title}</li>
+																			<li class="ml-2">Topic: {source.topic}</li>
+																		</ul>
+																	</div>
+																</div>
+																<div>
+																	View
+																	<a
+																		class="hover:underline text-blue-800 hover:text-blue-700 p-2"
+																		href={source.source}
+																		target="_blank">{source.concept}</a
+																	>
+																</div>
+															</div>
+														{/if}
+													{/each}
+												</div>
+											</details>
+										{/if}
+										<div
+											class="flex flex-col justify-center items-end mt-2 gap-2"
+											in:fade={{ duration: 1000, easing: cubicIn }}
 										>
-											<ThumbsUp style="color:white;" />
-										</button>
-										<button
-											on:click={async () => {
-												await rateMessage(message.id, -1);
-												activeSupportStep.set(index + 1);
-												await tick();
-												if (message.associatedQuestion) {
-													currentQuestion = message.associatedQuestion;
-												}
-												show = true;
-												window.setTimeout(() => {
-													document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
-												}, 0);
-											}}
-											class="flex items-center rounded-md py-1.5 px-2 text-center bg-blue-950 text-white hover:bg-blue-800"
-										>
-											<ThumbsDown />
-										</button>
-									</div>
+											<h4 class="py-2">Helpful?</h4>
+											<div class="flex flex-row items-center space-x-3">
+												<button
+													on:click={async () => {
+														await rateMessage(message.id, 1);
+														activeSupportStep.set(index + 1);
+														await tick();
+														if (message.associatedQuestion) {
+															currentQuestion = message.associatedQuestion;
+														}
+														show = true;
+														window.setTimeout(() => {
+															document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
+														}, 0);
+													}}
+													class="flex items-center rounded-md py-1.5 px-2 text-center bg-blue-950 text-white hover:bg-blue-800"
+												>
+													<ThumbsUp style="color:white;" />
+												</button>
+												<button
+													on:click={async () => {
+														await rateMessage(message.id, -1);
+														activeSupportStep.set(index + 1);
+														await tick();
+														if (message.associatedQuestion) {
+															currentQuestion = message.associatedQuestion;
+														}
+														show = true;
+														window.setTimeout(() => {
+															document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
+														}, 0);
+													}}
+													class="flex items-center rounded-md py-1.5 px-2 text-center bg-blue-950 text-white hover:bg-blue-800"
+												>
+													<ThumbsDown />
+												</button>
+											</div>
+										</div>
+									{/if}
+									{#if !message.done}
+										<div class="relative flex justify-end w-full">
+											<div class="absolute bottom-0 right-0 flex items-center mb-1.5">
+												<button
+													class="bg-gray-50 hover:bg-gray-100 text-gray-850 dark:bg-gray-800 dark:text-gray-50 dark:hover:bg-gray-800 transition rounded-full p-1.5"
+													on:click={() => {
+														stopResponse();
+													}}
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														viewBox="0 0 24 24"
+														fill="currentColor"
+														class="size-6"
+													>
+														<path
+															fill-rule="evenodd"
+															d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm6-2.438c0-.724.588-1.312 1.313-1.312h4.874c.725 0 1.313.588 1.313 1.313v4.874c0 .725-.588 1.313-1.313 1.313H9.564a1.312 1.312 0 01-1.313-1.313V9.564z"
+															clip-rule="evenodd"
+														/>
+													</svg>
+												</button>
+											</div>
+										</div>
+									{/if}
 								</div>
-							{/if}
-							{#if !message.done}
-								<div class="relative flex justify-end w-full">
-									<div class="absolute bottom-0 right-0 flex items-center mb-1.5">
-										<button
-											class="bg-gray-50 hover:bg-gray-100 text-gray-850 dark:bg-gray-800 dark:text-gray-50 dark:hover:bg-gray-800 transition rounded-full p-1.5"
-											on:click={() => {
-												stopResponse();
-											}}
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
-												<path
-													fill-rule="evenodd"
-													d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm6-2.438c0-.724.588-1.312 1.313-1.312h4.874c.725 0 1.313.588 1.313 1.313v4.874c0 .725-.588 1.313-1.313 1.313H9.564a1.312 1.312 0 01-1.313-1.313V9.564z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-										</button>
-									</div>
-								</div>
+								<Feedback
+									messageId={message.id}
+									{message}
+									bind:show
+									btnText={currentQuestion}
+									on:submit={async () => {
+										await sendUpdateArticle(message);
+									}}
+								/>
 							{/if}
 						</div>
-						<Feedback
-							messageId={message.id}
-							{message}
-							bind:show
-							btnText={currentQuestion}
-							on:submit={async () => {
-								await sendUpdateArticle(message);
-							}}
-						/>
-					{/if}
+					</div>
 				{/if}
 			{/key}
 		{/each}
@@ -1907,12 +1966,15 @@
 							animate:flip={{ duration: 200 }}
 							on:click={async () => await generateLLMAnswer(i, btn.id, btn.text)}
 							disabled={btn.clicked}
-							class="button bg-blue-50 text-blue-950 text-sm border border-blue-950 hover:bg-blue-100 text-base py-2 px-4 rounded-md hover:cursor-pointer transition qna-button-{i}"
-							class:clicked={btn.clicked}
+							class="button bg-blue-50 text-blue-950 text-sm border border-blue-950 hover:bg-blue-100 text-base py-2 px-4 rounded-md hover:cursor-pointer transition qna-button-{i} {btn.clicked
+								? 'clicked'
+								: ''}"
 							id={btn.id}
 							tabindex="0"
 							data-index={i}
-							data-clicked={btn.clicked}>{btn.text}</button
+							data-clicked={btn.clicked}
+							aria-label={btn.text}
+							aria-pressed={btn.clicked}>{btn.text}</button
 						>
 					{/each}
 				{/key}
@@ -1922,34 +1984,11 @@
 </details>
 
 <style>
-	/* details:not(.detailsGetSupport):not(.custom-details):not(.sources) {
-		color: #333;
-		padding: 1em;
-		border: #d2d2d2 1px solid;
-		-webkit-transition: all 0.25s ease-in;
-		-o-transition: all 0.25s ease-in;
-		transition: all 0.25s ease-in;
-		margin: 1em 0;
-		border-radius: 0 16px 16px 0;
-		position: relative;
-		background-color: var(--menu-background-gray);
-		max-width: 1100px;
-		cursor: pointer;
-	} */
-
 	/* Rotate animation for the SquareCode icon */
 	.rotate {
 		transform: rotateY(360deg);
 		transition: transform 0.5s ease;
 	}
-
-	/* .custom-details {
-		border: 1px solid #d2d2d2;
-		border-radius: 5px;
-		transition: all 0.25s ease-in;
-		background: white;
-		width: 100%;
-	} */
 
 	details[open] > summary {
 		margin-bottom: 1em;
@@ -1980,11 +2019,11 @@
 	details > div.messageWell {
 		background-image: radial-gradient(
 				75.83% 78.18% at 51.72% 100%,
-				rgba(56, 96, 190, 0.03) 0%,
-				rgba(100, 187, 227, 0.03) 65.24%,
-				rgba(223, 223, 223, 0) 100%
+				rgba(56, 96, 190, 0.1) 0%,
+				rgba(100, 187, 227, 0.1) 65.24%,
+				rgba(223, 223, 223, 0.05) 100%
 			),
-			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0) 0deg, rgba(56, 96, 190, 0.02) 360deg);
+			conic-gradient(from 180deg at 50% 50%, rgba(56, 96, 190, 0.05) 0deg, rgba(56, 96, 190, 0.1) 360deg);
 	}
 
 	.genericSupportButtons {
@@ -2003,34 +2042,40 @@
 		gap: 1em;
 	}
 
-	/* .button {
-		display: inline;
-		text-align: center;
-		text-decoration: none;
-		color: #2b5592;
-		border: 1px solid #2b5592;
-		background-color: transparent;
-		transition: all 0.5s ease-in-out;
-		font-family: 'CiscoSansThin';
-		transform-origin: center center;
-		will-change: transform;
-		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-	} */
-
-	.button:hover {
-		background-color: rgba(155, 215, 255, 0.5);
-		color: #2b5592;
-		border: #2b5592 1px solid;
-		box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-	}
-
 	.button.clicked {
 		color: rgb(136, 136, 136);
 		border: 1px solid rgb(136, 136, 136);
 	}
 
-	/* .question.user {
-		background: rgba(155, 215, 255, 0.5);
-		color: #2b5592 !important;
-	} */
+	.rounded-counter {
+		counter-reset: li;
+		list-style: none;
+		padding-left: 2.5rem; /* Adjust to make room for the numbers */
+	}
+	.rounded-counter li {
+		position: relative;
+		padding-left: 1rem; /* Space between number and text */
+		margin-bottom: 1rem;
+	}
+	.rounded-counter li::before {
+		content: counter(li);
+		counter-increment: li;
+		position: absolute;
+		left: 0;
+		top: 0;
+		transform: translateX(-2.5rem);
+		background-color: #005c66;
+		border: 1px solid #c6c6c6;
+		color: white;
+		height: 2rem;
+		width: 2rem;
+		line-height: 2rem;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		vertical-align: middle;
+		font-weight: 700;
+		border-radius: 9999px;
+		transition: all 0.3s ease-out;
+	}
 </style>

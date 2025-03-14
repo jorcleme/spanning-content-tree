@@ -522,7 +522,7 @@
 		height: 0;
 	}
 
-	:global(#eot-doc-wrapper ul > li::before) {
+	:global(#eot-doc-wrapper ul:not(.rounded-counter) > li::before) {
 		content: '●';
 		color: #9b9b9b;
 		font-weight: 100;
@@ -533,11 +533,11 @@
 		padding-right: 0.5rem;
 	}
 
-	:global(#eot-doc-wrapper ul > li) {
+	:global(#eot-doc-wrapper ul:not(.rounded-counter) > li) {
 		margin: 6px;
 	}
 
-	:global(#eot-doc-wrapper ul > li > a) {
+	:global(#eot-doc-wrapper ul:not(.rounded-counter) > li > a) {
 		color: #0051af;
 		font-size: 1rem;
 		font-family: 'CiscoSansThin';
@@ -547,7 +547,6 @@
 	#eot-doc-wrapper .cdt-best-practice:before {
 		color: #6cc04a;
 		content: '\272A  Best Practice:';
-		font-size: 14px;
 		font-weight: 700;
 		line-height: 2em;
 		-webkit-transition: all 0.3s ease;

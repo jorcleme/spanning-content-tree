@@ -1,6 +1,6 @@
 <script>
-	// Styles
-	import '@harbor/elements/styles.css';
+	// // Styles
+	// import '@harbor/elements/styles.css';
 	// Magnetic Design System styles
 	import '@harbor/elements/dist/harbor-elements/styles/themes/magnetic.css';
 	import '@harbor/elements/dist/harbor-elements/styles/tokens/magnetic.css';

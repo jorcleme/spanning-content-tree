@@ -61,7 +61,7 @@
 
 		<div class="px-4 my-1">
 			<div
-				class="flex scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium rounded-xl bg-transparent/10 p-1"
+				class="flex scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium rounded-xl bg-transparent/10 dark:bg-gray-800 p-1"
 			>
 				<a
 					class="min-w-fit rounded-lg p-1.5 px-3 {['/admin', '/admin/'].includes($page.url.pathname)

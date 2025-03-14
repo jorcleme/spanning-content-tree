@@ -11,7 +11,6 @@
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
-	import GearSix from '$lib/components/icons/GearSix.svelte';
 
 	const i18n: i18nType = getContext('i18n');
 

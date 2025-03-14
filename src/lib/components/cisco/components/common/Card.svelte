@@ -28,7 +28,7 @@
 </script>
 
 <div
-	class="card card-{id} mb-2 relative flex flex-col rounded-lg bg-neutral-50 dark:bg-gray-850 dark:border dark:border-gray-50 dark:text-gray-50 shadow-xl w-64 min-h-[312px] hover:shadow-lg"
+	class="card card-{id} mb-2 relative flex flex-col rounded-lg bg-neutral-50 dark:bg-gray-850 dark:text-gray-50 shadow-xl w-64 min-h-[312px]"
 >
 	{#if published}
 		<Tooltip content={$i18n.t('Published on Cisco.com')}>

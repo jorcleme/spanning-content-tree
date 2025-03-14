@@ -1473,12 +1473,14 @@ workflow.add_edge("add_article_metadata", END)
 
 
 from langchain_core.runnables import RunnableConfig
+
 ARTICLE_GRAPH = workflow.compile()
 
+
 async def build_article(question: str, device: str):
-    
+
     inputs: dict[str, GraphState] = {"keys": {"question": question, "device": device}}
-    article = None
+    article = {}
     sources = []
     html = None
 
@@ -1496,12 +1498,16 @@ async def build_article(question: str, device: str):
                     ),
                 }
             )
+    article = (
+        state.get("keys").get("article")[0].model_dump()
+        if isinstance(state.get("keys").get("article"), list)
+        else state.get("keys").get("article").model_dump()
+    )
     if len(sources) > 0:
         print(f"Sources: {sources}")
-        
-    if isinstance(state.get("keys").get("article"), list):
-        return state.get("keys").get("article")[0].model_dump()
-    return state.get("keys").get("article").model_dump()
+        article["sources"] = sources
+
+    return article
 
 
 # article = None
